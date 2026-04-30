@@ -49,37 +49,6 @@ class SearchResult {
 }
 
 class SearchPage extends StatefulWidget {
-  static List<String> getBureauFullNames() {
-    return List<String>.from([
-      '北京铁路局',
-      '上海铁路局',
-      '广州铁路局',
-      '郑州铁路局',
-      '西安铁路局',
-      '成都铁路局',
-      '沈阳铁路局',
-      '哈尔滨铁路局',
-      '呼和浩特铁路局',
-      '太原铁路局',
-      '济南铁路局',
-      '南昌铁路局',
-      '兰州铁路局',
-      '乌鲁木齐铁路局',
-      '青藏铁路局',
-      '昆明铁路局',
-      '南宁铁路局',
-      '武汉铁路局',
-      '广东城际',
-      '贵阳市域铁路',
-      '金台铁路',
-      '阳大铁路',
-      '铁科院',
-      '银狼铁路局',
-      '香港铁路有限公司',
-      '国铁集团',
-    ]);
-  }
-
   const SearchPage({super.key});
 
   @override
@@ -98,10 +67,10 @@ class _SearchPageState extends State<SearchPage> {
   // 本地数据
   List<Map<String, dynamic>> trainData = [];
 
-  // 搜索结果（统一使用 SearchResult）
+  List<String> _bureauNames = [];
+
   final List<SearchResult> _searchResults = [];
 
-  // 路局查询分页相关
   List<Map<String, dynamic>> _allBureauRecords = [];
   int _currentPage = 1;
   final int _pageSize = 7;
@@ -111,7 +80,6 @@ class _SearchPageState extends State<SearchPage> {
   String? _currentBureauSearch;
   bool _loadingPage = false;
 
-  // 页码输入控制器
   late TextEditingController _pageController;
 
   @override
@@ -131,8 +99,15 @@ class _SearchPageState extends State<SearchPage> {
     try {
       final loadedData = await DataFileHelper.loadTrains();
       if (mounted) {
+        final bureauSet = loadedData
+            .map((r) => (r['配属路局'] ?? '').toString().trim())
+            .where((b) => b.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
         setState(() {
           trainData = loadedData;
+          _bureauNames = bureauSet;
         });
       }
     } catch (e) {
@@ -214,8 +189,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   String _getBureauFullName(String bureauCode) {
-    List<String> allBureauNames = SearchPage.getBureauFullNames();
-    for (String fullName in allBureauNames) {
+    for (final fullName in _bureauNames) {
       if (fullName.contains(bureauCode) || bureauCode.contains(fullName)) {
         return fullName;
       }
@@ -233,9 +207,9 @@ class _SearchPageState extends State<SearchPage> {
     return types;
   }
 
+  /// 从文件加载的路局名中提取用于快捷 Chip 的显示列表（直接返回全名）
   List<String> _getCommonBureauCodes() {
-    List<String> allBureauNames = SearchPage.getBureauFullNames();
-    return allBureauNames.map((name) => name.substring(0, 2)).toSet().toList();
+    return List<String>.from(_bureauNames);
   }
 
   void _handleBureauChipTap(String bureauName) {
@@ -1693,11 +1667,10 @@ class _SearchPageState extends State<SearchPage> {
                         spacing: 8,
                         runSpacing: 4,
                         alignment: WrapAlignment.center,
-                        children: _getCommonBureauCodes().map((code) {
-                          final full = _getBureauFullName(code);
+                        children: _getCommonBureauCodes().map((bureauName) {
                           return GestureDetector(
-                            onTap: () => _handleBureauChipTap(code),
-                            child: Chip(label: Text(full)),
+                            onTap: () => _handleBureauChipTap(bureauName),
+                            child: Chip(label: Text(bureauName)),
                           );
                         }).toList(),
                       ),

@@ -533,7 +533,7 @@ class AppUpdateResultDialog extends StatelessWidget {
                           onPressed: () {
                             Navigator.pop(context);
                             if (qqUrl != null && qqUrl.isNotEmpty) {
-                              Tool.launchBrowser(context, qqUrl);
+                              launchSocialLink(context, qqUrl);
                             }
                           },
                           icon: const Icon(Icons.group, size: 20),
@@ -554,7 +554,7 @@ class AppUpdateResultDialog extends StatelessWidget {
                           onPressed: () {
                             Navigator.pop(context);
                             if (giteeUrl != null && giteeUrl.isNotEmpty) {
-                              Tool.launchBrowser(context, giteeUrl);
+                              launchSocialLink(context, giteeUrl);
                             }
                           },
                           icon: const Icon(Icons.code, size: 20),
@@ -579,7 +579,7 @@ class AppUpdateResultDialog extends StatelessWidget {
                           onPressed: () {
                             Navigator.pop(context);
                             if (githubUrl != null && githubUrl.isNotEmpty) {
-                              Tool.launchBrowser(context, githubUrl);
+                              launchSocialLink(context, githubUrl);
                             }
                           },
                           icon: const Icon(Icons.cloud_download, size: 20),

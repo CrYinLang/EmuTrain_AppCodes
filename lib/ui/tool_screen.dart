@@ -158,7 +158,7 @@ class MoreAppsPage extends StatelessWidget {
               title: const Text('路路通'),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
-                Tool.launchBrowser(
+                launchSocialLink(
                   context,
                   'https://sj.qq.com/appdetail/com.lltskb.lltskb',
                 );
@@ -174,7 +174,7 @@ class MoreAppsPage extends StatelessWidget {
               title: const Text('动车组查询'),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
-                Tool.launchBrowser(context, 'https://rail.re/');
+                launchSocialLink(context, 'https://rail.re/');
               },
             ),
             ListTile(
@@ -187,7 +187,7 @@ class MoreAppsPage extends StatelessWidget {
               title: const Text('RailGo'),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
-                Tool.launchBrowser(context, 'https://railgo.dev/android.html');
+                launchSocialLink(context, 'https://railgo.dev/android.html');
               },
             ),
             ListTile(
@@ -200,14 +200,14 @@ class MoreAppsPage extends StatelessWidget {
               title: const Text('MoeFactory车箱'),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
-                Tool.launchBrowser(context, 'https://sharyou.moefactory.com/');
+                launchSocialLink(context, 'https://sharyou.moefactory.com/');
               },
             ),
             ListTile(
               title: const Text('动车组图鉴网站'),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
-                Tool.launchBrowser(context, 'https://china-emu.cn/');
+                launchSocialLink(context, 'https://china-emu.cn/');
               },
             ),
           ],

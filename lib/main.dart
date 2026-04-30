@@ -21,9 +21,9 @@ import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '26-04-18-11-30';
-  static const String version = '1.2.1.1';
-  static const String build = '1211';
+  static const String lastUpdate = '26-04-30-22-42';
+  static const String version = '1.2.1.2Canary';
+  static const String build = '1212';
   static const String urlServer = 'version';
   static const String commandServer = 'remote';
   static const String stationData = 'assets/stations';
@@ -140,8 +140,9 @@ class Vars {
         .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      if (data is List && data.isNotEmpty)
+      if (data is List && data.isNotEmpty) {
         return data[0] as Map<String, dynamic>;
+      }
       if (data is Map<String, dynamic>) return data;
     }
     return null;
