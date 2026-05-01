@@ -132,7 +132,6 @@ class _SpeedometerPageState extends State<SpeedometerPage>
           child: Scaffold(
             appBar: AppBar(
               title: const Text('GPS 速度计'),
-              centerTitle: true,
               actions: [
                 // ── 历史记录按钮 ──────────────────────────────
                 IconButton(
