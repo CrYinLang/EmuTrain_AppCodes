@@ -1,4 +1,4 @@
-// lib/tool.dart
+// lib/functions.dart
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,7 +26,7 @@ Future<void> toggleConfig(String key) async {
 
 // ========== 工具全局函数 ==========
 
-void showSnack(BuildContext context, String message) {
+Future<void> showSnack(BuildContext context, String message) async {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
   );
@@ -168,7 +168,6 @@ class Tool {
   }
 }
 
-
 // ==================== 资产检查 ====================
 Future<bool> checkAssetExists(String path) async {
   try {
@@ -181,11 +180,7 @@ Future<bool> checkAssetExists(String path) async {
 
 // ==================== 信息行 ====================
 /// 通用键值信息行，labelWidth 默认 80，可按需调整
-Widget buildInfoRow(
-    String label,
-    String value, {
-      double labelWidth = 80,
-    }) {
+Widget buildInfoRow(String label, String value, {double labelWidth = 80}) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 4),
     child: Row(
@@ -207,11 +202,7 @@ Widget buildInfoRow(
 
 // ==================== 匹配分数条 ====================
 /// 匹配分数条 + 百分比文字 + 可选排名徽章
-Widget buildScoreBar(
-    BuildContext context,
-    double score, {
-      int? rank,
-    }) {
+Widget buildScoreBar(BuildContext context, double score, {int? rank}) {
   final color = score >= 0.8
       ? Colors.green
       : score >= 0.5
@@ -271,10 +262,10 @@ Widget buildScoreBar(
 
 // ==================== 错误提示卡片 ====================
 Widget buildErrorCard(
-    BuildContext context,
-    String errorMsg,
-    VoidCallback onClose,
-    ) {
+  BuildContext context,
+  String errorMsg,
+  VoidCallback onClose,
+) {
   return Card(
     color: Theme.of(context).colorScheme.errorContainer,
     child: Padding(
@@ -293,10 +284,10 @@ Widget buildErrorCard(
 
 // ==================== 结果统计栏 ====================
 Widget buildResultCountBar(
-    BuildContext context, {
-      required String label,
-      required VoidCallback onClear,
-    }) {
+  BuildContext context, {
+  required String label,
+  required VoidCallback onClear,
+}) {
   return Row(
     children: [
       Expanded(
@@ -313,9 +304,9 @@ Widget buildResultCountBar(
               const SizedBox(width: 8),
               Text(
                 label,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -396,4 +387,3 @@ Widget buildPaginationControls({
     ),
   );
 }
-

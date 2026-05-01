@@ -1,7 +1,7 @@
 // tool_screen.dart
 import 'package:flutter/material.dart';
 
-import '../../tool.dart';
+import '../../functions.dart';
 import '../about_page.dart';
 import 'gallery_page.dart';
 import 'gps.dart';

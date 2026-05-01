@@ -24,12 +24,6 @@ class Vars {
   static const String lastUpdate = '26-04-30-22-42';
   static const String version = '1.2.1.2Canary';
   static const String build = '1212';
-  static const String urlServer = 'version';
-  static const String commandServer = 'remote';
-  static const String stationData = 'assets/stations';
-  static const String trainData = 'assets/train';
-  static const String coachTrainData = 'assets/coach';
-  static const String locoData = 'assets/loco';
 
   static String defaultStationBuild = '4';
   static String defaultTrainBuild = '7';
@@ -122,7 +116,7 @@ class Vars {
     final response = await http
         .get(
           Uri.parse(
-            'https://gitee.com/CrYinLang/EmuTrain/raw/master/$urlServer.json',
+            'https://gitee.com/CrYinLang/EmuTrain/raw/master/version.json',
           ),
         )
         .timeout(const Duration(seconds: 10));
@@ -134,7 +128,7 @@ class Vars {
     final response = await http
         .get(
           Uri.parse(
-            'https://gitee.com/CrYinLang/EmuTrain/raw/master/$commandServer.json',
+            'https://gitee.com/CrYinLang/EmuTrain/raw/master/remote.json',
           ),
         )
         .timeout(const Duration(seconds: 10));
@@ -177,30 +171,6 @@ class DataFileHelper {
       }
     }
     return result;
-  }
-
-  /// 读取车站数据（List 结构）
-  static Future<List<dynamic>> loadStations() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/stations.json');
-
-    if (await file.exists()) {
-      try {
-        final jsonString = await file.readAsString();
-        final data = json.decode(jsonString);
-        if (data is List) {
-          debugPrint('[DataFileHelper] 已加载下载版本 stations.json');
-          return data;
-        }
-        debugPrint('[DataFileHelper] stations.json 格式异常，回退 assets');
-      } catch (e) {
-        debugPrint('[DataFileHelper] stations.json 损坏，回退 assets: $e');
-      }
-    }
-
-    final jsonString = await rootBundle.loadString('assets/stations.json');
-    debugPrint('[DataFileHelper] 已加载 assets/stations.json');
-    return json.decode(jsonString) as List<dynamic>;
   }
 
   /// 读取列车数据（Map 结构），并展开为带 type_code 的 List

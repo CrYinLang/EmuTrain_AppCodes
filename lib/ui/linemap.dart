@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../journey_model.dart';
-import '../main.dart';
+import '../station_selector.dart';
 
 class LineMapDialog extends StatelessWidget {
   final Journey journey;
@@ -778,7 +778,7 @@ class _LineMapContentState extends State<LineMapContent> {
     List<Map<String, dynamic>> apiStations,
   ) async {
     try {
-      final List<dynamic> all = await DataFileHelper.loadStations();
+      final List<dynamic> all = await loadStations();
 
       return apiStations.map((api) {
         final clean = (api['stationName'] as String? ?? '')

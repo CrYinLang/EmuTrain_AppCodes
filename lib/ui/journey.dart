@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../journey_model.dart';
 import '../journey_provider.dart';
 import '../main.dart';
+import '../station_selector.dart';
 import 'linemap.dart';
 import 'travel_screen.dart';
 
@@ -90,7 +91,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
   Future<void> _loadStations() async {
     setState(() => _loadingStations = true);
     try {
-      final stationsList = await DataFileHelper.loadStations();
+      final stationsList = await loadStations();
 
       final Map<String, String> nameMap = {};
       for (var station in stationsList) {
@@ -3783,10 +3784,6 @@ class _AddJourneyPageState extends State<AddJourneyPage>
   }
 }
 
-// ===========================================================================
-// 工具箱弹窗：线路走向图 + 交路表
-// ===========================================================================
-
 typedef RoutingFetchResult = ({List<dynamic> routingItems, String trainModel});
 
 class _ToolboxDialog extends StatefulWidget {
@@ -3886,15 +3883,26 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.build_circle_outlined, color: cs.onSurface, size: 20),
+                    Icon(
+                      Icons.build_circle_outlined,
+                      color: cs.onSurface,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '工具箱  ${widget.trainCode}',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
                       ),
                     ),
                     IconButton(

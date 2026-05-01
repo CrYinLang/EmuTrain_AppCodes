@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../main.dart';
-import '../../tool.dart';
+import '../../functions.dart';
 import '../../update.dart';
 
 class SettingsScreen extends StatefulWidget {

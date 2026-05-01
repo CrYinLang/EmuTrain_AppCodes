@@ -2,11 +2,10 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../main.dart';
-import '../../tool.dart';
+import '../../functions.dart';
 
 // ==================== 机车 配属段 - 路局图标 映射 ====================
 class LocoDepotMapper {
@@ -393,14 +392,14 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
 
   // ==================== 分页控件 ====================
   Widget _buildPaginationControls() => buildPaginationControls(
-        context: context,
-        currentPage: _currentPage,
-        totalPages: _totalPages,
-        totalResults: _totalResults,
-        loadingPage: _loadingPage,
-        pageController: _pageController,
-        onGoToPage: _goToPage,
-      );
+    context: context,
+    currentPage: _currentPage,
+    totalPages: _totalPages,
+    totalResults: _totalResults,
+    loadingPage: _loadingPage,
+    pageController: _pageController,
+    onGoToPage: _goToPage,
+  );
 
   // ==================== 结果卡片（与 EMU 高度一致） ====================
   Widget _buildResultCard(LocoResult result) {
@@ -434,7 +433,11 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
                       ),
                       if (result.score != null) ...[
                         const SizedBox(height: 4),
-                        buildScoreBar(context, result.score!, rank: result.rank),
+                        buildScoreBar(
+                          context,
+                          result.score!,
+                          rank: result.rank,
+                        ),
                       ],
                     ],
                   ),
@@ -515,7 +518,8 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
 
   Future<bool> _checkAssetExists(String path) => checkAssetExists(path);
 
-  Widget _buildInfoRow(String label, String value) => buildInfoRow(label, value);
+  Widget _buildInfoRow(String label, String value) =>
+      buildInfoRow(label, value);
 
   // ==================== 搜索类型选择器 ====================
   Widget _buildSearchTypeSelector() {
@@ -681,7 +685,11 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
               const Center(child: CircularProgressIndicator()),
 
             if (_errorMsg.isNotEmpty)
-              buildErrorCard(context, _errorMsg, () => setState(() => _errorMsg = '')),
+              buildErrorCard(
+                context,
+                _errorMsg,
+                () => setState(() => _errorMsg = ''),
+              ),
 
             if (_results.isNotEmpty) ...[
               buildResultCountBar(
@@ -1005,7 +1013,8 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
 
   // ==================== UI 组件 ====================
 
-  Widget _buildInfoRow(String label, String value) => buildInfoRow(label, value, labelWidth: 72);
+  Widget _buildInfoRow(String label, String value) =>
+      buildInfoRow(label, value, labelWidth: 72);
 
   Widget _buildResultCard(CoachSearchResult result) {
     final record = result.record;
@@ -1102,15 +1111,15 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
   }
 
   Widget _buildPaginationControls() => buildPaginationControls(
-        context: context,
-        currentPage: _currentPage,
-        totalPages: _totalPages,
-        totalResults: _totalResults,
-        loadingPage: _loadingPage,
-        pageController: _pageController,
-        onGoToPage: _goToPage,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-      );
+    context: context,
+    currentPage: _currentPage,
+    totalPages: _totalPages,
+    totalResults: _totalResults,
+    loadingPage: _loadingPage,
+    pageController: _pageController,
+    onGoToPage: _goToPage,
+    padding: const EdgeInsets.symmetric(vertical: 12),
+  );
 
   Widget _buildEmptyState() {
     return Container(
@@ -1280,7 +1289,11 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
 
             // ---- 错误信息 ----
             if (_errorMsg.isNotEmpty)
-              buildErrorCard(context, _errorMsg, () => setState(() => _errorMsg = '')),
+              buildErrorCard(
+                context,
+                _errorMsg,
+                () => setState(() => _errorMsg = ''),
+              ),
 
             // ---- 结果区域 ----
             if (_searchResults.isNotEmpty) ...[

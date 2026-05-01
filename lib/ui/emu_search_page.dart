@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../main.dart';
-import '../tool.dart';
+import '../functions.dart';
 import 'journey.dart';
 
 // 搜索结果数据类（统一所有查询类型的结果）
@@ -1026,7 +1026,8 @@ class _SearchPageState extends State<SearchPage> {
     return TrainIconWidget(model: model, number: number, size: 32);
   }
 
-  Widget _buildInfoRow(String label, String value) => buildInfoRow(label, value);
+  Widget _buildInfoRow(String label, String value) =>
+      buildInfoRow(label, value);
 
   Widget _buildResultCard(SearchResult result) {
     final settings = Provider.of<AppSettings>(context, listen: false);
@@ -1106,7 +1107,11 @@ class _SearchPageState extends State<SearchPage> {
                           ),
                         if (result.score != null) ...[
                           const SizedBox(height: 4),
-                          buildScoreBar(context, result.score!, rank: result.rank),
+                          buildScoreBar(
+                            context,
+                            result.score!,
+                            rank: result.rank,
+                          ),
                         ],
                       ],
                     ),
@@ -1179,14 +1184,14 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildPaginationControls() => buildPaginationControls(
-        context: context,
-        currentPage: _currentPage,
-        totalPages: _totalPages,
-        totalResults: _totalResults,
-        loadingPage: _loadingPage,
-        pageController: _pageController,
-        onGoToPage: _goToPage,
-      );
+    context: context,
+    currentPage: _currentPage,
+    totalPages: _totalPages,
+    totalResults: _totalResults,
+    loadingPage: _loadingPage,
+    pageController: _pageController,
+    onGoToPage: _goToPage,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1359,7 +1364,11 @@ class _SearchPageState extends State<SearchPage> {
             if (errorMsg.isNotEmpty)
               Column(
                 children: [
-                  buildErrorCard(context, errorMsg, () => setState(() => errorMsg = '')),
+                  buildErrorCard(
+                    context,
+                    errorMsg,
+                    () => setState(() => errorMsg = ''),
+                  ),
                   const SizedBox(height: 12),
                   if (searchType == 'trainCode')
                     IntrinsicHeight(

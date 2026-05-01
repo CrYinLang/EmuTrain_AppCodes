@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import 'main.dart';
-import 'tool.dart';
+import 'functions.dart';
 
 class UpdateService {
   static Future<Map<String, dynamic>?> checkForUpdate() async {
@@ -14,7 +14,7 @@ class UpdateService {
       final response = await http
           .get(
             Uri.parse(
-              'https://gitee.com/CrYinLang/EmuTrain/raw/master/${Vars.urlServer}.json',
+              'https://gitee.com/CrYinLang/EmuTrain/raw/master/version.json',
             ),
           )
           .timeout(const Duration(seconds: 10));
@@ -642,7 +642,7 @@ class StationUpdateResultDialog extends StatelessWidget {
       versionInfo: versionInfo,
       remoteBuildKey: 'StationBuild',
       currentBuildStr: Vars.stationBuild,
-      remoteDataPath: Vars.stationData,
+      remoteDataPath: 'assets/stations',
       localFileName: 'stations.json',
       saveBuild: Vars.setStationBuild,
       successSnackBar: '车站数据更新成功！',
@@ -662,7 +662,7 @@ class TrainUpdateResultDialog extends StatelessWidget {
       versionInfo: versionInfo,
       remoteBuildKey: 'TrainBuild',
       currentBuildStr: Vars.trainBuild,
-      remoteDataPath: Vars.trainData,
+      remoteDataPath: 'assets/train',
       localFileName: 'train.json',
       saveBuild: Vars.setTrainBuild,
       successSnackBar: '动车组配属数据更新成功！',
@@ -682,7 +682,7 @@ class CoachTrainUpdateResultDialog extends StatelessWidget {
       versionInfo: versionInfo,
       remoteBuildKey: 'CoachTrainBuild',
       currentBuildStr: Vars.coachTrainBuild,
-      remoteDataPath: Vars.coachTrainData,
+      remoteDataPath: 'assets/coach',
       localFileName: 'coach.json',
       saveBuild: Vars.setCoachTrainBuild,
       successSnackBar: '普速客车数据更新成功！',
@@ -701,7 +701,7 @@ class LocoUpdateResultDialog extends StatelessWidget {
       versionInfo: versionInfo,
       remoteBuildKey: 'LocoBuild',
       currentBuildStr: Vars.locoBuild,
-      remoteDataPath: Vars.locoData,
+      remoteDataPath: 'assets/loco',
       localFileName: 'loco.json',
       saveBuild: Vars.setLocoBuild,
       successSnackBar: '机车配属数据更新成功！',
