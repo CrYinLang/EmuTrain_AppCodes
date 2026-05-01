@@ -3876,7 +3876,6 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
         // 标题栏 + Tab
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(12),
               topRight: Radius.circular(12),

@@ -52,7 +52,6 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
     super.dispose();
   }
 
-  // 以下方法从原 JourneyCard 复制，保持完全一致
   String _getJourneyStatus() {
     final journey = widget.journey;
     final now = DateTime.now();

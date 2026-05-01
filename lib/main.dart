@@ -11,11 +11,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'journey_provider.dart';
 import 'speed_service.dart';
-import 'ui/gallery_page.dart';
-import 'ui/coach_search_page.dart';
+import 'ui/function/gallery_page.dart';
 import 'ui/emu_search_page.dart';
-import 'ui/settings.dart';
-import 'ui/tool_screen.dart';
+import 'ui/function/more_search.dart';
+import 'ui/function/settings.dart';
+import 'ui/function/tool_screen.dart';
 import 'ui/travel_screen.dart';
 import 'update.dart';
 

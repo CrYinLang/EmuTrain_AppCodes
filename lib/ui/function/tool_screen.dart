@@ -1,12 +1,11 @@
 // tool_screen.dart
 import 'package:flutter/material.dart';
 
-import '../tool.dart';
-import 'about_page.dart';
+import '../../tool.dart';
+import '../about_page.dart';
 import 'gallery_page.dart';
 import 'gps.dart';
-import 'loco_search_page.dart';
-import 'coach_search_page.dart';
+import 'more_search.dart';
 import 'station_screen.dart';
 
 class ToolScreen extends StatelessWidget {
