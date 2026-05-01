@@ -139,7 +139,8 @@ class TrainInfo {
 
     if (modelC == 'CR200JD') return 'CR200JC';
 
-    if (modelC == 'CRH2E' && cleanedNumber == '2461' || cleanedNumber == '2462') {
+    if (modelC == 'CRH2E' && cleanedNumber == '2461' ||
+        cleanedNumber == '2462') {
       return 'CRH2E-NG';
     }
     if (modelC == 'CRH2G') return 'CRH2E-NG';

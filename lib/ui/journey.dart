@@ -13,10 +13,6 @@ import '../main.dart';
 import 'linemap.dart';
 import 'travel_screen.dart';
 
-part '../journey_data.dart';
-part '../journey_utils.dart';
-part 'journey_toolbox.dart';
-
 class AddJourneyPage extends StatefulWidget {
   final String? initialTrainNumber;
   final bool autoSearchAndExpand;
@@ -51,6 +47,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
   int _searchMode = 0;
   final Map<int, List<dynamic>> _trainDetails = {};
   final Map<int, bool> _trainLoading = {};
+
   // 缓存 sharyou 返回的完整数据（交路 + 车型），key 为 trainCode
   final Map<String, Map<String, dynamic>> _sharyouCache = {};
 
@@ -84,15 +81,47 @@ class _AddJourneyPageState extends State<AddJourneyPage>
 
   Map<String, String> _stationNameMap = {};
 
+  String _normalizeStationName(String name) {
+    if (name.isEmpty) return '';
+    // 移除"站"字和空格
+    return name.replaceAll('站', '').replaceAll(' ', '').trim();
+  }
 
-  String get dateText => _selectedDate == null
-      ? "选择日期"
-      : "${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}";
+  Future<void> _loadStations() async {
+    setState(() => _loadingStations = true);
+    try {
+      final stationsList = await DataFileHelper.loadStations();
 
-  String get _formattedDate => _selectedDate == null
-      ? ""
-      : "${_selectedDate!.year}${_selectedDate!.month.toString().padLeft(2, '0')}${_selectedDate!.day.toString().padLeft(2, '0')}";
+      final Map<String, String> nameMap = {};
+      for (var station in stationsList) {
+        final telecode = station['telecode'];
+        final name = station['name'];
+        if (telecode != null && name != null) {
+          nameMap[telecode] = name;
+        }
+      }
 
+      setState(() {
+        _allStations = stationsList;
+        _stationNameMap = nameMap;
+      });
+    } catch (e) {
+      _showSnack('加载站点数据失败: $e');
+    } finally {
+      setState(() => _loadingStations = false);
+    }
+  }
+
+  String _getStationName(String telecode) {
+    final name = _stationNameMap[telecode.replaceAll(' ', '')] ?? telecode;
+    return name.contains(RegExp(r'[a-zA-Z]')) ? '始发站  (环线)' : name;
+  }
+
+  String _cleanStationName(String name) {
+    return name.replaceAll(' ', '');
+  }
+
+  @override
   void dispose() {
     _animCtrl.dispose();
     _trainNumberCtrl.dispose();
@@ -126,6 +155,37 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     }
   }
 
+  String get dateText => _selectedDate == null
+      ? "选择日期"
+      : "${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}";
+
+  String get _formattedDate => _selectedDate == null
+      ? ""
+      : "${_selectedDate!.year}${_selectedDate!.month.toString().padLeft(2, '0')}${_selectedDate!.day.toString().padLeft(2, '0')}";
+
+  void _formatInput(String value) {
+    if (value.isEmpty) return;
+    String uppercase = value.toUpperCase();
+    const allowed = 'GDCSKZTWPQ';
+    String result = '';
+    for (int i = 0; i < uppercase.length; i++) {
+      String char = uppercase[i];
+      if (i == 0) {
+        if (RegExp(r'[0-9]').hasMatch(char) || allowed.contains(char)) {
+          result += char;
+        }
+      } else {
+        if (RegExp(r'[0-9]').hasMatch(char)) result += char;
+      }
+    }
+    if (result != _trainNumberCtrl.text) {
+      _trainNumberCtrl.value = _trainNumberCtrl.value.copyWith(
+        text: result,
+        selection: TextSelection.collapsed(offset: result.length),
+      );
+    }
+  }
+
   void _switchMode(int mode) {
     if (_searchMode == mode) return;
     setState(() {
@@ -139,6 +199,612 @@ class _AddJourneyPageState extends State<AddJourneyPage>
       _sharyouCache.clear();
       if (_animCtrl.isAnimating) _animCtrl.reset();
     });
+  }
+
+  Future<void> _searchTrain() async {
+    if (_selectedDate == null) {
+      _showSnack('请先选择日期');
+      return;
+    }
+    final trainNumber = _trainNumberCtrl.text.trim();
+    if (trainNumber.isEmpty) {
+      _showSnack('请输入车次');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _trainResults.clear();
+      _trainDetails.clear();
+      _trainLoading.clear();
+      _sharyouCache.clear();
+      _expandedIndex = null;
+      if (_animCtrl.isAnimating) _animCtrl.reset();
+    });
+
+    try {
+      final url =
+          'https://search.12306.cn/search/v1/train/search?keyword=$trainNumber&date=$_formattedDate';
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['status'] == true) {
+          final allResults = data['data'] ?? [];
+          final limitedResults = allResults.length > 15
+              ? allResults.sublist(0, 15)
+              : allResults;
+
+          setState(() => _trainResults = limitedResults);
+
+          // ==================== 自动展开逻辑（关键修复） ====================
+          if (widget.autoSearchAndExpand && limitedResults.isNotEmpty) {
+            if (limitedResults.length == 1) {
+              // 只有一条结果时：自动展开 + 加载详情 + 禁止收回
+              setState(() => _expandedIndex = 0);
+              _animCtrl.forward();
+              await _fetchDetails(0, false); // 加载停站信息
+            } else {
+              // 多条结果时：只自动展开第一条（可选），不强制禁止收回
+              setState(() => _expandedIndex = 0);
+              _animCtrl.forward();
+              await _fetchDetails(0, false);
+            }
+          }
+          // =================================================================
+
+          _showSnack(
+            _trainResults.isEmpty
+                ? '未找到相关车次信息'
+                : '找到 ${_trainResults.length} 条结果',
+          );
+        } else {
+          _showSnack('搜索失败: ${data['errorMsg'] ?? '未知错误'}');
+        }
+      } else {
+        _showSnack('网络请求失败: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showSnack('发生错误: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  /// 从缓存或 API 获取车型简短描述，优先复用 sharyou 缓存避免重复请求
+  Future<String> _getBenWu(String trainCode, String date) async {
+    if (!RegExp(r'^[GDCS]', caseSensitive: false).hasMatch(trainCode)) {
+      return '';
+    }
+
+    // 优先从缓存取
+    if (_sharyouCache.containsKey(trainCode)) {
+      return _extractTrainModel(_sharyouCache[trainCode]!['trainModel']);
+    }
+
+    // 缓存未命中时，走完整 sharyou 流程并缓存结果
+    try {
+      await _fetchAndCacheSharyou(trainCode, date);
+      if (_sharyouCache.containsKey(trainCode)) {
+        return _extractTrainModel(_sharyouCache[trainCode]!['trainModel']);
+      }
+    } catch (_) {}
+    return '未知';
+  }
+
+  String _extractTrainModel(dynamic trainModel) {
+    if (trainModel == null) return '未知';
+    String model = trainModel.toString();
+    if (model.isEmpty) return '未知';
+    String result = model.substring(0, model.length > 14 ? 14 : model.length);
+    final commaIndex = result.indexOf(',');
+    final chineseCommaIndex = result.indexOf('，');
+    if (commaIndex != -1) {
+      result = result.substring(0, commaIndex);
+    } else if (chineseCommaIndex != -1) {
+      result = result.substring(0, chineseCommaIndex);
+    }
+    return result.isNotEmpty ? result : '未知';
+  }
+
+  /// 调用 sharyou API 并将完整路由信息缓存到 _sharyouCache
+  Future<void> _fetchAndCacheSharyou(String trainCode, String date) async {
+    const baseUrl = 'https://sharyou.moefactory.com/api/trainNumber/query';
+    final headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json, text/plain, */*',
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0',
+    };
+
+    final resp1 = await http
+        .post(
+          Uri.parse(baseUrl),
+          headers: headers,
+          body: 'date=$date&trainNumber=$trainCode&cursor=0&count=15',
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (resp1.statusCode != 200) return;
+    final data1 = json.decode(resp1.body);
+    if (data1['code'] != 200) return;
+
+    final List<dynamic> trainList = data1['data']['data'] ?? [];
+    if (trainList.isEmpty) return;
+
+    final int trainIndex = trainList.first['trainIndex'];
+
+    final resp2 = await http
+        .post(
+          Uri.parse('https://sharyou.moefactory.com/api/trainDetails/query'),
+          headers: headers,
+          body: 'trainIndex=$trainIndex&includeCheckoutNames=true&date=$date',
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (resp2.statusCode != 200) return;
+    final data2 = json.decode(resp2.body);
+    if (data2['code'] != 200) return;
+
+    final routing = data2['data']['routing'] as Map<String, dynamic>? ?? {};
+    _sharyouCache[trainCode] = {
+      'trainModel': routing['trainModel'],
+      'routingItems': routing['routingItems'] ?? [],
+      'viaStations': data2['data']['viaStations'] ?? [],
+    };
+  }
+
+  Future<void> _searchStation() async {
+    if (_selectedDate == null) {
+      _showSnack('请先选择日期');
+      return;
+    }
+    if (_fromCode == null || _toCode == null) {
+      _showSnack('请选择起始站和终点站');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _stationResults.clear();
+      _stationDetails.clear();
+      _stationLoading.clear();
+      _stationExpandedIndex = null;
+      if (_animCtrl.isAnimating) _animCtrl.reset();
+    });
+
+    try {
+      final stationDay =
+          '${_formattedDate.substring(0, 4)}-${_formattedDate.substring(4, 6)}-${_formattedDate.substring(6, 8)}';
+
+      // 同时请求余票查询和价格查询
+      final ticketFuture = http.get(
+        Uri.parse(
+          'https://kyfw.12306.cn/otn/leftTicket/queryG?leftTicketDTO.train_date=$stationDay&leftTicketDTO.from_station=$_fromCode&leftTicketDTO.to_station=$_toCode&purpose_codes=ADULT',
+        ),
+        headers: _getApiHeaders(),
+      );
+
+      final priceFuture = http.get(
+        Uri.parse(
+          'https://kyfw.12306.cn/otn/leftTicketPrice/queryAllPublicPrice?leftTicketDTO.train_date=$stationDay&leftTicketDTO.from_station=$_fromCode&leftTicketDTO.to_station=$_toCode&purpose_codes=ADULT',
+        ),
+        headers: _getApiHeaders(),
+      );
+
+      // 等待两个请求完成
+      final responses = await Future.wait([ticketFuture, priceFuture]);
+      final ticketResponse = responses[0];
+      final priceResponse = responses[1];
+
+      if (ticketResponse.statusCode == 200 && priceResponse.statusCode == 200) {
+        final ticketData = json.decode(ticketResponse.body);
+        final priceData = json.decode(priceResponse.body);
+
+        if (ticketData['status'] == true && priceData['status'] == true) {
+          final ticketResultData = ticketData['data'] as Map<String, dynamic>?;
+          final priceList = priceData['data'] as List<dynamic>? ?? [];
+
+          if (ticketResultData != null &&
+              ticketResultData.containsKey('result')) {
+            final results = ticketResultData['result'] as List<dynamic>?;
+            final stationMap =
+                ticketResultData['map'] as Map<String, dynamic>? ?? {};
+
+            // 将价格数据转换为便于查询的 Map
+            final priceMap = _buildPriceMap(priceList);
+
+            // 解析车次数据并合并价格信息
+            final List<Map<String, dynamic>> parsedTrains = [];
+            for (final trainStr in results ?? []) {
+              if (trainStr is String) {
+                final trainInfo = _parseTrainString(trainStr, stationMap);
+                if (trainInfo != null) {
+                  // 合并价格信息
+                  final mergedInfo = _mergePriceData(trainInfo, priceMap);
+                  parsedTrains.add(mergedInfo);
+                }
+              }
+            }
+
+            setState(() => _stationResults = parsedTrains);
+
+            _showSnack(
+              _stationResults.isEmpty
+                  ? '未找到相关车次信息'
+                  : '找到 ${_stationResults.length} 条结果',
+            );
+          }
+        } else {
+          _showSnack('数据获取失败');
+        }
+      } else {
+        _showSnack('网络请求失败');
+      }
+    } catch (e) {
+      _showSnack('发生错误: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Map<String, String> _getApiHeaders() {
+    return {
+      'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive',
+      'Referer': 'https://kyfw.12306.cn/otn/leftTicket/init',
+      'Cookie':
+          '_jc_save_fromStation=$_fromCode; _jc_save_toStation=$_toCode; _jc_save_fromDate=$_formattedDate; _jc_save_toDate=$_formattedDate;',
+    };
+  }
+
+  // 构建价格查询 Map
+  Map<String, Map<String, dynamic>> _buildPriceMap(List<dynamic> priceList) {
+    final Map<String, Map<String, dynamic>> priceMap = {};
+
+    for (final item in priceList) {
+      final dto = item['queryLeftNewDTO'] as Map<String, dynamic>?;
+      if (dto != null) {
+        final trainCode = dto['station_train_code'] as String?;
+        if (trainCode != null) {
+          priceMap[trainCode] = dto;
+        }
+      }
+    }
+
+    return priceMap;
+  }
+
+  // 合并余票和价格数据
+  Map<String, dynamic> _mergePriceData(
+    Map<String, dynamic> trainInfo,
+    Map<String, Map<String, dynamic>> priceMap,
+  ) {
+    final trainCode = trainInfo['station_train_code'] as String?;
+    final priceInfo = trainCode != null ? priceMap[trainCode] : null;
+
+    if (priceInfo != null) {
+      // 合并价格信息
+      trainInfo['price_info'] = priceInfo;
+
+      trainInfo['swz_price'] = _formatPrice(
+        priceInfo['swz_price'],
+        priceInfo['tz_price'],
+      );
+      trainInfo['zy_price'] = _formatPrice(
+        priceInfo['zy_price'],
+        priceInfo['zy_price'],
+      );
+      trainInfo['ze_price'] = _formatPrice(
+        priceInfo['ze_price'],
+        priceInfo['wz_price'],
+      );
+      trainInfo['gr_price'] = _formatPrice(
+        priceInfo['gr_price'],
+        priceInfo['gr_price'],
+      );
+      trainInfo['rw_price'] = _formatPrice(
+        priceInfo['rw_price'],
+        priceInfo['srrb_price'],
+      );
+      trainInfo['yw_price'] = _formatPrice(
+        priceInfo['yw_price'],
+        priceInfo['yw_price'],
+      );
+      trainInfo['rz_price'] = _formatPrice(
+        priceInfo['rz_price'],
+        priceInfo['rz_price'],
+      );
+      trainInfo['yz_price'] = _formatPrice(
+        priceInfo['yz_price'],
+        priceInfo['yz_price'],
+      );
+      trainInfo['wz_price'] = _formatPrice(
+        priceInfo['ze_price'],
+        priceInfo['yz_price'],
+      );
+      trainInfo['tz_price'] = _formatPrice(
+        priceInfo['tz_price'],
+        priceInfo['swz_price'],
+      );
+      trainInfo['qt_price'] = _formatPrice(
+        priceInfo['qt_price'],
+        priceInfo['qt_price'],
+      );
+      trainInfo['gg_price'] = _formatPrice(
+        priceInfo['gg_price'],
+        priceInfo['gg_price'],
+      );
+      trainInfo['srrb_price'] = _formatPrice(
+        priceInfo['srrb_price'],
+        priceInfo['rw_price'],
+      );
+      trainInfo['yb_price'] = _formatPrice(
+        priceInfo['yb_price'],
+        priceInfo['yb_price'],
+      );
+    }
+
+    return trainInfo;
+  }
+
+  // 价格格式化（角转元）
+  String _formatPrice(dynamic priceValue, dynamic priceValueBa) {
+    if (priceValue == null) {
+      if (priceValueBa == null) {
+        return '--';
+      }
+      priceValue = priceValueBa;
+    }
+
+    try {
+      final priceStr = priceValue.toString().trim();
+      if (priceStr.isEmpty || priceStr == '0') return '--';
+
+      final priceInt = int.tryParse(priceStr) ?? 0;
+      if (priceInt == 0) return '--';
+
+      final priceYuan = priceInt / 10.0;
+
+      return priceYuan.toStringAsFixed(1);
+    } catch (e) {
+      return '--';
+    }
+  }
+
+  // 添加解析车次字符串的方法
+  Map<String, dynamic>? _parseTrainString(
+    String trainStr,
+    Map<String, dynamic> stationMap,
+  ) {
+    try {
+      // 多重解码处理
+      String decodedStr = trainStr;
+
+      // 尝试多次解码，直到没有可解码的内容
+      bool hasEncodedContent = true;
+      int maxAttempts = 5;
+
+      while (hasEncodedContent && maxAttempts > 0) {
+        try {
+          String temp = Uri.decodeComponent(decodedStr);
+          // 如果解码后内容不变，说明没有编码内容了
+          if (temp == decodedStr) {
+            hasEncodedContent = false;
+          } else {
+            decodedStr = temp;
+          }
+        } catch (e) {
+          // 解码失败，停止尝试
+          hasEncodedContent = false;
+        }
+        maxAttempts--;
+      }
+
+      final fields = decodedStr.split('|');
+
+      // 使用与Python代码完全一致的座位字段索引映射
+      final Map<int, String> seatFields = {
+        20: 'gg_num', // 优选一等座
+        21: 'gr_num', // 高级软卧
+        22: 'qt_num', // 其他
+        23: 'rw_num', // 软卧
+        24: 'rz_num', // 软座
+        25: 'tz_num', // 特等座
+        26: 'wz_num', // 无座
+        27: 'yb_num', // 预留
+        28: 'yw_num', // 硬卧
+        29: 'yz_num', // 硬座
+        30: 'ze_num', // 二等座
+        31: 'zy_num', // 一等座
+        32: 'swz_num', // 商务座
+        33: 'srrb_num', // 动卧
+      };
+
+      // 解析座位信息
+      final Map<String, String> seatInfo = {};
+
+      for (final entry in seatFields.entries) {
+        final value = fields[entry.key];
+        final cleanedValue = _cleanSeatValue(value);
+        seatInfo[entry.value] = cleanedValue;
+      }
+
+      // 构建车次信息
+      return {
+        'station_train_code': fields[3],
+        'from_station_code': fields[4],
+        'to_station_code': fields[5],
+        'from_station': _cleanStationName(stationMap[fields[4]] ?? fields[4]),
+        'to_station': _cleanStationName(stationMap[fields[5]] ?? fields[5]),
+        'start_time': fields[8],
+        'arrive_time': fields[9],
+        'run_time': fields[10],
+        'can_web_buy': fields[11] == 'Y' ? '是' : '否',
+        '座位信息': seatInfo,
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // 清理座位数值
+  String _cleanSeatValue(String value) {
+    if (value.isEmpty || value == '--' || value == '无' || value == 'NULL') {
+      return '无票';
+    } else if (value == '有') {
+      return '有票';
+    } else if (value.isNotEmpty && int.tryParse(value) != null) {
+      return '$value张';
+    } else {
+      return value;
+    }
+  }
+
+  Future<void> _fetchDetails(int index, bool isStation) async {
+    if (isStation) {
+      if (_stationDetails.containsKey(index)) return;
+      final trainInfo = _stationResults[index];
+      final trainNumber = trainInfo['station_train_code']?.toString() ?? '';
+      if (trainNumber.isEmpty) return;
+      setState(() => _stationLoading[index] = true);
+      try {
+        final stopData = await _fetchStopInfoSharyou(trainNumber);
+        setState(() {
+          _stationDetails[index] = stopData;
+          _stationLoading[index] = false;
+        });
+      } catch (e) {
+        _showSnack('获取停站信息失败: $e');
+        setState(() => _stationLoading[index] = false);
+      }
+    } else {
+      if (_trainDetails.containsKey(index)) return;
+      final trainInfo = _trainResults[index];
+      final trainNumber = trainInfo['station_train_code']?.toString() ?? '';
+      if (trainNumber.isEmpty) return;
+      setState(() => _trainLoading[index] = true);
+      try {
+        final stopData = await _fetchStopInfo(trainNumber);
+        setState(() {
+          _trainDetails[index] = stopData;
+          _trainLoading[index] = false;
+        });
+      } catch (e) {
+        _showSnack('获取停站信息失败: $e');
+        setState(() => _trainLoading[index] = false);
+      }
+    }
+  }
+
+  Future<List<dynamic>> _fetchStopInfo(String trainNumber) async {
+    final settings = Provider.of<AppSettings>(context);
+    switch (settings.dataStationSource) {
+      case TrainStationDataSource.moeFactory:
+        return await _fetchStopInfoSharyou(trainNumber);
+      default:
+        return await _fetchStopInfoCtrip(trainNumber);
+    }
+  }
+
+  Future<List<dynamic>> _fetchStopInfoSharyou(String trainNumber) async {
+    // 如果缓存中已有 viaStations，直接使用
+    if (_sharyouCache.containsKey(trainNumber)) {
+      final cached = _sharyouCache[trainNumber]!;
+      final List<dynamic> viaStations =
+          cached['viaStations'] as List<dynamic>? ?? [];
+      return _mapViaStations(viaStations);
+    }
+
+    await _fetchAndCacheSharyou(trainNumber, _formattedDate);
+
+    if (!_sharyouCache.containsKey(trainNumber)) return [];
+
+    final List<dynamic> viaStations =
+        _sharyouCache[trainNumber]!['viaStations'] as List<dynamic>? ?? [];
+    return _mapViaStations(viaStations);
+  }
+
+  List<dynamic> _mapViaStations(List<dynamic> viaStations) {
+    return viaStations.asMap().entries.map((entry) {
+      final index = entry.key;
+      final stop = entry.value;
+      return {
+        'stationNo': (index + 1).toString().padLeft(2, '0'),
+        'stationName': stop['stationName'] ?? '',
+        'arriveTime': stop['arrivalTime'] ?? '--:--',
+        'departTime': stop['departureTime'] ?? '--:--',
+        'stayTime': stop['stopMinutes']?.toString() ?? '0',
+        'distance': stop['distance']?.toString() ?? '0',
+        'DayDifference': stop['dayIndex'] ?? 0,
+        'telCode': stop['stationTelegramCode'] ?? '',
+        'isFirst': index == 0,
+        'isLast': index == viaStations.length - 1,
+      };
+    }).toList();
+  }
+
+  Future<List<dynamic>> _fetchStopInfoCtrip(String trainNumber) async {
+    final url = Uri.parse(
+      'https://m.ctrip.com/restapi/soa2/14674/json/GetTrainStopTimeInfo',
+    );
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Referer': 'https://m.ctrip.com/',
+      'Origin': 'https://m.ctrip.com',
+    };
+    final body = {'TrainNumber': trainNumber, 'DepartDate': _formattedDate};
+    try {
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['RetCode'] == 1 && data['StopList'] != null) {
+          final List<dynamic> stopList = data['StopList'];
+          return stopList
+              .map(
+                (stop) => {
+                  'stationNo': stop['StationNo'] ?? '',
+                  'stationName': _cleanStationName(stop['StationName']),
+                  'arriveTime': stop['ArriveTime'] ?? '--:--',
+                  'departTime': stop['DepartTime'] ?? '--:--',
+                  'stayTime': stop['StayWayStationTime'] ?? '0',
+                  'distance': stop['distance'] ?? '0',
+                  'DayDifference': stop['DayDifference'] ?? 0,
+                  'telCode': stop['TelCode'] ?? '',
+                  'isFirst': stop['StationNo'] == '01',
+                  'isLast':
+                      stop['StationNo'] ==
+                      stopList.length.toString().padLeft(2, '0'),
+                },
+              )
+              .toList();
+        } else if (data['RetCode'] != 1) {
+          throw Exception(
+            'API返回失败: RetCode=${data['RetCode']}, Ack=${data['ResponseStatus']?['Ack']}',
+          );
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('HTTP请求失败: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> _showStationSelector(bool isFrom) async {
@@ -237,6 +903,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     }
   }
 
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -1526,6 +2193,182 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     );
   }
 
+  bool _hasAvailableTickets(Map<String, dynamic> seatInfo) {
+    return seatInfo.entries.any((entry) => _isSeatAvailable(entry.value));
+  }
+
+  bool _isSeatAvailable(dynamic value) {
+    return value != null &&
+        value != '无票' &&
+        value != '无' &&
+        value != '' &&
+        value != '--' &&
+        value != 'NULL' &&
+        value != '0';
+  }
+
+  String _calcRunTime(String start, String end, String day) {
+    try {
+      if (start == '--:--' || end == '--:--') return '--';
+
+      List<String> startParts = start.split(':');
+      List<String> endParts = end.split(':');
+      if (startParts.length != 2 || endParts.length != 2) return '--';
+
+      int startHour = int.tryParse(startParts[0]) ?? 0;
+      int startMin = int.tryParse(startParts[1]) ?? 0;
+      int endHour = int.tryParse(endParts[0]) ?? 0;
+      int endMin = int.tryParse(endParts[1]) ?? 0;
+
+      // 将day转换为整数，day=0表示不跨天
+      int dayOffset = int.tryParse(day) ?? 0;
+
+      int startTotal = startHour * 60 + startMin;
+      int endTotal = endHour * 60 + endMin;
+
+      // 如果day>0，需要加上跨天的分钟数
+      endTotal += dayOffset * 24 * 60;
+
+      // 如果end时间仍然小于start时间，再补上24小时
+      if (endTotal < startTotal) endTotal += 24 * 60;
+
+      int total = endTotal - startTotal;
+      int hours = total ~/ 60;
+      int minutes = total % 60;
+
+      if (hours > 0) {
+        return '$hours小时$minutes分';
+      } else {
+        return '$minutes分';
+      }
+    } catch (e) {
+      return '--';
+    }
+  }
+
+  bool _isStationPassedSection(Map<String, dynamic> stop, DateTime trainDate) {
+    final first = (stop['isFirst'] as bool?) ?? false;
+    final last = (stop['isLast'] as bool?) ?? false;
+
+    // 修复：安全转换 DayDifference
+    final dayDiffValue = stop['DayDifference'];
+    int dayDiff = 0;
+
+    if (dayDiffValue != null) {
+      if (dayDiffValue is int) {
+        dayDiff = dayDiffValue;
+      } else if (dayDiffValue is String) {
+        dayDiff = int.tryParse(dayDiffValue) ?? 0;
+      } else if (dayDiffValue is num) {
+        dayDiff = dayDiffValue.toInt();
+      }
+    }
+
+    if (first) {
+      // 始发站判断发车时间
+      final dep = stop['departTime'] as String?;
+      return _isTimePassed(trainDate, dep, dayDiff, last);
+    } else if (last) {
+      // 终点站判断到达时间
+      final arr = stop['arriveTime'] as String?;
+      return _isTimePassed(trainDate, arr, dayDiff, last);
+    } else {
+      // 中间站优先判断到达时间
+      final arr = stop['arriveTime'] as String?;
+      final dep = stop['departTime'] as String?;
+      if (arr != null && arr != '--:--') {
+        return _isTimePassed(trainDate, arr, dayDiff, last);
+      } else if (dep != null && dep != '--:--') {
+        return _isTimePassed(trainDate, dep, dayDiff, last);
+      }
+    }
+    return false;
+  }
+
+  bool _isStationPassed(Map<String, dynamic> stop, DateTime trainDate) {
+    final first = (stop['isFirst'] as bool?) ?? false;
+    final last = (stop['isLast'] as bool?) ?? false;
+    final dayDiff = (stop['DayDifference'] as int?) ?? 0;
+
+    if (first) {
+      // 始发站判断发车时间
+      final dep = stop['departTime'] as String?;
+      return _isTimePassed(trainDate, dep, dayDiff, last);
+    } else if (last) {
+      // 终点站判断到达时间
+      final arr = stop['arriveTime'] as String?;
+      return _isTimePassed(trainDate, arr, dayDiff, last);
+    } else {
+      // 中间站优先判断到达时间
+      final arr = stop['arriveTime'] as String?;
+      final dep = stop['departTime'] as String?;
+      if (arr != null && arr != '--:--') {
+        return _isTimePassed(trainDate, arr, dayDiff, last);
+      } else if (dep != null && dep != '--:--') {
+        return _isTimePassed(trainDate, dep, dayDiff, last);
+      }
+    }
+    return false;
+  }
+
+  bool _isExpired(int index, Map<String, dynamic> item, bool isStation) {
+    // 获取车次日期
+    final date = _selectedDate ?? DateTime.now();
+
+    if (isStation) {
+      return _isStationExpired(index, date);
+    } else {
+      return _isTrainExpired(index, date);
+    }
+  }
+
+  bool _isStationExpired(int index, DateTime trainDate) {
+    final stopData = _stationDetails[index] ?? [];
+    if (stopData.isEmpty) return false;
+
+    // 找到用户查询的车站
+    final queryStop = stopData.cast<Map<String, dynamic>?>().firstWhere(
+      (stop) => stop?['isCurrent'] == true,
+      orElse: () => null,
+    );
+
+    if (queryStop != null) {
+      return _isStationPassed(queryStop, trainDate);
+    }
+
+    return false;
+  }
+
+  bool _isTrainExpired(int index, DateTime trainDate) {
+    final stopData = _trainDetails[index] ?? [];
+    if (stopData.isEmpty) return false;
+
+    // 找到终点站
+    final lastStop = stopData.cast<Map<String, dynamic>?>().firstWhere(
+      (stop) => stop?['isLast'] == true,
+      orElse: () => null,
+    );
+
+    if (lastStop != null) {
+      final arriveTime = lastStop['arriveTime'] as String?;
+      final dayDiff = _parseDayDifference(lastStop['DayDifference']);
+      return _isTimePassed(trainDate, arriveTime, dayDiff, true);
+    }
+
+    return false;
+  }
+
+  int _parseDayDifference(dynamic value) {
+    if (value == null) return 0;
+
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    if (value is num) return value.toInt();
+
+    return 0;
+  }
+
   Widget _stationRow(String label, String? name, Color iconColor) {
     return Row(
       children: [
@@ -1585,7 +2428,8 @@ class _AddJourneyPageState extends State<AddJourneyPage>
               journey: journey,
               trainCode: trainCode,
               date: _formattedDate,
-              routingItems: (_sharyouCache[trainCode]?['routingItems']
+              routingItems:
+                  (_sharyouCache[trainCode]?['routingItems']
                       as List<dynamic>?) ??
                   [],
               trainModel:
@@ -1596,7 +2440,8 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                   await _fetchAndCacheSharyou(trainCode, _formattedDate);
                 }
                 return (
-                  routingItems: (_sharyouCache[trainCode]?['routingItems']
+                  routingItems:
+                      (_sharyouCache[trainCode]?['routingItems']
                           as List<dynamic>?) ??
                       [],
                   trainModel:
@@ -2036,6 +2881,45 @@ class _AddJourneyPageState extends State<AddJourneyPage>
         ),
       ],
     );
+  }
+
+  bool _isTimePassed(
+    DateTime trainDate,
+    String? timeString,
+    int dayDiff,
+    bool isLast,
+  ) {
+    if (timeString == null || timeString.isEmpty || timeString == '--:--') {
+      return false;
+    }
+
+    try {
+      // 解析时间字符串
+      final timeParts = timeString.split(':');
+      if (timeParts.length < 2) return false;
+
+      final hour = int.tryParse(timeParts[0]) ?? 0;
+      final minute = int.tryParse(timeParts[1]) ?? 0;
+
+      // 计算列车实际时间
+      // trainDate 是用户选择的日期
+      // dayDiff 是相对于发车日的天数差
+      final stationDateTime = DateTime(
+        trainDate.year,
+        trainDate.month,
+        trainDate.day + dayDiff, // 加上天数差
+        hour,
+        minute,
+      );
+
+      // 获取当前时间
+      final now = DateTime.now();
+
+      // 直接比较：列车时间是否已经过去了
+      return stationDateTime.isBefore(now);
+    } catch (e) {
+      return false;
+    }
   }
 
   void _handleSelect(
@@ -2663,6 +3547,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     );
   }
 
+  // 座位选择弹窗
   void _showSeatSelectionDialog({
     required Map<String, dynamic> train,
     required DateTime actualDate,
@@ -2838,6 +3723,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     );
   }
 
+  // 创建并保存行程
   void _createAndSaveJourney({
     required Map<String, dynamic> train,
     required DateTime actualDate,
@@ -2895,5 +3781,424 @@ class _AddJourneyPageState extends State<AddJourneyPage>
       });
     }
   }
+}
 
+// ===========================================================================
+// 工具箱弹窗：线路走向图 + 交路表
+// ===========================================================================
+
+typedef RoutingFetchResult = ({List<dynamic> routingItems, String trainModel});
+
+class _ToolboxDialog extends StatefulWidget {
+  final Journey journey;
+  final String trainCode;
+  final String date;
+  final List<dynamic> routingItems;
+  final String trainModel;
+  final Future<RoutingFetchResult> Function() onFetchRouting;
+
+  const _ToolboxDialog({
+    required this.journey,
+    required this.trainCode,
+    required this.date,
+    required this.routingItems,
+    required this.trainModel,
+    required this.onFetchRouting,
+  });
+
+  @override
+  State<_ToolboxDialog> createState() => _ToolboxDialogState();
+}
+
+class _ToolboxDialogState extends State<_ToolboxDialog>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  List<dynamic> _routingItems = [];
+  String _trainModel = '';
+  bool _loadingRouting = false;
+  String? _routingError;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _routingItems = widget.routingItems;
+    _trainModel = widget.trainModel;
+
+    // 切换到交路表标签时才加载数据
+    _tabController.addListener(() {
+      if (_tabController.index == 1 &&
+          _routingItems.isEmpty &&
+          !_loadingRouting) {
+        _loadRouting();
+      }
+    });
+
+    // 如果切入时就是第一页，交路数据若为空先不加载
+    // 仅当已有缓存时直接显示
+  }
+
+  Future<void> _loadRouting() async {
+    if (_loadingRouting) return;
+    setState(() {
+      _loadingRouting = true;
+      _routingError = null;
+    });
+    try {
+      final result = await widget.onFetchRouting();
+      if (mounted) {
+        setState(() {
+          _routingItems = result.routingItems;
+          _trainModel = result.trainModel;
+          _loadingRouting = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _routingError = '加载失败: $e';
+          _loadingRouting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // 标题栏 + Tab
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+            ),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.build_circle_outlined,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '工具箱  ${widget.trainCode}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              TabBar(
+                controller: _tabController,
+                labelColor: Theme.of(context).colorScheme.onPrimary,
+                unselectedLabelColor: Theme.of(
+                  context,
+                ).colorScheme.onPrimary.withAlpha(160),
+                indicatorColor: Theme.of(context).colorScheme.onPrimary,
+                tabs: const [
+                  Tab(icon: Icon(Icons.map, size: 18), text: '线路走向图'),
+                  Tab(icon: Icon(Icons.swap_horiz, size: 18), text: '交路表'),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Tab 内容
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              // ── 线路走向图 ──
+              LineMapDialog(journey: widget.journey),
+
+              // ── 交路表 ──
+              _buildRoutingTab(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoutingTab() {
+    if (_loadingRouting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_routingError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 12),
+            Text(
+              _routingError!,
+              style: const TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadRouting,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重试'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_routingItems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.swap_horiz, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              '暂无交路信息',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadRouting,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重新加载'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _buildRoutingTable();
+  }
+
+  Widget _buildRoutingTable() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
+
+    // 找到当前车次在交路中的位置
+    final currentCode = widget.trainCode;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 车型信息
+          if (_trainModel.isNotEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: primary.withAlpha(20),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: primary.withAlpha(60)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.train, size: 18, color: primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _trainModel,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // 表头
+          Container(
+            decoration: BoxDecoration(
+              color: primary,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
+              ),
+            ),
+            child: _buildTableRow(
+              isHeader: true,
+              cells: const ['车次', '始发站', '出发', '终到站', '到达'],
+            ),
+          ),
+
+          // 数据行
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).dividerColor),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(10),
+                bottomRight: Radius.circular(10),
+              ),
+            ),
+            child: Column(
+              children: _routingItems.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final item = entry.value as Map<String, dynamic>;
+                final trainNumber = item['trainNumber']?.toString() ?? '--';
+                final beginStation =
+                    item['beginStationName']?.toString() ?? '--';
+                final endStation = item['endStationName']?.toString() ?? '--';
+                final depTime = item['departureTime']?.toString() ?? '--:--';
+                final arrTime = item['arrivalTime']?.toString() ?? '--:--';
+
+                final isCurrent = trainNumber == currentCode;
+                final isLast = idx == _routingItems.length - 1;
+
+                // 当前车次高亮
+                final rowColor = isCurrent
+                    ? (isDark ? primary.withAlpha(60) : primary.withAlpha(30))
+                    : (idx.isEven
+                          ? (isDark
+                                ? Colors.white.withAlpha(8)
+                                : Colors.grey.shade50)
+                          : Colors.transparent);
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: rowColor,
+                    border: isLast
+                        ? null
+                        : Border(
+                            bottom: BorderSide(
+                              color: Theme.of(context).dividerColor,
+                              width: 0.5,
+                            ),
+                          ),
+                    borderRadius: isLast
+                        ? const BorderRadius.only(
+                            bottomLeft: Radius.circular(10),
+                            bottomRight: Radius.circular(10),
+                          )
+                        : null,
+                  ),
+                  child: _buildTableRow(
+                    isHeader: false,
+                    isCurrent: isCurrent,
+                    cells: [
+                      trainNumber,
+                      beginStation,
+                      depTime,
+                      endStation,
+                      arrTime,
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+          Text(
+            '数据来源：sharyou.moefactory.com，仅供参考',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableRow({
+    required bool isHeader,
+    required List<String> cells,
+    bool isCurrent = false,
+  }) {
+    final primary = Theme.of(context).colorScheme.primary;
+    // 列宽比例：车次/始发/时间/终到/时间
+    final flexes = [3, 3, 2, 3, 2];
+
+    final baseStyle = isHeader
+        ? TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onPrimary,
+          )
+        : TextStyle(
+            fontSize: 13,
+            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+            color: isCurrent
+                ? primary
+                : Theme.of(context).colorScheme.onSurface,
+          );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+      child: Row(
+        children: List.generate(cells.length, (i) {
+          final isTrainCell = !isHeader && i == 0;
+          return Expanded(
+            flex: flexes[i],
+            child: isTrainCell && isCurrent
+                ? Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 16,
+                        margin: const EdgeInsets.only(right: 4),
+                        decoration: BoxDecoration(
+                          color: primary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          cells[i],
+                          style: baseStyle,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    cells[i],
+                    style: baseStyle,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: (i == 2 || i == 4)
+                        ? TextAlign.center
+                        : TextAlign.start,
+                  ),
+          );
+        }),
+      ),
+    );
+  }
 }

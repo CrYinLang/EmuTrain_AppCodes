@@ -273,7 +273,6 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   // ==================== 旅途 Tab ====================
 
-
   void showDeveloperDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -292,7 +291,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.3),
                     width: 2,
                   ),
                 ),
@@ -301,7 +302,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                     'assets/icon/CrYinLang.png',
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       child: Icon(
                         Icons.person,
                         size: 40,
@@ -325,7 +328,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                 'Cr.YinLang',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 4),
@@ -333,7 +338,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                 'EmuTrain',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.5),
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -342,7 +349,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                 '欢迎关注我的社交账号获取更多信息',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -351,11 +360,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => launchSocialLink(context, 'https://github.com/CrYinLang'),
+                      onPressed: () => launchSocialLink(
+                        context,
+                        'https://github.com/CrYinLang',
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       icon: const Icon(Icons.code, size: 20),
@@ -365,11 +379,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => launchSocialLink(context, 'https://www.douyin.com/user/MS4wLjABAAAA-bZxFhm96BhUle209c1gQ5HskPw4y-olT2PwOYevJ6fSkkHmIV23EuGfjaq1xHCx'),
+                      onPressed: () => launchSocialLink(
+                        context,
+                        'https://www.douyin.com/user/MS4wLjABAAAA-bZxFhm96BhUle209c1gQ5HskPw4y-olT2PwOYevJ6fSkkHmIV23EuGfjaq1xHCx',
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF000000),
                         foregroundColor: const Color(0xFF00FF9D),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       icon: const Icon(Icons.video_library, size: 20),
@@ -382,11 +401,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => launchSocialLink(context, 'https://gitee.com/CrYinLang'),
+                      onPressed: () => launchSocialLink(
+                        context,
+                        'https://gitee.com/CrYinLang',
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.red,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       icon: const Icon(Icons.code, size: 20),
@@ -396,11 +420,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => launchSocialLink(context, 'https://qm.qq.com/q/AJ71AadV5K'),
+                      onPressed: () => launchSocialLink(
+                        context,
+                        'https://qm.qq.com/q/AJ71AadV5K',
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF000000),
                         foregroundColor: const Color(0xFF0099FF),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       icon: const Icon(Icons.group, size: 20),
@@ -416,7 +445,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                   onPressed: () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Theme.of(context).colorScheme.onSurface,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   child: const Text('关闭'),
@@ -428,7 +459,6 @@ class _SettingsScreenState extends State<SettingsScreen>
       ),
     );
   }
-
 
   Widget _buildTravelTab() {
     final settings = Provider.of<AppSettings>(context);

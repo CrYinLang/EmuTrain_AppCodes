@@ -99,12 +99,13 @@ class _SearchPageState extends State<SearchPage> {
     try {
       final loadedData = await DataFileHelper.loadTrains();
       if (mounted) {
-        final bureauSet = loadedData
-            .map((r) => (r['配属路局'] ?? '').toString().trim())
-            .where((b) => b.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
+        final bureauSet =
+            loadedData
+                .map((r) => (r['配属路局'] ?? '').toString().trim())
+                .where((b) => b.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
         setState(() {
           trainData = loadedData;
           _bureauNames = bureauSet;
