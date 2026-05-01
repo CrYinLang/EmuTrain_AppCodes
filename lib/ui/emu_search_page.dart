@@ -1026,25 +1026,7 @@ class _SearchPageState extends State<SearchPage> {
     return TrainIconWidget(model: model, number: number, size: 32);
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
-        ],
-      ),
-    );
-  }
+  Widget _buildInfoRow(String label, String value) => buildInfoRow(label, value);
 
   Widget _buildResultCard(SearchResult result) {
     final settings = Provider.of<AppSettings>(context, listen: false);
@@ -1124,70 +1106,7 @@ class _SearchPageState extends State<SearchPage> {
                           ),
                         if (result.score != null) ...[
                           const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Container(
-                                width: 60,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: FractionallySizedBox(
-                                  alignment: Alignment.centerLeft,
-                                  widthFactor: result.score!.clamp(0.0, 1.0),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: result.score! >= 0.8
-                                          ? Colors.green
-                                          : result.score! >= 0.5
-                                          ? Colors.orange
-                                          : Colors.red,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${(result.score! * 100).toInt()}%',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: result.score! >= 0.8
-                                      ? Colors.green
-                                      : result.score! >= 0.6
-                                      ? Colors.orange
-                                      : Colors.red,
-                                ),
-                              ),
-                              if (result.rank != null) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary.withAlpha(20),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    '#${result.rank!}',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                          buildScoreBar(context, result.score!, rank: result.rank),
                         ],
                       ],
                     ),
@@ -1259,64 +1178,15 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildPaginationControls() {
-    if (_totalPages <= 1) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: _currentPage > 1 && !_loadingPage
-                ? () => _goToPage(_currentPage - 1)
-                : null,
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 60,
-            child: TextField(
-              controller: _pageController,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              onSubmitted: (v) async {
-                final p = int.tryParse(v);
-                if (p != null && p >= 1 && p <= _totalPages) {
-                  _goToPage(p);
-                } else {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_pageController.text != _currentPage.toString()) {
-                      _pageController.text = _currentPage.toString();
-                    }
-                  });
-                }
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '/ $_totalPages 页（共 $_totalResults 条）',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: _currentPage < _totalPages && !_loadingPage
-                ? () => _goToPage(_currentPage + 1)
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildPaginationControls() => buildPaginationControls(
+        context: context,
+        currentPage: _currentPage,
+        totalPages: _totalPages,
+        totalResults: _totalResults,
+        loadingPage: _loadingPage,
+        pageController: _pageController,
+        onGoToPage: _goToPage,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -1489,23 +1359,7 @@ class _SearchPageState extends State<SearchPage> {
             if (errorMsg.isNotEmpty)
               Column(
                 children: [
-                  Card(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline),
-                          const SizedBox(width: 12),
-                          Expanded(child: Text(errorMsg)),
-                          IconButton(
-                            onPressed: () => setState(() => errorMsg = ''),
-                            icon: const Icon(Icons.close),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  buildErrorCard(context, errorMsg, () => setState(() => errorMsg = '')),
                   const SizedBox(height: 12),
                   if (searchType == 'trainCode')
                     IntrinsicHeight(
@@ -1539,50 +1393,17 @@ class _SearchPageState extends State<SearchPage> {
               ),
 
             if (_searchResults.isNotEmpty) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.info_outline, size: 16),
-                          const SizedBox(width: 8),
-                          Text(
-                            (searchType == 'bureau' || searchType == 'carType')
-                                ? '$_currentBureauSearch 共 $totalCount 条（当前 $displayedCount 条）'
-                                : '共找到 $totalCount 条结果',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip: '清除结果',
-                    onPressed: () {
-                      setState(() {
-                        _searchResults.clear();
-                        controller.clear();
-                        errorMsg = '';
-                        _resetPagination();
-                      });
-                    },
-                  ),
-                ],
+              buildResultCountBar(
+                context,
+                label: (searchType == 'bureau' || searchType == 'carType')
+                    ? '$_currentBureauSearch 共 $totalCount 条（当前 $displayedCount 条）'
+                    : '共找到 $totalCount 条结果',
+                onClear: () => setState(() {
+                  _searchResults.clear();
+                  controller.clear();
+                  errorMsg = '';
+                  _resetPagination();
+                }),
               ),
               const SizedBox(height: 12),
 

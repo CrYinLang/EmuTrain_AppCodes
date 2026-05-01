@@ -976,9 +976,7 @@ class _LineMapContentState extends State<LineMapContent> {
   }
 }
 
-// ============================================================
 // Painter：全路线底线（蓝色，经过所有站含途径站）
-// ============================================================
 class _FullRouteLinePainter extends CustomPainter {
   final List<Map<String, dynamic>> stations;
 
@@ -1015,9 +1013,7 @@ class _FullRouteLinePainter extends CustomPainter {
       old.stations != stations;
 }
 
-// ============================================================
 // Painter：按时间状态分段着色（沿全路线子路径，不直连停车站）
-// ============================================================
 class _SegmentedLinePainter extends CustomPainter {
   final List<Map<String, dynamic>> filteredStations;
   final List<Map<String, dynamic>> fullRouteStations;

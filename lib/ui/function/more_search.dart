@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../main.dart';
+import '../../tool.dart';
 
 // ==================== 机车 配属段 - 路局图标 映射 ====================
 class LocoDepotMapper {
@@ -390,57 +391,16 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
     _loadPage(page);
   }
 
-  // ==================== 分页控件（与 EMU 一致） ====================
-  Widget _buildPaginationControls() {
-    if (_totalPages <= 1) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: _currentPage > 1 && !_loadingPage
-                ? () => _goToPage(_currentPage - 1)
-                : null,
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 60,
-            child: TextField(
-              controller: _pageController,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              onSubmitted: (v) {
-                final p = int.tryParse(v);
-                if (p != null) _goToPage(p);
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '/ $_totalPages 页（共 $_totalResults 条）',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: _currentPage < _totalPages && !_loadingPage
-                ? () => _goToPage(_currentPage + 1)
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
+  // ==================== 分页控件 ====================
+  Widget _buildPaginationControls() => buildPaginationControls(
+        context: context,
+        currentPage: _currentPage,
+        totalPages: _totalPages,
+        totalResults: _totalResults,
+        loadingPage: _loadingPage,
+        pageController: _pageController,
+        onGoToPage: _goToPage,
+      );
 
   // ==================== 结果卡片（与 EMU 高度一致） ====================
   Widget _buildResultCard(LocoResult result) {
@@ -474,70 +434,7 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
                       ),
                       if (result.score != null) ...[
                         const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: FractionallySizedBox(
-                                alignment: Alignment.centerLeft,
-                                widthFactor: result.score!.clamp(0.0, 1.0),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: result.score! >= 0.8
-                                        ? Colors.green
-                                        : result.score! >= 0.5
-                                        ? Colors.orange
-                                        : Colors.red,
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${(result.score! * 100).toInt()}%',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: result.score! >= 0.8
-                                    ? Colors.green
-                                    : result.score! >= 0.5
-                                    ? Colors.orange
-                                    : Colors.red,
-                              ),
-                            ),
-                            if (result.rank != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withAlpha(20),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '#${result.rank!}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
+                        buildScoreBar(context, result.score!, rank: result.rank),
                       ],
                     ],
                   ),
@@ -616,34 +513,9 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
     );
   }
 
-  Future<bool> _checkAssetExists(String path) async {
-    try {
-      await rootBundle.load(path);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> _checkAssetExists(String path) => checkAssetExists(path);
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
-        ],
-      ),
-    );
-  }
+  Widget _buildInfoRow(String label, String value) => buildInfoRow(label, value);
 
   // ==================== 搜索类型选择器 ====================
   Widget _buildSearchTypeSelector() {
@@ -809,67 +681,20 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
               const Center(child: CircularProgressIndicator()),
 
             if (_errorMsg.isNotEmpty)
-              Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(_errorMsg)),
-                      IconButton(
-                        onPressed: () => setState(() => _errorMsg = ''),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              buildErrorCard(context, _errorMsg, () => setState(() => _errorMsg = '')),
 
             if (_results.isNotEmpty) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.info_outline, size: 16),
-                          const SizedBox(width: 8),
-                          Text(
-                            isPaged
-                                ? '$_currentSearchLabel 共 $totalCount 条（当前 $displayedCount 条）'
-                                : '共找到 $totalCount 条结果',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip: '清除结果',
-                    onPressed: () => setState(() {
-                      _results.clear();
-                      _controller.clear();
-                      _errorMsg = '';
-                      _resetPagination();
-                    }),
-                  ),
-                ],
+              buildResultCountBar(
+                context,
+                label: isPaged
+                    ? '$_currentSearchLabel 共 $totalCount 条（当前 $displayedCount 条）'
+                    : '共找到 $totalCount 条结果',
+                onClear: () => setState(() {
+                  _results.clear();
+                  _controller.clear();
+                  _errorMsg = '';
+                  _resetPagination();
+                }),
               ),
               const SizedBox(height: 12),
 
@@ -1180,25 +1005,7 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
 
   // ==================== UI 组件 ====================
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 72,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
-        ],
-      ),
-    );
-  }
+  Widget _buildInfoRow(String label, String value) => buildInfoRow(label, value, labelWidth: 72);
 
   Widget _buildResultCard(CoachSearchResult result) {
     final record = result.record;
@@ -1262,68 +1069,7 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
                 ),
                 // 匹配分数（车号查询才显示）
                 if (result.score != null)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 60,
-                            height: 6,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: LinearProgressIndicator(
-                                value: result.score!.clamp(0.0, 1.0),
-                                backgroundColor: Colors.grey[200],
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  result.score! >= 0.8
-                                      ? Colors.green
-                                      : result.score! >= 0.5
-                                      ? Colors.orange
-                                      : Colors.red,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${(result.score! * 100).toInt()}%',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: result.score! >= 0.8
-                                  ? Colors.green
-                                  : result.score! >= 0.5
-                                  ? Colors.orange
-                                  : Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (result.rank != null)
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withAlpha(20),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '#${result.rank!}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  buildScoreBar(context, result.score!, rank: result.rank),
               ],
             ),
 
@@ -1355,60 +1101,16 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
     );
   }
 
-  Widget _buildPaginationControls() {
-    if (_totalPages <= 1) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: _currentPage > 1 && !_loadingPage
-                ? () => _goToPage(_currentPage - 1)
-                : null,
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 56,
-            child: TextField(
-              controller: _pageController,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              onSubmitted: (v) {
-                final p = int.tryParse(v);
-                if (p != null && p >= 1 && p <= _totalPages) {
-                  _goToPage(p);
-                } else {
-                  _pageController.text = _currentPage.toString();
-                }
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '/ $_totalPages 页（共 $_totalResults 条）',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: _currentPage < _totalPages && !_loadingPage
-                ? () => _goToPage(_currentPage + 1)
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildPaginationControls() => buildPaginationControls(
+        context: context,
+        currentPage: _currentPage,
+        totalPages: _totalPages,
+        totalResults: _totalResults,
+        loadingPage: _loadingPage,
+        pageController: _pageController,
+        onGoToPage: _goToPage,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+      );
 
   Widget _buildEmptyState() {
     return Container(
@@ -1578,23 +1280,7 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
 
             // ---- 错误信息 ----
             if (_errorMsg.isNotEmpty)
-              Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(_errorMsg)),
-                      IconButton(
-                        onPressed: () => setState(() => _errorMsg = ''),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              buildErrorCard(context, _errorMsg, () => setState(() => _errorMsg = '')),
 
             // ---- 结果区域 ----
             if (_searchResults.isNotEmpty) ...[

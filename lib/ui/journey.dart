@@ -3871,11 +3871,13 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
         // 标题栏 + Tab
         Container(
           decoration: BoxDecoration(
+            color: cs.surface,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(12),
               topRight: Radius.circular(12),
@@ -3884,33 +3886,19 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.build_circle_outlined,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      size: 20,
-                    ),
+                    Icon(Icons.build_circle_outlined, color: cs.onSurface, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '工具箱  ${widget.trainCode}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onPrimary,
-                        ),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface),
                       ),
                     ),
                     IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
+                      icon: Icon(Icons.close, color: cs.onSurface),
                       onPressed: () => Navigator.of(context).pop(),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -3920,11 +3908,9 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
               ),
               TabBar(
                 controller: _tabController,
-                labelColor: Theme.of(context).colorScheme.onPrimary,
-                unselectedLabelColor: Theme.of(
-                  context,
-                ).colorScheme.onPrimary.withAlpha(160),
-                indicatorColor: Theme.of(context).colorScheme.onPrimary,
+                labelColor: cs.onSurface,
+                unselectedLabelColor: cs.onSurface.withAlpha(160),
+                indicatorColor: cs.onSurface,
                 tabs: const [
                   Tab(icon: Icon(Icons.map, size: 18), text: '线路走向图'),
                   Tab(icon: Icon(Icons.swap_horiz, size: 18), text: '交路表'),
@@ -3934,15 +3920,12 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
           ),
         ),
 
-        // Tab 内容
+        // Tab 内容 — TabBarView 响应切换
         Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
-              // ── 线路走向图 ──
               LineMapDialog(journey: widget.journey),
-
-              // ── 交路表 ──
               _buildRoutingTab(),
             ],
           ),
@@ -4023,7 +4006,7 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: primary.withAlpha(20),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: primary.withAlpha(60)),
               ),
