@@ -3,7 +3,7 @@
   "Version": "1.2.1.2",
   "Build": "1211",
 
-  "minVersion": "9999",
+  "minVersion": "1212",
   "message": "系统测试",
 
   "StationBuild": "4",
