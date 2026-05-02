@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'journey_provider.dart';
+import 'functions.dart';
 import 'speed_service.dart';
 import 'ui/function/gallery_page.dart';
 import 'ui/emu_search_page.dart';
@@ -23,7 +24,7 @@ import 'update.dart';
 // ==================== 应用常量 ====================
 class Vars {
   static const String lastUpdate = '26-04-30-22-42';
-  static const String version = '1.2.1.2Canary';
+  static const String version = '1.2.1.2';
   static const String build = '1212';
 
   static String defaultStationBuild = '4';
@@ -578,6 +579,10 @@ class _MainScreenState extends State<MainScreen> {
     final minVersion = versionInfo['minVersion']?.toString() ?? '';
     final currentBuild = Vars.build;
     final message = versionInfo['message']?.toString() ?? '';
+    final describe = versionInfo['describe']?.toString() ?? '';
+    final version = versionInfo['Version']?.toString() ?? '';
+    final qq = versionInfo['qq']?.toString() ?? '';
+
 
     // 先检查强制更新
     if (minVersion.isNotEmpty &&
@@ -586,7 +591,7 @@ class _MainScreenState extends State<MainScreen> {
       if (int.parse(minVersion) > int.parse(currentBuild) && mounted) {
         // 显示强制更新对话框
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showForceUpdateDialog(context, message);
+          _showForceUpdateDialog(context, describe, version, qq);
         });
         return; // 直接返回，不继续检查其他更新
       }
@@ -618,8 +623,7 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 强制更新对话框
-  void _showForceUpdateDialog(BuildContext context, String message) {
+  void _showForceUpdateDialog(BuildContext context, String message, String version, String qq) {
     showDialog(
       context: context,
       barrierDismissible: false, // 不可关闭
@@ -632,23 +636,26 @@ class _MainScreenState extends State<MainScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('当前版本过低，请更新到最新版本。'),
-                if (message.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  const Text(
-                    '更新说明：',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(message),
-                ],
+                Text('当前版本过低，请更新到最新版本后再使用。在更新之前，您无法使用任何功能\n请您更新到最新版本${Vars.version}→$version'),
+                const SizedBox(height: 12),
+                const Text(
+                  '更新说明：',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(message),
+                const SizedBox(height: 4),
+                const Text(
+                  '下载链接：',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(qq),
+                const SizedBox(height: 4),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () {
-                  // 这里可以添加跳转到应用商店或下载页面的逻辑
-                  Navigator.of(ctx).pop();
+                  launchSocialLink(context, qq);
                 },
                 child: const Text('确定'),
               ),
@@ -661,29 +668,31 @@ class _MainScreenState extends State<MainScreen> {
 
   // 公告对话框
   void _showAnnouncementDialog(BuildContext context, String message) {
-    Future<void> showDialogIfNeeded() async {
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (BuildContext ctx) {
-            return AlertDialog(
-              title: const Text('公告'),
-              content: SingleChildScrollView(child: Text(message)),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                  },
-                  child: const Text('知道了'),
-                ),
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return PopScope(
+          child: AlertDialog(
+            title: const Text('调度命令'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(message),
               ],
-            );
-          },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text('确定'),
+              ),
+            ],
+          ),
         );
-      }
-    }
-
-    showDialogIfNeeded();
+      },
+    );
   }
 
   String get _currentPageTitle {
