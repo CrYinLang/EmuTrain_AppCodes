@@ -4019,7 +4019,7 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
           // 表头
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Theme.of(context).colorScheme.primary,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(10),
                 topRight: Radius.circular(10),
