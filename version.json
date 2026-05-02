@@ -4,17 +4,17 @@
   "Build": "1212",
 
   "minVersion": "1212",
-  "message": "系统测试",
+  "message": "",
 
   "StationBuild": "4",
   "TrainBuild": "7",
   "CoachTrainBuild": "2",
   "LocoBuild": "2",
 
-  "github": "https://gh-proxy.com/https://github.com/CrYinLang/EmuTrain/releases/download/1.2.1.1/app-release.apk",
-  "gitee": "https://gitee.com/CrYinLang/EmuTrain/releases/download/1.2.1.1/app-release.apk",
+  "github": "https://gh-proxy.com/https://github.com/CrYinLang/EmuTrain/releases/download/1.2.1.2/app-release.apk",
+  "gitee": "https://gitee.com/CrYinLang/EmuTrain/releases/download/1.2.1.2/app-release.apk",
   "qq": "https://qm.qq.com/q/fk5M9PJGyk",
 
-  "describe": "添加了机车查询，客车查询功能，优化了一点性能 （交路表功能制作中）",
+  "describe": "添加了更多主题色，更新功能优化，添加了交路表，优化了功能",
   "Announcement": "公告:QQ群:667933194\n官网:https://emutrain.github.io/"
 }
