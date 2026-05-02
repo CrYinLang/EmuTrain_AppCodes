@@ -59,7 +59,7 @@ class AboutPage extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return FutureBuilder<Map<String, dynamic>?>(
-      future: Vars.fetchVersionInfo(),
+      future: Vars.fetchVersionCommand(),
       builder: (context, snapshot) {
         const String baseText = '提示：有问题意见请反馈银狼';
         String additionalText = '';

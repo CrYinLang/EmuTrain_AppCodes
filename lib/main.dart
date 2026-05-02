@@ -112,7 +112,7 @@ class Vars {
   }
 
   // ---------- 网络 ----------
-  static Future<Map<String, dynamic>?> fetchVersionInfo() async {
+  static Future<Map<String, dynamic>?> fetchVersionCommand() async {
     final response = await http
         .get(
           Uri.parse(
@@ -121,24 +121,6 @@ class Vars {
         )
         .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) return json.decode(response.body);
-    return null;
-  }
-
-  static Future<Map<String, dynamic>?> fetchCommand() async {
-    final response = await http
-        .get(
-          Uri.parse(
-            'https://gitee.com/CrYinLang/EmuTrain/raw/master/remote.json',
-          ),
-        )
-        .timeout(const Duration(seconds: 10));
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data is List && data.isNotEmpty) {
-        return data[0] as Map<String, dynamic>;
-      }
-      if (data is Map<String, dynamic>) return data;
-    }
     return null;
   }
 }
@@ -282,14 +264,6 @@ class AppSettings extends ChangeNotifier {
 
   bool get showAutoUpdate => _showAutoUpdate;
 
-  // ---------- 远程控制 ----------
-  String? _commandMessage;
-  bool _showRemoteMessages = true;
-
-  String? get commandMessage => _commandMessage;
-
-  bool get showRemoteMessages => _showRemoteMessages;
-
   // ---------- 数据源 ----------
   TrainDataSource _dataSource = TrainDataSource.railRe;
   TrainEmuDataSource _dataEmuSource = TrainEmuDataSource.railRe;
@@ -373,7 +347,6 @@ class AppSettings extends ChangeNotifier {
       _showTrainIcons = prefs.getBool('showTrainIcons') ?? true;
       _showBureauIcons = prefs.getBool('showBureauIcons') ?? true;
       _showAutoUpdate = prefs.getBool('showAutoUpdate') ?? true;
-      _showRemoteMessages = prefs.getBool('showRemoteMessages') ?? true;
 
       // 数据源
       final dataSourceIndex = prefs.getInt('dataSource') ?? 0;
@@ -409,6 +382,7 @@ class AppSettings extends ChangeNotifier {
     _showAutoUpdate = true;
     _dataSource = TrainDataSource.railRe;
     _dataEmuSource = TrainEmuDataSource.railRe;
+    _dataStationSource = TrainStationDataSource.moeFactory;
   }
 
   // ==================== 主题 ====================
@@ -446,44 +420,6 @@ class AppSettings extends ChangeNotifier {
     _showAutoUpdate = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('showAutoUpdate', value);
-    notifyListeners();
-  }
-
-  // ==================== 远程控制 ====================
-  Future<void> checkRemoteCommand() async {
-    final command = await Vars.fetchCommand();
-    if (command == null) return;
-
-    final message = command['message']?.toString();
-    if (message != null && message.isNotEmpty && _showRemoteMessages) {
-      _commandMessage = message;
-      notifyListeners();
-    }
-
-    final minVersion = command['minVersion']?.toString() ?? Vars.build;
-    if (double.parse(minVersion) >= double.parse(Vars.build)) exit(0);
-
-    final operation = command['operation']?.toString() ?? '';
-    if (operation.isNotEmpty) _handleOperation(operation);
-  }
-
-  void _handleOperation(String operation) {
-    switch (operation) {
-      case 'exit':
-        Future.delayed(const Duration(milliseconds: 100), () => exit(0));
-        break;
-    }
-  }
-
-  void clearCommandMessage() {
-    _commandMessage = null;
-    notifyListeners();
-  }
-
-  Future<void> setShowRemoteMessages(bool value) async {
-    _showRemoteMessages = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('showRemoteMessages', value);
     notifyListeners();
   }
 }
@@ -554,10 +490,6 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _loadDefaultHomePage();
     _handleUpdate();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final settings = Provider.of<AppSettings>(context, listen: false);
-      settings.checkRemoteCommand();
-    });
   }
 
   Future<void> _loadDefaultHomePage() async {
@@ -575,41 +507,79 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _handleUpdate() async {
     bool update = await _getSetting('showAutoUpdate');
-    if (!update) return;
-    final versionInfo = await Vars.fetchVersionInfo();
+    final versionInfo = await Vars.fetchVersionCommand();
+
     if (versionInfo == null) return;
-    final remoteBuild = versionInfo['Build']?.toString() ?? '';
+
+    // 检查是否需要强制更新
+    final minVersion = versionInfo['minVersion']?.toString() ?? '';
     final currentBuild = Vars.build;
-    if (remoteBuild.isNotEmpty &&
-        int.tryParse(remoteBuild) != null &&
+    final message = versionInfo['message']?.toString() ?? '';
+
+    // 先检查强制更新
+    if (minVersion.isNotEmpty &&
+        int.tryParse(minVersion) != null &&
         int.tryParse(currentBuild) != null) {
-      if (int.parse(remoteBuild) > int.parse(currentBuild) && mounted) {
-        UpdateUI.showAppUpdateFlow(context);
+      if (int.parse(minVersion) > int.parse(currentBuild) && mounted) {
+        // 显示强制更新对话框
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showForceUpdateDialog(context, message);
+        });
+        return; // 直接返回，不继续检查其他更新
       }
+    }
+
+    // 如果不是强制更新，检查是否有新版本
+    if (update) {
+      final remoteBuild = versionInfo['Build']?.toString() ?? '';
+      if (remoteBuild.isNotEmpty &&
+          int.tryParse(remoteBuild) != null &&
+          int.tryParse(currentBuild) != null) {
+        if (int.parse(remoteBuild) > int.parse(currentBuild) && mounted) {
+          UpdateUI.showAppUpdateFlow(context);
+        }
+      }
+    }
+
+    // 如果有公告消息，显示公告
+    if (message.isNotEmpty && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showAnnouncementDialog(context, message);
+      });
     }
   }
 
-  void _showCommandMessageDialog(BuildContext context, AppSettings settings) {
+  // 强制更新对话框
+  void _showForceUpdateDialog(BuildContext context, String message) {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: false, // 不可关闭
       builder: (BuildContext ctx) {
         return PopScope(
-          canPop: false,
+          canPop: false, // 禁用返回键
           child: AlertDialog(
-            title: const Text('系统消息'),
+            title: const Text('版本过低'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 8),
-                Text(settings.commandMessage!),
+                const Text('当前版本过低，请更新到最新版本。'),
+                if (message.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    '更新说明：',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(message),
+                ],
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () {
+                  // 这里可以添加跳转到应用商店或下载页面的逻辑
                   Navigator.of(ctx).pop();
-                  settings.clearCommandMessage();
                 },
                 child: const Text('确定'),
               ),
@@ -618,6 +588,33 @@ class _MainScreenState extends State<MainScreen> {
         );
       },
     );
+  }
+
+  // 公告对话框
+  void _showAnnouncementDialog(BuildContext context, String message) {
+    Future<void> showDialogIfNeeded() async {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext ctx) {
+            return AlertDialog(
+              title: const Text('公告'),
+              content: SingleChildScrollView(child: Text(message)),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('知道了'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
+
+    showDialogIfNeeded();
   }
 
   String get _currentPageTitle {
@@ -639,12 +636,6 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Consumer<AppSettings>(
       builder: (context, settings, _) {
-        if (settings.commandMessage != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _showCommandMessageDialog(context, settings);
-          });
-        }
-
         return Scaffold(
           appBar: AppBar(title: Text(_currentPageTitle), centerTitle: true),
           body: _buildCurrentPage(),
