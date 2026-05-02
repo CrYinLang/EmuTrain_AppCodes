@@ -12,7 +12,6 @@ import '../journey_provider.dart';
 import '../main.dart';
 import '../station_selector.dart';
 import 'linemap.dart';
-import 'travel_screen.dart';
 
 class AddJourneyPage extends StatefulWidget {
   final String? initialTrainNumber;
@@ -39,8 +38,6 @@ class _AddJourneyPageState extends State<AddJourneyPage>
   late Animation<double> _anim;
   String? _fromCode, _toCode;
   String? _fromName = '请选择', _toName = '请选择';
-  List<dynamic> _allStations = [];
-  bool _loadingStations = false;
   List<dynamic> _stationResults = [];
   int? _stationExpandedIndex;
   final Map<int, List<dynamic>> _stationDetails = {};
@@ -60,7 +57,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
       vsync: this,
     );
     _anim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut);
-    _loadStations();
+    _loadStationNameMap();
     _trainNumberCtrl.addListener(() {
       final text = _trainNumberCtrl.text;
       if (text.isNotEmpty && text != text.toUpperCase()) _formatInput(text);
@@ -88,11 +85,9 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     return name.replaceAll('站', '').replaceAll(' ', '').trim();
   }
 
-  Future<void> _loadStations() async {
-    setState(() => _loadingStations = true);
+  Future<void> _loadStationNameMap() async {
     try {
       final stationsList = await loadStations();
-
       final Map<String, String> nameMap = {};
       for (var station in stationsList) {
         final telecode = station['telecode'];
@@ -101,16 +96,8 @@ class _AddJourneyPageState extends State<AddJourneyPage>
           nameMap[telecode] = name;
         }
       }
-
-      setState(() {
-        _allStations = stationsList;
-        _stationNameMap = nameMap;
-      });
-    } catch (e) {
-      _showSnack('加载站点数据失败: $e');
-    } finally {
-      setState(() => _loadingStations = false);
-    }
+      if (mounted) setState(() => _stationNameMap = nameMap);
+    } catch (_) {}
   }
 
   String _getStationName(String telecode) {
@@ -809,35 +796,27 @@ class _AddJourneyPageState extends State<AddJourneyPage>
   }
 
   Future<void> _showStationSelector(bool isFrom) async {
-    if (_loadingStations) {
-      _showSnack('正在加载站点数据...');
-      return;
-    }
-    if (_allStations.isEmpty) {
-      _showSnack('站点数据为空，请稍后重试');
-      return;
-    }
-    String? selectedCode = isFrom ? _fromCode : _toCode;
-    final result = await showModalBottomSheet<Map<String, String>>(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => StationSelectorModal(
-        stations: _allStations,
-        selectedCode: selectedCode,
+      builder: (context) => StationSelector(
         title: isFrom ? '选择出发站' : '选择到达站',
+        selectedCode: isFrom ? _fromCode : _toCode,
+        onSelected: (result) {
+          if (mounted) {
+            setState(() {
+              if (isFrom) {
+                _fromCode = result['telecode'];
+                _fromName = result['name'];
+              } else {
+                _toCode = result['telecode'];
+                _toName = result['name'];
+              }
+            });
+          }
+        },
       ),
     );
-    if (result != null && mounted) {
-      setState(() {
-        if (isFrom) {
-          _fromCode = result['telecode'];
-          _fromName = result['name'];
-        } else {
-          _toCode = result['telecode'];
-          _toName = result['name'];
-        }
-      });
-    }
   }
 
   void _toggleExpand(int index, bool isStation) async {
@@ -3928,10 +3907,11 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
           ),
         ),
 
-        // Tab 内容 — TabBarView 响应切换
+        // Tab 内容 — 仅响应按钮切换，禁止滑动
         Expanded(
           child: TabBarView(
             controller: _tabController,
+            physics: const NeverScrollableScrollPhysics(),
             children: [
               LineMapDialog(journey: widget.journey),
               _buildRoutingTab(),
@@ -4039,7 +4019,7 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
           // 表头
           Container(
             decoration: BoxDecoration(
-              color: primary,
+              color: Theme.of(context).colorScheme.onSurface,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(10),
                 topRight: Radius.circular(10),

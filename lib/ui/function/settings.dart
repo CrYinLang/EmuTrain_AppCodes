@@ -461,25 +461,38 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildTravelTab() {
-    final settings = Provider.of<AppSettings>(context);
-    final isDarkMode = settings.themeMode == ThemeMode.dark;
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 主题设置
+        // 主题设置 → 跳转独立页面
         Tool.buildSection(
           context: context,
           icon: Icons.color_lens,
           title: '主题设置',
           children: [
-            Tool.buildSwitch(
-              context: context,
-              title: '深色主题',
-              subtitle: '启用深色模式',
-              icon: isDarkMode ? Icons.dark_mode : Icons.light_mode,
-              value: isDarkMode,
-              onChanged: settings.toggleTheme,
+            ListTile(
+              leading: Icon(
+                Icons.palette,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: const Text(
+                '个性化主题',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              subtitle: const Text(
+                '深色模式、跟随系统、自定义颜色',
+                style: TextStyle(fontSize: 12),
+              ),
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ThemeSettingsScreen(),
+                ),
+              ),
             ),
           ],
         ),
@@ -577,36 +590,19 @@ class _SettingsScreenState extends State<SettingsScreen>
         // 应用设置
         const SizedBox(height: 16),
         _buildSection(
-          icon: Icons.info,
+          icon: Icons.storage,
           title: '应用设置',
           children: [
             _buildTile(
-              title: '车站数据版本',
-              subtitle: 'V${Vars.stationBuild}',
+              icon: Icons.system_update_alt,
+              title: '数据版本管理',
+              subtitle: '车站 / 动车组 / 普速 / 机车 数据更新',
               trailingIcon: Icons.arrow_forward_ios,
-              onTap: () => UpdateUI.showStationUpdateFlow(context),
-            ),
-            const Divider(height: 1),
-            _buildTile(
-              title: '动车组配属数据版本',
-              subtitle: 'V${Vars.trainBuild}',
-              trailingIcon: Icons.arrow_forward_ios,
-              onTap: () => UpdateUI.showTrainUpdateFlow(context),
-            ),
-            const Divider(height: 1),
-            _buildTile(
-              title: '普速客车配属数据版本',
-              subtitle: 'V${Vars.coachTrainBuild}',
-              trailingIcon: Icons.arrow_forward_ios,
-              onTap: () => UpdateUI.showCoachTrainUpdateFlow(context),
-            ),
-            const Divider(height: 1),
-            // ★ 新增：机车配属数据版本
-            _buildTile(
-              title: '机车配属数据版本',
-              subtitle: 'V${Vars.locoBuild}',
-              trailingIcon: Icons.arrow_forward_ios,
-              onTap: () => UpdateUI.showLocoUpdateFlow(context),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const DataVersionScreen(),
+                ),
+              ),
             ),
             const Divider(height: 1),
             Tool.buildSwitch(
@@ -849,10 +845,533 @@ class ThemeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('新界面'),
-      ),
+      appBar: AppBar(title: const Text('新界面')),
       body: Container(),
+    );
+  }
+}
+
+// ==================== 主题设置页面 ====================
+
+class ThemeSettingsScreen extends StatelessWidget {
+  const ThemeSettingsScreen({super.key});
+
+  // 预设颜色选项
+  static const List<({Color color, String label})> _presetColors = [
+    (color: Color(0xFF2196F3), label: '蓝色'),
+    (color: Color(0xFF4CAF50), label: '绿色'),
+    (color: Color(0xFFF44336), label: '红色'),
+    (color: Color(0xFF9C27B0), label: '紫色'),
+    (color: Color(0xFFFF9800), label: '橙色'),
+    (color: Color(0xFF00BCD4), label: '青色'),
+    (color: Color(0xFFE91E63), label: '粉色'),
+    (color: Color(0xFF795548), label: '棕色'),
+    (color: Color(0xFF607D8B), label: '蓝灰'),
+    (color: Color(0xFF009688), label: '翠绿'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('主题设置')),
+      body: Consumer<AppSettings>(
+        builder: (context, settings, _) {
+          final cs = Theme.of(context).colorScheme;
+          final followSystem = settings.followSystem;
+          final isDark = settings.themeMode == ThemeMode.dark;
+          final usingMonet = settings.seedColor == null;
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // ── 系统主题 ──
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.brightness_auto,
+                            color: cs.primary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '系统主题',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SwitchListTile(
+                      title: const Text(
+                        '跟随系统主题',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text(
+                        '自动跟随手机深色/浅色模式',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      secondary: Icon(
+                        Icons.phone_android,
+                        color: cs.primary,
+                      ),
+                      value: followSystem,
+                      onChanged: settings.toggleFollowSystem,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      title: const Text(
+                        '深色模式',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text(
+                        followSystem ? '跟随系统时不可手动设置' : '手动切换深色/浅色',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      secondary: Icon(
+                        isDark ? Icons.dark_mode : Icons.light_mode,
+                        color: followSystem
+                            ? cs.onSurface.withValues(alpha: 0.35)
+                            : cs.primary,
+                      ),
+                      value: isDark,
+                      // 跟随系统时禁用
+                      onChanged: followSystem ? null : settings.toggleTheme,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── 主题颜色 ──
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                      child: Row(
+                        children: [
+                          Icon(Icons.palette, color: cs.primary, size: 20),
+                          const SizedBox(width: 10),
+                          Text(
+                            '主题颜色',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // 莫奈取色按钮
+                    ListTile(
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF6750A4),
+                              Color(0xFF4FC3F7),
+                              Color(0xFF81C784),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          border: usingMonet
+                              ? Border.all(color: cs.primary, width: 2)
+                              : null,
+                        ),
+                        child: usingMonet
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 18,
+                              )
+                            : null,
+                      ),
+                      title: const Text(
+                        '莫奈取色（跟随壁纸）',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text(
+                        '自动从系统壁纸提取颜色，需Android 12+',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      trailing: usingMonet
+                          ? Icon(
+                              Icons.check_circle,
+                              color: cs.primary,
+                              size: 20,
+                            )
+                          : null,
+                      onTap: () => settings.setSeedColor(null),
+                    ),
+
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+
+                    // 预设颜色网格
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                      child: Text(
+                        '预设颜色',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: _presetColors.map((entry) {
+                          final isSelected = !usingMonet &&
+                              settings.seedColor?.toARGB32() ==
+                                  entry.color.toARGB32();
+                          return GestureDetector(
+                            onTap: () => settings.setSeedColor(entry.color),
+                            child: Tooltip(
+                              message: entry.label,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: entry.color,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: cs.onSurface,
+                                          width: 2.5,
+                                        )
+                                      : null,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: entry.color.withValues(alpha: 0.4),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: isSelected
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 20,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  '颜色设置将在下次重启后完全生效',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurface.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ==================== 数据版本管理页面 ====================
+
+class DataVersionScreen extends StatefulWidget {
+  const DataVersionScreen({super.key});
+
+  @override
+  State<DataVersionScreen> createState() => _DataVersionScreenState();
+}
+
+class _DataVersionScreenState extends State<DataVersionScreen> {
+  static const String _autoSilentUpdateKey = 'auto_silent_update_data';
+  bool _autoSilentUpdate = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAutoSilentUpdate();
+  }
+
+  Future<void> _loadAutoSilentUpdate() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _autoSilentUpdate = prefs.getBool(_autoSilentUpdateKey) ?? true;
+    });
+  }
+
+  Future<void> _saveAutoSilentUpdate(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoSilentUpdateKey, value);
+    setState(() => _autoSilentUpdate = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('数据版本管理')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // -------- 数据管理操作卡片 --------
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune_rounded, color: cs.primary, size: 20),
+                      const SizedBox(width: 10),
+                      Text(
+                        '数据管理',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 开关：自动静默更新数据
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.sync_rounded,
+                    color: cs.primary,
+                    size: 22,
+                  ),
+                  title: const Text(
+                    '自动静默更新数据',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    '每次打开应用时自动在后台检测并更新所有数据',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  value: _autoSilentUpdate,
+                  onChanged: _saveAutoSilentUpdate,
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                // 一键更新所有数据
+                _DataVersionTile(
+                  title: '一键更新所有数据',
+                  version: null,
+                  icon: Icons.cloud_sync_rounded,
+                  trailingWidget: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  subtitle: '检测并更新所有数据至最新版本',
+                  onTap: () => UpdateUI.showUpdateAllDataFlow(context),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // -------- 本地数据版本卡片 --------
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.storage_rounded,
+                        color: cs.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '本地数据版本',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _DataVersionTile(
+                  title: '车站数据',
+                  version: 'V${Vars.stationBuild}',
+                  icon: Icons.location_city,
+                  onTap: () => UpdateUI.showStationUpdateFlow(context),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _DataVersionTile(
+                  title: '动车组配属数据',
+                  version: 'V${Vars.trainBuild}',
+                  icon: Icons.directions_railway,
+                  onTap: () => UpdateUI.showTrainUpdateFlow(context),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _DataVersionTile(
+                  title: '普速客车配属数据',
+                  version: 'V${Vars.coachTrainBuild}',
+                  icon: Icons.train,
+                  onTap: () => UpdateUI.showCoachTrainUpdateFlow(context),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _DataVersionTile(
+                  title: '机车配属数据',
+                  version: 'V${Vars.locoBuild}',
+                  icon: Icons.electric_bolt,
+                  onTap: () => UpdateUI.showLocoUpdateFlow(context),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '点击各条目可单独检查并更新对应数据',
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataVersionTile extends StatelessWidget {
+  final String title;
+  final String? version;
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? subtitle;
+  final Widget? trailingWidget;
+
+  const _DataVersionTile({
+    required this.title,
+    required this.version,
+    required this.icon,
+    required this.onTap,
+    this.subtitle,
+    this.trailingWidget,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(icon, color: cs.primary, size: 22),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle!,
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            )
+          : null,
+      trailing: trailingWidget ??
+          (version != null
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        version!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 14,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ],
+                )
+              : null),
+      onTap: onTap,
     );
   }
 }

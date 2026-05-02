@@ -938,9 +938,10 @@ class _LineMapContentState extends State<LineMapContent> {
                             GestureDetector(
                               onTap: _handleBackgroundTap,
                               child: Container(
+                                color: Theme.of(context).colorScheme.surface,
                                 width: sz.width,
                                 height: sz.height,
-                                color: Colors.transparent,
+                                // color: Colors.transparent,
                               ),
                             ),
                             // 全路线底线

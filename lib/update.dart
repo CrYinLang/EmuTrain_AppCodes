@@ -28,6 +28,92 @@ class UpdateService {
       return {'error': e.toString()};
     }
   }
+
+  static Future<List<String>?> silentUpdateAllData() async {
+    final versionInfo = await UpdateService.checkForUpdate();
+    if (versionInfo == null || versionInfo.containsKey('error')) return null;
+
+    final tasks = [
+      _SilentTask(
+        remoteBuildKey: 'StationBuild',
+        currentBuildStr: Vars.stationBuild,
+        remoteDataPath: 'assets/stations',
+        localFileName: 'stations.json',
+        saveBuild: Vars.setStationBuild,
+        label: '车站数据',
+      ),
+      _SilentTask(
+        remoteBuildKey: 'TrainBuild',
+        currentBuildStr: Vars.trainBuild,
+        remoteDataPath: 'assets/train',
+        localFileName: 'train.json',
+        saveBuild: Vars.setTrainBuild,
+        label: '动车组配属数据',
+      ),
+      _SilentTask(
+        remoteBuildKey: 'CoachTrainBuild',
+        currentBuildStr: Vars.coachTrainBuild,
+        remoteDataPath: 'assets/coach',
+        localFileName: 'coach.json',
+        saveBuild: Vars.setCoachTrainBuild,
+        label: '普速客车配属数据',
+      ),
+      _SilentTask(
+        remoteBuildKey: 'LocoBuild',
+        currentBuildStr: Vars.locoBuild,
+        remoteDataPath: 'assets/loco',
+        localFileName: 'loco.json',
+        saveBuild: Vars.setLocoBuild,
+        label: '机车配属数据',
+      ),
+    ];
+
+    final updated = <String>[];
+    for (final task in tasks) {
+      final currentBuild = int.tryParse(task.currentBuildStr) ?? 0;
+      final remoteBuild =
+          int.tryParse(versionInfo[task.remoteBuildKey]?.toString() ?? '') ?? 0;
+      if (remoteBuild <= currentBuild) continue;
+
+      try {
+        final url =
+            'https://gitee.com/CrYinLang/EmuTrain/raw/master/${task.remoteDataPath}.json';
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 30));
+        if (response.statusCode == 200) {
+          json.decode(response.body); // 验证 JSON 合法
+          final directory = await getApplicationDocumentsDirectory();
+          final file = File('${directory.path}/${task.localFileName}');
+          await file.writeAsString(response.body);
+          await task.saveBuild(remoteBuild.toString());
+          updated.add(task.label);
+        }
+      } catch (_) {
+        // 单个失败不影响其他，跳过
+      }
+    }
+    return updated;
+  }
+}
+
+/// 内部辅助数据类（静默更新用）
+class _SilentTask {
+  final String remoteBuildKey;
+  final String currentBuildStr;
+  final String remoteDataPath;
+  final String localFileName;
+  final Future<void> Function(String) saveBuild;
+  final String label;
+
+  const _SilentTask({
+    required this.remoteBuildKey,
+    required this.currentBuildStr,
+    required this.remoteDataPath,
+    required this.localFileName,
+    required this.saveBuild,
+    required this.label,
+  });
 }
 
 /// ================= 对外调用入口 =================
@@ -106,6 +192,43 @@ class UpdateUI {
       context: context,
       builder: (_) => CoachTrainUpdateResultDialog(versionInfo: versionInfo),
     );
+  }
+
+  /// 一键更新所有数据（带进度弹窗，供用户手动触发）
+  static Future<void> showUpdateAllDataFlow(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _CheckingDialog(),
+    );
+
+    final updated = await UpdateService.silentUpdateAllData();
+
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    if (!context.mounted) return;
+
+    if (updated == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('检查更新失败，请检查网络连接'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (updated.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('所有数据已是最新版本')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已更新：${updated.join('、')}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   static Future<void> showLocoUpdateFlow(BuildContext context) async {

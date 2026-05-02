@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -244,12 +245,20 @@ class AppSettings extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.dark;
   bool _midnightMode = false;
   bool _isLoading = false;
+  bool _followSystem = false;
+  Color? _seedColor; // null = 莫奈 / 跟随壁纸
 
-  ThemeMode get themeMode => _themeMode;
+  /// 跟随系统时强制返回 ThemeMode.system
+  ThemeMode get themeMode => _followSystem ? ThemeMode.system : _themeMode;
 
   bool get midnightMode => _midnightMode;
 
   bool get isLoading => _isLoading;
+
+  bool get followSystem => _followSystem;
+
+  /// null 表示使用 dynamic_color（莫奈壁纸色）
+  Color? get seedColor => _seedColor;
 
   // ---------- 图标显示 ----------
   bool _showTrainIcons = true;
@@ -344,6 +353,9 @@ class AppSettings extends ChangeNotifier {
           ? ThemeMode.dark
           : ThemeMode.light;
       _midnightMode = prefs.getBool('midnightMode') ?? false;
+      _followSystem = prefs.getBool('followSystem') ?? false;
+      final seedColorValue = prefs.getInt('seedColor');
+      _seedColor = seedColorValue != null ? Color(seedColorValue) : null;
       _showTrainIcons = prefs.getBool('showTrainIcons') ?? true;
       _showBureauIcons = prefs.getBool('showBureauIcons') ?? true;
       _showAutoUpdate = prefs.getBool('showAutoUpdate') ?? true;
@@ -377,6 +389,8 @@ class AppSettings extends ChangeNotifier {
   void _setDefaultValues() {
     _themeMode = ThemeMode.dark;
     _midnightMode = false;
+    _followSystem = false;
+    _seedColor = null;
     _showTrainIcons = true;
     _showBureauIcons = true;
     _showAutoUpdate = true;
@@ -397,6 +411,24 @@ class AppSettings extends ChangeNotifier {
     _midnightMode = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('midnightMode', value);
+    notifyListeners();
+  }
+
+  Future<void> toggleFollowSystem(bool value) async {
+    _followSystem = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('followSystem', value);
+    notifyListeners();
+  }
+
+  Future<void> setSeedColor(Color? color) async {
+    _seedColor = color;
+    final prefs = await SharedPreferences.getInstance();
+    if (color == null) {
+      await prefs.remove('seedColor');
+    } else {
+      await prefs.setInt('seedColor', color.toARGB32());
+    }
     notifyListeners();
   }
 
@@ -450,24 +482,55 @@ class EmuTrainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppSettings>(
       builder: (context, settings, _) {
-        return ChangeNotifierProvider(
-          create: (_) => JourneyProvider(),
-          child: MaterialApp(
-            title: 'EmuTrain',
-            themeMode: settings.themeMode,
-            theme: ThemeData(
-              primarySwatch: Colors.blue,
-              useMaterial3: true,
-              brightness: Brightness.light,
-            ),
-            darkTheme: ThemeData(
-              primarySwatch: Colors.blue,
-              useMaterial3: true,
-              brightness: Brightness.dark,
-            ),
-            home: const MainScreen(),
-            debugShowCheckedModeBanner: false,
-          ),
+        return DynamicColorBuilder(
+          builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+            // 优先用用户选择的颜色；没有则用莫奈壁纸色；再没有就用默认蓝色
+            ColorScheme lightScheme;
+            ColorScheme darkScheme;
+
+            if (settings.seedColor != null) {
+              lightScheme = ColorScheme.fromSeed(
+                seedColor: settings.seedColor!,
+                brightness: Brightness.light,
+              );
+              darkScheme = ColorScheme.fromSeed(
+                seedColor: settings.seedColor!,
+                brightness: Brightness.dark,
+              );
+            } else if (lightDynamic != null && darkDynamic != null) {
+              lightScheme = lightDynamic.harmonized();
+              darkScheme = darkDynamic.harmonized();
+            } else {
+              lightScheme = ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+                brightness: Brightness.light,
+              );
+              darkScheme = ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+                brightness: Brightness.dark,
+              );
+            }
+
+            return ChangeNotifierProvider(
+              create: (_) => JourneyProvider(),
+              child: MaterialApp(
+                title: 'EmuTrain',
+                themeMode: settings.themeMode,
+                theme: ThemeData(
+                  colorScheme: lightScheme,
+                  useMaterial3: true,
+                  brightness: Brightness.light,
+                ),
+                darkTheme: ThemeData(
+                  colorScheme: darkScheme,
+                  useMaterial3: true,
+                  brightness: Brightness.dark,
+                ),
+                home: const MainScreen(),
+                debugShowCheckedModeBanner: false,
+              ),
+            );
+          },
         );
       },
     );
@@ -546,6 +609,12 @@ class _MainScreenState extends State<MainScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showAnnouncementDialog(context, message);
       });
+    }
+
+    // 静默更新所有本地数据库（如果用户开启了自动静默更新）
+    final autoSilentUpdate = await _getSetting('auto_silent_update_data');
+    if (autoSilentUpdate) {
+      UpdateService.silentUpdateAllData();
     }
   }
 
