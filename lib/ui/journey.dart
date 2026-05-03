@@ -2401,6 +2401,9 @@ class _AddJourneyPageState extends State<AddJourneyPage>
         context: context,
         builder: (context) => Dialog(
           insetPadding: const EdgeInsets.all(20),
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? Colors.black
+              : Colors.white,
           child: SizedBox(
             width: MediaQuery.of(context).size.width * 0.9,
             height: MediaQuery.of(context).size.height * 0.85,
@@ -3848,12 +3851,13 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         // 标题栏 + Tab
         Container(
           decoration: BoxDecoration(
-            color: cs.surface,
+            color: isDark ? Colors.black : Colors.white,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(12),
               topRight: Radius.circular(12),
@@ -3982,7 +3986,9 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
     // 找到当前车次在交路中的位置
     final currentCode = widget.trainCode;
 
-    return SingleChildScrollView(
+    return ColoredBox(
+      color: isDark ? Colors.black : Colors.white,
+      child: SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3996,7 +4002,7 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: primary.withAlpha(60)),
+                // border: Border.all(color: primary.withAlpha(60)),
               ),
               child: Row(
                 children: [
@@ -4008,7 +4014,7 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: primary,
+                        // color: primary,
                       ),
                     ),
                   ),
@@ -4019,7 +4025,7 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
           // 表头
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade900,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(10),
                 topRight: Radius.circular(10),
@@ -4060,7 +4066,7 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
                     : (idx.isEven
                           ? (isDark
                                 ? Colors.white.withAlpha(8)
-                                : Colors.grey.shade50)
+                                : const Color(0xFFF5F5F5))
                           : Colors.transparent);
 
                 return Container(
@@ -4104,6 +4110,7 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -4117,10 +4124,10 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
     final flexes = [3, 3, 2, 3, 2];
 
     final baseStyle = isHeader
-        ? TextStyle(
+        ? const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onPrimary,
+            color: Colors.white,
           )
         : TextStyle(
             fontSize: 13,

@@ -86,7 +86,11 @@ class LineMapContent extends StatefulWidget {
   State<LineMapContent> createState() => _LineMapContentState();
 }
 
-class _LineMapContentState extends State<LineMapContent> {
+class _LineMapContentState extends State<LineMapContent>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   /// 停车站（用户行程中的站，带时间信息，isViaStation==false）
   List<Map<String, dynamic>> _filteredStations = [];
 
@@ -196,16 +200,17 @@ class _LineMapContentState extends State<LineMapContent> {
         widget.journey.trainCode,
       ).timeout(const Duration(seconds: 10));
 
-      // 停车站：从全量API结果中筛选，注入 journey 时间信息
-      final filtered = _filterApiStations(fullFromApi, widget.journey.stations);
-
-      // 本地坐标匹配
+      // 本地坐标匹配（全路线，先做匹配确保 name/city 字段存在）
       final fullWithLoc = await _matchStationsWithLocalData(fullFromApi);
-      final filteredWithLoc = await _matchStationsWithLocalData(filtered);
 
-      // 坐标归一化
+      // 停车站：从已匹配的全量数据中筛选，保证 name/city 字段完整
+      final filtered = _filterApiStations(fullWithLoc, widget.journey.stations);
+
+      // 坐标归一化（只对全路线算一次）
       final positionedFull = _calcPositions(fullWithLoc, fullWithLoc);
-      final positionedFiltered = _calcPositions(filteredWithLoc, fullWithLoc);
+
+      // 停车站坐标直接从已归一化的全路线中按站名复用，保证坐标完全一致
+      final positionedFiltered = _reusePositionsFromFull(filtered, positionedFull);
 
       setState(() {
         _fullRouteStations = positionedFull;
@@ -357,24 +362,30 @@ class _LineMapContentState extends State<LineMapContent> {
         final ry = st['relativeY'] as double?;
         if (rx == null || ry == null || st['hasLocation'] != true) continue;
 
-        final double dotSize = 7.0 / _currentScale;
         final double px = rx * cw;
         final double py = ry * ch;
 
         markers.add(
           Positioned(
-            left: px - dotSize / 2,
-            top: py - dotSize / 2,
-            child: IgnorePointer(
-              child: Container(
-                width: dotSize,
-                height: dotSize,
-                decoration: BoxDecoration(
-                  color: Colors.orange,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: (0.8 / _currentScale).clamp(0.3, 1.2),
+            left: px,
+            top: py,
+            child: Transform.scale(
+              scale: 1.0 / _currentScale,
+              alignment: Alignment.center,
+              child: FractionalTranslation(
+                translation: const Offset(-0.5, -0.5),
+                child: IgnorePointer(
+                  child: Container(
+                    width: 7.0,
+                    height: 7.0,
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 0.8,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -395,11 +406,6 @@ class _LineMapContentState extends State<LineMapContent> {
       final double px = rx * cw;
       final double py = ry * ch;
 
-      // 视觉圆点大小（恒定14px屏幕像素）
-      final double dotSize = 14.0 / _currentScale;
-      // 触控热区（恒定44px，更好点击）
-      final double hitSize = 44.0 / _currentScale;
-
       final String status = i < statuses.length ? statuses[i] : 'future';
       final Color dotColor = switch (status) {
         'past' => Colors.orange,
@@ -409,47 +415,53 @@ class _LineMapContentState extends State<LineMapContent> {
 
       markers.add(
         Positioned(
-          left: px - hitSize / 2,
-          top: py - hitSize / 2,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _toggleLabel(index),
-            child: SizedBox(
-              width: hitSize,
-              height: hitSize,
-              child: Center(
-                child: Container(
-                  width: dotSize,
-                  height: dotSize,
-                  decoration: BoxDecoration(
-                    color: dotColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: (2.0 / _currentScale).clamp(0.5, 2.0),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(80),
-                        blurRadius: 3 / _currentScale,
-                        offset: Offset(0, 1 / _currentScale),
-                      ),
-                    ],
-                  ),
-                  // 序号：仅当视觉圆点够大时渲染（避免溢出）
+          left: px,
+          top: py,
+          child: Transform.scale(
+            scale: 1.0 / _currentScale,
+            alignment: Alignment.center,
+            child: FractionalTranslation(
+              translation: const Offset(-0.5, -0.5),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _toggleLabel(index),
+                child: SizedBox(
+                  width: 44.0,
+                  height: 44.0,
                   child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        // 字号恒定约5px屏幕像素
-                        fontSize: (5.0 / _currentScale).clamp(2.0, 5.5),
-                        fontWeight: FontWeight.bold,
-                        height: 1.0,
+                    child: Container(
+                      width: 14.0,
+                      height: 14.0,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(80),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
-                      overflow: TextOverflow.clip,
-                      softWrap: false,
-                      textAlign: TextAlign.center,
+                      // 序号：恒定5px屏幕像素
+                      child: Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 5.0,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
+                          overflow: TextOverflow.clip,
+                          softWrap: false,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -504,7 +516,8 @@ class _LineMapContentState extends State<LineMapContent> {
 
       final Offset pos = _pickLabelPos(px, py, lw, lh, mg, cw, ch);
 
-      final String name = (st['name'] as String?) ?? '';
+      final String rawName = (st['name'] ?? st['stationName'] as String?) ?? '';
+      final String name = rawName.replaceAll('站', '').trim();
       final bool hasLoc = st['hasLocation'] as bool? ?? false;
       final String city = (st['city'] as String?) ?? '';
       final String? arr = st['arrivalTime'] as String?;
@@ -675,6 +688,52 @@ class _LineMapContentState extends State<LineMapContent> {
       }
       return {...st, 'relativeX': x, 'relativeY': y, 'index': i};
     });
+  }
+
+  /// 将 [filteredStations] 的 relativeX/Y 直接从已归一化的 [positionedFull] 里按站名取，
+  /// 保证停车站圆点坐标与全路线线段端点完全一致，消除视觉偏移。
+  List<Map<String, dynamic>> _reusePositionsFromFull(
+    List<Map<String, dynamic>> filteredStations,
+    List<Map<String, dynamic>> positionedFull,
+  ) {
+    final Map<String, Map<String, dynamic>> fullMap = {};
+    for (final s in positionedFull) {
+      final name =
+          ((s['name'] ?? s['stationName']) as String? ?? '')
+              .replaceAll('站', '')
+              .trim();
+      if (name.isNotEmpty) fullMap[name] = s;
+    }
+
+    return filteredStations.asMap().entries.map((entry) {
+      final i = entry.key;
+      final st = entry.value;
+      final name =
+          ((st['name'] ?? st['stationName']) as String? ?? '')
+              .replaceAll('站', '')
+              .trim();
+      final match = fullMap[name];
+      if (match != null) {
+        return {
+          ...st,
+          'relativeX': match['relativeX'],
+          'relativeY': match['relativeY'],
+          'longitude': match['longitude'] ?? st['longitude'],
+          'latitude': match['latitude'] ?? st['latitude'],
+          'hasLocation': match['hasLocation'] ?? st['hasLocation'],
+          'city': match['city'] ?? st['city'] ?? '',
+          'index': i,
+        };
+      } else {
+        return {
+          ...st,
+          'relativeX': 0.5,
+          'relativeY': 0.5,
+          'hasLocation': false,
+          'index': i,
+        };
+      }
+    }).toList();
   }
 
   List<Map<String, dynamic>> _evenPositions(
@@ -850,6 +909,7 @@ class _LineMapContentState extends State<LineMapContent> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required by AutomaticKeepAliveClientMixin
     if (_isLoading) {
       return const Center(
         child: Column(

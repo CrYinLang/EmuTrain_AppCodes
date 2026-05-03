@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 
 /// 一次行程记录
 class TrackRecord {
-  final String id; // 时间戳字符串，同时作为文件夹名
+  final String id;
   final DateTime startTime;
   final DateTime endTime;
   final double maxSpeedKmh;
@@ -30,9 +30,6 @@ class TrackRecord {
     required this.points,
   });
 
-  // ── 序列化 ────────────────────────────────────────────────────
-
-  /// 摘要信息，写入 meta.json（不含 points）
   Map<String, dynamic> toMetaJson() => {
     'id': id,
     'startTime': startTime.toIso8601String(),
@@ -42,7 +39,6 @@ class TrackRecord {
     'totalDistanceM': totalDistanceM,
   };
 
-  /// 轨迹点列表，写入 points.json
   List<Map<String, dynamic>> toPointsJson() => points
       .map((p) => {'lat': p.latitude, 'lng': p.longitude, 'spd': p.speedKmh})
       .toList();
@@ -68,7 +64,6 @@ class TrackRecord {
         .toList(),
   );
 
-  /// 只从 meta.json 构建，points 为空列表（用于列表页轻量加载）
   factory TrackRecord.fromMetaOnly(Map<String, dynamic> meta) => TrackRecord(
     id: meta['id'] as String,
     startTime: DateTime.parse(meta['startTime'] as String),
@@ -79,9 +74,6 @@ class TrackRecord {
     points: const [],
   );
 
-  // ── 路径工具 ──────────────────────────────────────────────────
-
-  /// tracks 根目录
   static Future<Directory> _tracksDir() async {
     final base = await getApplicationDocumentsDirectory();
     final dir = Directory('${base.path}/tracks');
@@ -89,39 +81,24 @@ class TrackRecord {
     return dir;
   }
 
-  /// 某条记录的子目录（不保证存在）
   static Future<Directory> _recordDir(String id) async {
     final root = await _tracksDir();
     return Directory('${root.path}/$id');
   }
 
-  // ── 持久化接口 ────────────────────────────────────────────────
-
-  /// 保存一条记录（距离 < 100m 时跳过，返回 false）
   static Future<bool> save(TrackRecord record) async {
     if (record.totalDistanceM < 100) return false;
-
     final dir = await _recordDir(record.id);
     await dir.create(recursive: true);
-
-    await File(
-      '${dir.path}/meta.json',
-    ).writeAsString(jsonEncode(record.toMetaJson()));
-    await File(
-      '${dir.path}/points.json',
-    ).writeAsString(jsonEncode(record.toPointsJson()));
-
+    await File('${dir.path}/meta.json').writeAsString(jsonEncode(record.toMetaJson()));
+    await File('${dir.path}/points.json').writeAsString(jsonEncode(record.toPointsJson()));
     return true;
   }
 
-  /// 读取所有记录的摘要，按时间倒序（不加载轨迹点，适合列表页）
   static Future<List<TrackRecord>> loadAllMeta() async {
     final root = await _tracksDir();
     final entries = root.listSync().whereType<Directory>().toList();
-
-    // 文件夹名即时间戳，直接倒序排
     entries.sort((a, b) => b.path.compareTo(a.path));
-
     final records = <TrackRecord>[];
     for (final dir in entries) {
       final metaFile = File('${dir.path}/meta.json');
@@ -134,16 +111,13 @@ class TrackRecord {
     return records;
   }
 
-  /// 读取单条完整记录（含轨迹点），用于详情页 / 地图展示
   static Future<TrackRecord?> loadFull(String id) async {
     final dir = await _recordDir(id);
     final metaFile = File('${dir.path}/meta.json');
     final pointsFile = File('${dir.path}/points.json');
-
     if (!await metaFile.exists() || !await pointsFile.exists()) return null;
     try {
-      final meta =
-          jsonDecode(await metaFile.readAsString()) as Map<String, dynamic>;
+      final meta = jsonDecode(await metaFile.readAsString()) as Map<String, dynamic>;
       final points = jsonDecode(await pointsFile.readAsString()) as List;
       return TrackRecord.fromJson(meta: meta, pointsList: points);
     } catch (_) {
@@ -151,18 +125,17 @@ class TrackRecord {
     }
   }
 
-  /// 删除一条记录（整个子目录）
   static Future<void> delete(String id) async {
     final dir = await _recordDir(id);
     if (await dir.exists()) await dir.delete(recursive: true);
   }
 
-  /// 删除全部记录
   static Future<void> deleteAll() async {
     final root = await _tracksDir();
     if (await root.exists()) await root.delete(recursive: true);
   }
 }
+
 
 class SpeedometerPage extends StatefulWidget {
   const SpeedometerPage({super.key});
@@ -286,7 +259,6 @@ class _SpeedometerPageState extends State<SpeedometerPage>
             appBar: AppBar(
               title: const Text('GPS 速度计'),
               actions: [
-                // ── 历史记录按钮 ──────────────────────────────
                 IconButton(
                   icon: const Icon(Icons.history),
                   tooltip: '历史记录',
@@ -294,7 +266,6 @@ class _SpeedometerPageState extends State<SpeedometerPage>
                     MaterialPageRoute(builder: (_) => const TrackHistoryPage()),
                   ),
                 ),
-                // ── 设置按钮 ──────────────────────────────────
                 IconButton(
                   icon: const Icon(Icons.settings_outlined),
                   tooltip: '设置',
@@ -345,7 +316,6 @@ class _SpeedometerPageState extends State<SpeedometerPage>
   }
 }
 
-//  轨迹地图视图（支持双指缩放 / 旋转 / 单指平移 / 双击复位）
 class _TrackMapView extends StatefulWidget {
   final SpeedService service;
 
@@ -356,18 +326,15 @@ class _TrackMapView extends StatefulWidget {
 }
 
 class _TrackMapViewState extends State<_TrackMapView> {
-  // 变换状态
   double _scale = 1.0;
-  double _rotation = 0.0; // 弧度
+  double _rotation = 0.0;
   Offset _offset = Offset.zero;
 
-  // 手势起始快照
   double _startScale = 1.0;
   double _startRotation = 0.0;
   Offset _startOffset = Offset.zero;
   Offset _focalPointStart = Offset.zero;
 
-  // 是否处于自动追踪模式（新轨迹点进来时自动重置视图）
   bool _autoFollow = true;
   int _lastPointCount = 0;
 
@@ -375,10 +342,8 @@ class _TrackMapViewState extends State<_TrackMapView> {
   void didUpdateWidget(_TrackMapView old) {
     super.didUpdateWidget(old);
     final newCount = widget.service.trackPoints.length;
-    // 有新轨迹点且用户没有手动操作过，保持自动适配
     if (_autoFollow && newCount != _lastPointCount) {
       _lastPointCount = newCount;
-      // 让 painter 重绘即可，视图始终自适应
     }
   }
 
@@ -421,11 +386,8 @@ class _TrackMapViewState extends State<_TrackMapView> {
             )
           : Stack(
               children: [
-                // ── 手势层 ──────────────────────────────────────
                 GestureDetector(
-                  // 双击复位
                   onDoubleTap: _resetView,
-                  // 双指缩放 + 旋转
                   onScaleStart: (details) {
                     _startScale = _scale;
                     _startRotation = _rotation;
@@ -437,7 +399,6 @@ class _TrackMapViewState extends State<_TrackMapView> {
                       _autoFollow = false;
                       _scale = (_startScale * details.scale).clamp(0.2, 20.0);
                       _rotation = _startRotation + details.rotation;
-                      // 平移：跟随焦点移动
                       final focalDelta = details.focalPoint - _focalPointStart;
                       _offset = _startOffset + focalDelta;
                     });
@@ -455,8 +416,6 @@ class _TrackMapViewState extends State<_TrackMapView> {
                     child: const SizedBox.expand(),
                   ),
                 ),
-
-                // ── 复位按钮（手动操作后显示）──────────────────
                 if (!_autoFollow)
                   Positioned(
                     top: 8,
@@ -489,7 +448,6 @@ class _TrackMapViewState extends State<_TrackMapView> {
   }
 }
 
-//  轨迹 Painter（支持变换矩阵）
 class _TrackPainter extends CustomPainter {
   final List<TrackPoint> points;
   final Color trackColor;
@@ -497,7 +455,7 @@ class _TrackPainter extends CustomPainter {
   final double scale;
   final double rotation;
   final Offset offset;
-  final bool autoFit; // true = 忽略变换，自动适配窗口
+  final bool autoFit;
 
   _TrackPainter({
     required this.points,
@@ -513,7 +471,6 @@ class _TrackPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (points.length < 2) return;
 
-    // 计算轨迹包围盒
     double minLat = points.first.latitude;
     double maxLat = points.first.latitude;
     double minLng = points.first.longitude;
@@ -534,7 +491,6 @@ class _TrackPainter extends CustomPainter {
     final drawW = size.width - padding * 2;
     final drawH = size.height - padding * 2;
 
-    // 基础坐标转换（自适应模式下铺满画布）
     Offset toBase(TrackPoint p) {
       final x = lngRange == 0
           ? size.width / 2
@@ -545,7 +501,6 @@ class _TrackPainter extends CustomPainter {
       return Offset(x, y);
     }
 
-    // 应用变换矩阵（缩放 + 旋转 + 平移，以画布中心为原点）
     Offset transform(Offset base) {
       if (autoFit) return base;
       final center = Offset(size.width / 2, size.height / 2);
@@ -561,7 +516,6 @@ class _TrackPainter extends CustomPainter {
 
     canvas.save();
 
-    // 轨迹线
     final linePaint = Paint()
       ..color = trackColor.withValues(alpha: 0.85)
       ..strokeWidth = autoFit
@@ -579,14 +533,12 @@ class _TrackPainter extends CustomPainter {
     }
     canvas.drawPath(path, linePaint);
 
-    // 起点（绿色圆）
     canvas.drawCircle(
       transform(toBase(points.first)),
       6,
       Paint()..color = Colors.green,
     );
 
-    // 终点（红色圆）
     canvas.drawCircle(
       transform(toBase(points.last)),
       6,
@@ -606,7 +558,6 @@ class _TrackPainter extends CustomPainter {
       old.autoFit != autoFit;
 }
 
-//  速度仪面板（可拖拽）
 class _SpeedometerPanel extends StatelessWidget {
   final SpeedService service;
   final bool isExpanded;
@@ -720,9 +671,8 @@ class _SpeedometerPanel extends StatelessWidget {
                           label: '移动距离',
                           value: service.totalDistanceM < 1000
                               ? service.totalDistanceM.toStringAsFixed(0)
-                              : (service.totalDistanceM / 1000).toStringAsFixed(
-                                  2,
-                                ),
+                              : (service.totalDistanceM / 1000)
+                                  .toStringAsFixed(2),
                           unit: service.totalDistanceM < 1000 ? 'm' : 'km',
                           icon: Icons.route,
                         ),
@@ -817,7 +767,7 @@ class _SpeedometerPanel extends StatelessWidget {
   }
 }
 
-//  设置页面
+// ── 设置页面 ──────────────────────────────────────────────────────────────────
 class SpeedometerSettingsPage extends StatefulWidget {
   const SpeedometerSettingsPage({super.key});
 
@@ -843,26 +793,48 @@ class _SpeedometerSettingsPageState extends State<SpeedometerSettingsPage> {
             appBar: AppBar(title: const Text('速度计设置'), centerTitle: true),
             body: ListView(
               children: [
-                // ── 分组：定位模式 ────────────────────────────
-                _SectionHeader(title: '定位模式'),
-                SwitchListTile(
-                  title: const Text('强制使用 LocationManager'),
-                  subtitle: const Text(
-                    '关闭（推荐）：使用 Google Fused Location Provider，精度高、省电\n'
-                    '开启：使用旧版 LocationManager，适合部分模拟位置场景',
-                  ),
-                  value: settings.forceLocationManager,
-                  onChanged: (v) => settings.setForceLocationManager(v),
-                  secondary: Icon(
-                    settings.forceLocationManager
-                        ? Icons.location_searching
-                        : Icons.my_location,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const Divider(indent: 16, endIndent: 16),
+                // ── 定位模式（Android 专属）──────────────────────
+                if (Platform.isAndroid) ...[
+                  _SectionHeader(title: '定位模式（Android）'),
 
-                // ── 分组：轮询频率 ────────────────────────────
+                  // 持续流 vs 轮询
+                  SwitchListTile(
+                    title: const Text('强制使用轮询模式'),
+                    subtitle: const Text(
+                      '关闭（推荐）：持续位置流，GPS 常亮、延迟低、后台可用\n'
+                      '开启：每隔固定间隔查询一次，GPS 间歇亮起，适合调试或兼容性问题',
+                    ),
+                    value: settings.forcePolling,
+                    onChanged: (v) => settings.setForcePolling(v),
+                    secondary: Icon(
+                      settings.forcePolling
+                          ? Icons.timer_outlined
+                          : Icons.graphic_eq,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const Divider(indent: 16, endIndent: 16),
+
+                  // LocationManager vs Fused
+                  SwitchListTile(
+                    title: const Text('强制使用 LocationManager'),
+                    subtitle: const Text(
+                      '关闭（推荐）：使用 Google Fused Location Provider，精度高、省电\n'
+                      '开启：使用旧版 LocationManager，适合部分模拟位置场景',
+                    ),
+                    value: settings.forceLocationManager,
+                    onChanged: (v) => settings.setForceLocationManager(v),
+                    secondary: Icon(
+                      settings.forceLocationManager
+                          ? Icons.location_searching
+                          : Icons.my_location,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const Divider(indent: 16, endIndent: 16),
+                ],
+
+                // ── 定位频率 ──────────────────────────────────────
                 _SectionHeader(title: '定位频率'),
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -884,9 +856,13 @@ class _SpeedometerSettingsPageState extends State<SpeedometerSettingsPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '值越小定位越频繁，但耗电更快。',
+                        Platform.isAndroid && !settings.forcePolling
+                            ? '持续流模式下，此值作为系统请求的最小更新间隔，实际频率由 GPS 硬件决定。'
+                            : '值越小定位越频繁，但耗电更快。',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       Slider(
@@ -894,7 +870,6 @@ class _SpeedometerSettingsPageState extends State<SpeedometerSettingsPage> {
                         min: 0.1,
                         max: 5.0,
                         divisions: 49,
-                        // 步长 0.1
                         label: _formatInterval(settings.pollIntervalSeconds),
                         onChanged: (v) => settings.setPollIntervalSeconds(v),
                       ),
@@ -916,7 +891,7 @@ class _SpeedometerSettingsPageState extends State<SpeedometerSettingsPage> {
                 ),
                 const Divider(indent: 16, endIndent: 16),
 
-                // ── 分组：存储说明 ────────────────────────────
+                // ── 行程记录 ──────────────────────────────────────
                 _SectionHeader(title: '行程记录'),
                 ListTile(
                   leading: const Icon(Icons.save_outlined),
@@ -966,7 +941,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-//  历史记录页
+// ── 历史记录页 ────────────────────────────────────────────────────────────────
 class TrackHistoryPage extends StatefulWidget {
   const TrackHistoryPage({super.key});
 
@@ -1056,8 +1031,7 @@ class _TrackHistoryPageState extends State<TrackHistoryPage> {
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: _records!.length,
-              separatorBuilder: (BuildContext context, int index) =>
-                  const SizedBox(height: 10),
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final r = _records![index];
                 return _RecordCard(
@@ -1065,8 +1039,7 @@ class _TrackHistoryPageState extends State<TrackHistoryPage> {
                   onDelete: () => _delete(r.id),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) =>
-                          TrackDetailPage(recordId: r.id), // ← 改成传 id
+                      builder: (_) => TrackDetailPage(recordId: r.id),
                     ),
                   ),
                 );
@@ -1076,7 +1049,6 @@ class _TrackHistoryPageState extends State<TrackHistoryPage> {
   }
 }
 
-//  记录卡片
 class _RecordCard extends StatelessWidget {
   final TrackRecord record;
   final VoidCallback onDelete;
@@ -1106,14 +1078,9 @@ class _RecordCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 时间 + 删除按钮
               Row(
                 children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 14,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  Icon(Icons.access_time, size: 14, color: colorScheme.onSurfaceVariant),
                   const SizedBox(width: 4),
                   Text(
                     _formatDateTime(record.startTime),
@@ -1140,22 +1107,13 @@ class _RecordCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              // 三项统计
               Row(
                 children: [
                   _miniStat(context, Icons.straighten, distStr, '距离'),
-                  _miniStat(
-                    context,
-                    Icons.speed,
-                    '${record.maxSpeedKmh.toStringAsFixed(1)} km/h',
-                    '最高速',
-                  ),
-                  _miniStat(
-                    context,
-                    Icons.av_timer,
-                    '${record.avgSpeedKmh.toStringAsFixed(1)} km/h',
-                    '平均速',
-                  ),
+                  _miniStat(context, Icons.speed,
+                      '${record.maxSpeedKmh.toStringAsFixed(1)} km/h', '最高速'),
+                  _miniStat(context, Icons.av_timer,
+                      '${record.avgSpeedKmh.toStringAsFixed(1)} km/h', '平均速'),
                 ],
               ),
             ],
@@ -1165,12 +1123,7 @@ class _RecordCard extends StatelessWidget {
     );
   }
 
-  Widget _miniStat(
-    BuildContext context,
-    IconData icon,
-    String value,
-    String label,
-  ) {
+  Widget _miniStat(BuildContext context, IconData icon, String value, String label) {
     final theme = Theme.of(context);
     return Expanded(
       child: Column(
@@ -1179,9 +1132,7 @@ class _RecordCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1196,10 +1147,8 @@ class _RecordCard extends StatelessWidget {
     );
   }
 
-  String _formatDateTime(DateTime dt) {
-    return '${dt.year}-${_pad(dt.month)}-${_pad(dt.day)} '
-        '${_pad(dt.hour)}:${_pad(dt.minute)}';
-  }
+  String _formatDateTime(DateTime dt) =>
+      '${dt.year}-${_pad(dt.month)}-${_pad(dt.day)} ${_pad(dt.hour)}:${_pad(dt.minute)}';
 
   String _formatDuration(Duration d) {
     if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
@@ -1210,8 +1159,7 @@ class _RecordCard extends StatelessWidget {
   String _pad(int n) => n.toString().padLeft(2, '0');
 }
 
-//  行程详情页（轨迹回放）
-
+// ── 行程详情页 ────────────────────────────────────────────────────────────────
 class TrackDetailPage extends StatefulWidget {
   final String recordId;
 
@@ -1288,7 +1236,6 @@ class _TrackDetailPageState extends State<TrackDetailPage> {
     final isDark = theme.brightness == Brightness.dark;
     final duration = record.endTime.difference(record.startTime);
 
-    // 顶部日期
     final dateStr =
         '${record.startTime.year}-'
         '${record.startTime.month.toString().padLeft(2, '0')}-'
@@ -1303,15 +1250,11 @@ class _TrackDetailPageState extends State<TrackDetailPage> {
       body: Column(
         children: [
           Expanded(child: _TrackDetailMapView(points: record.points)),
-
-          // 数据卡片
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF141218) : Colors.white,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.12),
@@ -1323,14 +1266,9 @@ class _TrackDetailPageState extends State<TrackDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 时间段（已修复）
                 Row(
                   children: [
-                    Icon(
-                      Icons.schedule,
-                      size: 14,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    Icon(Icons.schedule, size: 14, color: colorScheme.onSurfaceVariant),
                     const SizedBox(width: 4),
                     Text(
                       '${_formatTime(record.startTime)} → ${_formatTime(record.endTime)} '
@@ -1342,29 +1280,15 @@ class _TrackDetailPageState extends State<TrackDetailPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
-                // 四项统计
                 Row(
                   children: [
                     _detailStat(context, distStr, '移动距离', Icons.straighten),
-                    _detailStat(
-                      context,
-                      '${record.maxSpeedKmh.toStringAsFixed(1)}\nkm/h',
-                      '最高速',
-                      Icons.speed,
-                    ),
-                    _detailStat(
-                      context,
-                      '${record.avgSpeedKmh.toStringAsFixed(1)}\nkm/h',
-                      '平均速',
-                      Icons.av_timer,
-                    ),
-                    _detailStat(
-                      context,
-                      '${record.points.length}',
-                      'GPS点数',
-                      Icons.location_on_outlined,
-                    ),
+                    _detailStat(context,
+                        '${record.maxSpeedKmh.toStringAsFixed(1)}\nkm/h', '最高速', Icons.speed),
+                    _detailStat(context,
+                        '${record.avgSpeedKmh.toStringAsFixed(1)}\nkm/h', '平均速', Icons.av_timer),
+                    _detailStat(context, '${record.points.length}', 'GPS点数',
+                        Icons.location_on_outlined),
                   ],
                 ),
               ],
@@ -1375,11 +1299,8 @@ class _TrackDetailPageState extends State<TrackDetailPage> {
     );
   }
 
-  // ==================== 辅助格式化方法 ====================
-
-  String _formatTime(DateTime dt) {
-    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
+  String _formatTime(DateTime dt) =>
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
   String _formatDuration(Duration d) {
     if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
@@ -1387,12 +1308,7 @@ class _TrackDetailPageState extends State<TrackDetailPage> {
     return '${d.inSeconds}s';
   }
 
-  Widget _detailStat(
-    BuildContext context,
-    String value,
-    String label,
-    IconData icon,
-  ) {
+  Widget _detailStat(BuildContext context, String value, String label, IconData icon) {
     final theme = Theme.of(context);
     return Expanded(
       child: Column(
@@ -1401,9 +1317,7 @@ class _TrackDetailPageState extends State<TrackDetailPage> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           Text(
@@ -1469,8 +1383,7 @@ class _TrackDetailMapViewState extends State<_TrackDetailMapView> {
                       _transformed = true;
                       _scale = (_startScale * d.scale).clamp(0.2, 20.0);
                       _rotation = _startRotation + d.rotation;
-                      _offset =
-                          _startOffset + (d.focalPoint - _focalPointStart);
+                      _offset = _startOffset + (d.focalPoint - _focalPointStart);
                     });
                   },
                   child: CustomPaint(
@@ -1504,11 +1417,7 @@ class _TrackDetailMapViewState extends State<_TrackDetailMapView> {
                             ),
                           ],
                         ),
-                        child: Icon(
-                          Icons.my_location,
-                          size: 18,
-                          color: colorScheme.primary,
-                        ),
+                        child: Icon(Icons.my_location, size: 18, color: colorScheme.primary),
                       ),
                     ),
                   ),

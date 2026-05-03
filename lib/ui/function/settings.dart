@@ -858,8 +858,8 @@ class ThemeSettingsScreen extends StatelessWidget {
 
   // 预设颜色选项
   static const List<({Color color, String label})> _presetColors = [
-    (color: Color(0xFF2196F3), label: '蓝色'),
-    (color: Color(0xFF4CAF50), label: '绿色'),
+    (color: Color(0xFF2196F3), label: '银狼蓝'),
+    (color: Color(0xFF4CAF50), label: '麻酱绿'),
     (color: Color(0xFFF44336), label: '红色'),
     (color: Color(0xFF9C27B0), label: '紫色'),
     (color: Color(0xFFFF9800), label: '橙色'),

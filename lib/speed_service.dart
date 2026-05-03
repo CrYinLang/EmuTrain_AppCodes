@@ -49,6 +49,10 @@ class SpeedService extends ChangeNotifier {
   bool? lastSaveResult;
   DateTime? _trackingStartTime;
 
+  // 当前是否实际运行在轮询模式（流失败降级后为 true）
+  bool _usingPollFallback = false;
+  bool get usingPollFallback => _usingPollFallback;
+
   StreamSubscription<Position>? _positionStream;
   Timer? _pollTimer;
 
@@ -81,6 +85,14 @@ class SpeedService extends ChangeNotifier {
       return;
     }
 
+    // Android 额外申请后台权限（Android 10+）
+    if (Platform.isAndroid) {
+      if (permission == LocationPermission.whileInUse) {
+        permission = await Geolocator.requestPermission();
+        // 用户拒绝后台权限不阻止使用，仅影响后台追踪
+      }
+    }
+
     hasPermission = true;
     statusMsg = isTracking ? '正在测速' : '点击开始测速';
     notifyListeners();
@@ -100,11 +112,11 @@ class SpeedService extends ChangeNotifier {
     _speedAccumulator = 0.0;
     _speedSampleCount = 0;
     lastSaveResult = null;
+    _usingPollFallback = false;
     trackPoints.clear();
     _trackingStartTime = DateTime.now();
     notifyListeners();
 
-    // ✅ 确保设置已从 SharedPreferences 加载完毕再开始轮询
     await SettingsModel().load();
 
     // 先尝试拿上一次已知位置，让界面立刻有数据显示
@@ -116,21 +128,83 @@ class SpeedService extends ChangeNotifier {
       }
     } catch (_) {}
 
+    final settings = SettingsModel();
+
+    // iOS 始终使用持续流
+    // Android：根据设置决定，流失败自动降级到轮询
+    if (Platform.isAndroid && settings.forcePolling) {
+      _startPolling();
+    } else {
+      _startStream();
+    }
+  }
+
+  // ── 持续流模式 ────────────────────────────────────────────────
+  void _startStream() {
+    _positionStream?.cancel();
+
+    final locationSettings = _buildStreamLocationSettings();
+
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen(
+      (position) {
+        if (isTracking) _onPosition(position);
+      },
+      onError: (Object e) {
+        if (!isTracking) return;
+        // 流出错，降级到轮询
+        debugInfo = '流定位失败，切换轮询: $e';
+        _usingPollFallback = true;
+        notifyListeners();
+        _positionStream?.cancel();
+        _positionStream = null;
+        _startPolling();
+      },
+      cancelOnError: true,
+    );
+  }
+
+  // ── 轮询模式（Android 专用）────────────────────────────────────
+  void _startPolling() {
     _scheduleNextPoll();
   }
 
-  // ── 构建当前 LocationSettings（每次调用都从 SettingsModel 实时读）
-  LocationSettings _buildLocationSettings() {
+  // ── 构建流模式 LocationSettings ───────────────────────────────
+  LocationSettings _buildStreamLocationSettings() {
     final s = SettingsModel();
+    final intervalMs =
+        (s.pollIntervalSeconds * 1000).round().clamp(100, 5000);
+
     if (Platform.isAndroid) {
       return AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         forceLocationManager: s.forceLocationManager,
+        intervalDuration: Duration(milliseconds: intervalMs),
+        distanceFilter: 0,
       );
     } else if (Platform.isIOS) {
       return AppleSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         pauseLocationUpdatesAutomatically: false,
+        distanceFilter: 0,
+        allowBackgroundLocationUpdates: true,
+      );
+    } else {
+      return LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 0,
+      );
+    }
+  }
+
+  // ── 构建轮询模式 LocationSettings ─────────────────────────────
+  LocationSettings _buildPollLocationSettings() {
+    final s = SettingsModel();
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        forceLocationManager: s.forceLocationManager,
       );
     } else {
       return const LocationSettings(
@@ -139,11 +213,10 @@ class SpeedService extends ChangeNotifier {
     }
   }
 
-  // ── 递归单次轮询，每轮都重新读设置，确保途中修改立即生效 ──────
+  // ── 递归单次轮询 ──────────────────────────────────────────────
   void _scheduleNextPoll() {
     if (!isTracking) return;
 
-    // 实时读取间隔
     final intervalMs = (SettingsModel().pollIntervalSeconds * 1000)
         .round()
         .clamp(100, 5000);
@@ -153,13 +226,12 @@ class SpeedService extends ChangeNotifier {
       if (!isTracking) return;
 
       try {
-        // 实时读取 timeout（间隔的3倍，最少5秒最多15秒）
         final timeoutSec = (SettingsModel().pollIntervalSeconds * 3)
             .ceil()
             .clamp(5, 15);
 
         final position = await Geolocator.getCurrentPosition(
-          locationSettings: _buildLocationSettings(),
+          locationSettings: _buildPollLocationSettings(),
         ).timeout(Duration(seconds: timeoutSec));
 
         if (isTracking) _onPosition(position);
@@ -170,7 +242,6 @@ class SpeedService extends ChangeNotifier {
         }
       }
 
-      // 无论成功失败，都用最新设置调度下一次
       _scheduleNextPoll();
     });
   }
@@ -199,7 +270,10 @@ class SpeedService extends ChangeNotifier {
     speedKmh = currentSpeedKmh;
     totalDistanceM += deltaDistance;
     avgSpeedKmh = _speedAccumulator / _speedSampleCount;
-    debugInfo = '更新#$_updateCount | ${speedMs.toStringAsFixed(2)} m/s';
+
+    final modeTag = _usingPollFallback ? '轮询' : '流';
+    debugInfo = '[$modeTag] 更新#$_updateCount | ${speedMs.toStringAsFixed(2)} m/s';
+
     if (currentSpeedKmh > maxSpeedKmh) maxSpeedKmh = currentSpeedKmh;
     statusMsg = '正在测速';
 
@@ -216,11 +290,14 @@ class SpeedService extends ChangeNotifier {
 
   // ── 停止追踪并保存 ────────────────────────────────────────────
   Future<void> stopTracking() async {
-    _positionStream?.cancel();
+    await _positionStream?.cancel();
+    _positionStream = null;
     _pollTimer?.cancel();
+    _pollTimer = null;
     isTracking = false;
     speedKmh = 0.0;
     _updateCount = 0;
+    _usingPollFallback = false;
 
     if (trackPoints.isNotEmpty && _trackingStartTime != null) {
       final record = TrackRecord(
@@ -251,15 +328,18 @@ class SettingsModel extends ChangeNotifier {
 
   bool _forceLocationManager = false;
   double _pollIntervalSeconds = 1.0;
+  // Android 专用：强制使用轮询模式（关闭时默认用持续流）
+  bool _forcePolling = false;
 
   bool get forceLocationManager => _forceLocationManager;
-
   double get pollIntervalSeconds => _pollIntervalSeconds;
+  bool get forcePolling => _forcePolling;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _forceLocationManager = prefs.getBool('forceLocationManager') ?? false;
     _pollIntervalSeconds = prefs.getDouble('pollIntervalSeconds') ?? 1.0;
+    _forcePolling = prefs.getBool('forcePolling') ?? false;
     notifyListeners();
   }
 
@@ -274,6 +354,13 @@ class SettingsModel extends ChangeNotifier {
     _pollIntervalSeconds = value.clamp(0.1, 5.0);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('pollIntervalSeconds', _pollIntervalSeconds);
+    notifyListeners();
+  }
+
+  Future<void> setForcePolling(bool value) async {
+    _forcePolling = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('forcePolling', value);
     notifyListeners();
   }
 }
