@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 
-import 'journey_model.dart';
-import 'ui/linemap.dart';
+import '../journey_model.dart';
+import 'linemap.dart';
 
 class JourneyDetailPage extends StatelessWidget {
   final Journey journey;
@@ -752,9 +752,9 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      _showRouteMapDialog(context);
+                      _showLineMapToolbox(context);
                     },
-                    icon: const Icon(Icons.share),
+                    icon: const Icon(Icons.map),
                     label: const Text('线路走向图'),
                   ),
                 ),
@@ -766,17 +766,137 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
     );
   }
 
-  void _showRouteMapDialog(BuildContext context) {
+  // ── 工具箱风格的走向图 bottom sheet ─────────────────────────
+  void _showLineMapToolbox(BuildContext context) {
     final journey = widget.journey;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.all(20),
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.9,
-          height: MediaQuery.of(context).size.height * 0.8,
-          child: LineMapDialog(journey: journey),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.88,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          child: Column(
+            children: [
+              // ── 标题栏（与工具箱同款） ───────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black : Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 拖拽把手
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: cs.onSurface.withAlpha(60),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    // 标题行
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.map_outlined,
+                            color: cs.onSurface,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '线路走向图  ${journey.trainCode}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: cs.onSurface),
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, color: cs.onSurface.withAlpha(30)),
+                  ],
+                ),
+              ),
+
+              // ── 路线摘要卡片 ─────────────────────────────────
+              ColoredBox(
+                color: isDark ? Colors.black : Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.train, color: cs.onSurface),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${journey.trainCode}次 • ${journey.fromStation} → ${journey.toStation}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  '全程${journey.getTotalDuration()} • ${journey.stations.length}个站点',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── 地图主体 ─────────────────────────────────────
+              Expanded(
+                child: ColoredBox(
+                  color: isDark ? Colors.black : Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: LineMapContent(journey: journey),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

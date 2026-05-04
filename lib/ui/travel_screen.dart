@@ -3,9 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../journey_detail_page.dart';
+import 'journey_detail_page.dart';
 import '../journey_model.dart';
 import '../journey_provider.dart';
+import 'function/custom_journey_page.dart';
 import 'journey.dart';
 
 class TravelScreen extends StatelessWidget {
@@ -120,19 +121,7 @@ class TravelScreen extends StatelessWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const AddJourneyPage(), // 确保类名正确
-          ),
-        ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0),
-        ),
-        child: const Icon(Icons.add, size: 28),
-      ),
+      floatingActionButton: _AddJourneyFab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
@@ -336,6 +325,29 @@ class _JourneyCardState extends State<JourneyCard> {
                           ),
                         ),
                       ),
+                      // 自定义旅途标记
+                      if (journey.id.startsWith('custom_')) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: Colors.purple.withValues(alpha: 0.5),
+                                width: 1),
+                          ),
+                          child: const Text(
+                            '自定义',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.purple,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   IconButton(
@@ -525,6 +537,158 @@ class _JourneyCardState extends State<JourneyCard> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// FAB：添加行程入口（国铁查询 / 自定义）
+// ─────────────────────────────────────────────────────────────
+class _AddJourneyFab extends StatefulWidget {
+  @override
+  State<_AddJourneyFab> createState() => _AddJourneyFabState();
+}
+
+class _AddJourneyFabState extends State<_AddJourneyFab>
+    with SingleTickerProviderStateMixin {
+  bool _open = false;
+  late AnimationController _anim;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 200));
+    _scaleAnim = CurvedAnimation(parent: _anim, curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    _open ? _anim.forward() : _anim.reverse();
+  }
+
+  void _close() {
+    setState(() => _open = false);
+    _anim.reverse();
+  }
+
+  void _goRail() {
+    _close();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddJourneyPage()),
+    );
+  }
+
+  void _goCustom() {
+    _close();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CustomJourneyPage()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // 展开按钮：国铁查询
+        ScaleTransition(
+          scale: _scaleAnim,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 文字标签
+                if (_open)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 4)
+                      ],
+                    ),
+                    child: const Text('查询国铁车次',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                FloatingActionButton.small(
+                  heroTag: 'fab_rail',
+                  onPressed: _goRail,
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  child: const Icon(Icons.search, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 展开按钮：自定义旅途
+        ScaleTransition(
+          scale: _scaleAnim,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_open)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 4)
+                      ],
+                    ),
+                    child: const Text('自定义旅途',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                FloatingActionButton.small(
+                  heroTag: 'fab_custom',
+                  onPressed: _goCustom,
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.edit_location_alt, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 主 FAB
+        FloatingActionButton(
+          heroTag: 'fab_main',
+          onPressed: _toggle,
+          backgroundColor: _open ? Colors.grey.shade600 : cs.primary,
+          foregroundColor: cs.onPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: AnimatedRotation(
+            turns: _open ? 0.125 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: const Icon(Icons.add, size: 28),
+          ),
+        ),
+      ],
     );
   }
 }

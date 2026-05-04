@@ -4,7 +4,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'functions.dart';
 
 // ============================================================
 // 热门车站（20个，按知名度排序）

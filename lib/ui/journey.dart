@@ -3917,7 +3917,43 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
             controller: _tabController,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              LineMapDialog(journey: widget.journey),
+              // 线路走向图：直接用 LineMapContent，避免嵌套 Scaffold
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // 路线摘要卡片
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.train, color: cs.onSurface),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${widget.journey.trainCode}次 • ${widget.journey.fromStation} → ${widget.journey.toStation}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    '全程${widget.journey.getTotalDuration()} • ${widget.journey.stations.length}个站点',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(child: LineMapContent(journey: widget.journey)),
+                  ],
+                ),
+              ),
               _buildRoutingTab(),
             ],
           ),

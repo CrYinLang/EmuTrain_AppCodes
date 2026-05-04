@@ -23,9 +23,9 @@ import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '26-05-02-19-30';
-  static const String version = '1.2.1.2';
-  static const String build = '1212';
+  static const String lastUpdate = '26-05-03-12-00';
+  static const String version = '1.2.2.0';
+  static const String build = '1220';
 
   static String defaultStationBuild = '4';
   static String defaultTrainBuild = '7';
