@@ -255,10 +255,7 @@ class _StationSelectorState extends State<StationSelector> {
       ),
       subtitle: Text(
         '$city市  $tc',
-        style: TextStyle(
-          fontSize: 11,
-          color: Theme.of(context).hintColor,
-        ),
+        style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -354,11 +351,18 @@ class _StationSelectorState extends State<StationSelector> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 56, color: Theme.of(context).hintColor),
+            Icon(
+              Icons.search_off,
+              size: 56,
+              color: Theme.of(context).hintColor,
+            ),
             const SizedBox(height: 12),
             Text(
               '未找到相关车站',
-              style: TextStyle(fontSize: 15, color: Theme.of(context).hintColor),
+              style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).hintColor,
+              ),
             ),
           ],
         ),
@@ -433,7 +437,9 @@ class _StationSelectorState extends State<StationSelector> {
                       )
                     : null,
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -467,8 +473,8 @@ class _StationSelectorState extends State<StationSelector> {
             child: _loadingStations
                 ? const Center(child: CircularProgressIndicator())
                 : isSearching
-                    ? _buildSearchResults()
-                    : _buildHomeSections(),
+                ? _buildSearchResults()
+                : _buildHomeSections(),
           ),
         ],
       ),

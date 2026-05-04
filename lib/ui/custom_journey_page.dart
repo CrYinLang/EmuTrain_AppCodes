@@ -167,11 +167,13 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
           final name = (result['name'] ?? '').replaceAll('站', '').trim();
           if (name.isEmpty) return;
           setState(() {
-            _stations.add(_EditableStation(
-              name: name,
-              isCustom: false,
-              telecode: result['telecode'] ?? '',
-            ));
+            _stations.add(
+              _EditableStation(
+                name: name,
+                isCustom: false,
+                telecode: result['telecode'] ?? '',
+              ),
+            );
           });
         },
       ),
@@ -212,7 +214,11 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
   }
 
   void _saveCustomStation(
-      BuildContext ctx, String name, _EditableStation? existing, int? idx) {
+    BuildContext ctx,
+    String name,
+    _EditableStation? existing,
+    int? idx,
+  ) {
     if (name.isEmpty) {
       _showSnack('站名不能为空');
       return;
@@ -302,11 +308,14 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
   void _showTimeEditor(int idx) {
     final s = _stations[idx];
     final arrCtrl = TextEditingController(
-        text: s.arrivalTime == '--:--' ? '' : s.arrivalTime);
+      text: s.arrivalTime == '--:--' ? '' : s.arrivalTime,
+    );
     final depCtrl = TextEditingController(
-        text: s.departureTime == '--:--' ? '' : s.departureTime);
-    final stayCtrl =
-        TextEditingController(text: s.stayMinutes > 0 ? '${s.stayMinutes}' : '');
+      text: s.departureTime == '--:--' ? '' : s.departureTime,
+    );
+    final stayCtrl = TextEditingController(
+      text: s.stayMinutes > 0 ? '${s.stayMinutes}' : '',
+    );
 
     showDialog(
       context: context,
@@ -336,7 +345,9 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
           ElevatedButton(
             onPressed: () {
               final arr = _normalizeTime(arrCtrl.text.trim());
@@ -389,7 +400,9 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
                 child: Text(
                   day == 0 ? '当天' : '+$day 天',
                   style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               IconButton(
@@ -400,7 +413,9 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
             ElevatedButton(
               onPressed: () {
                 setState(() {
@@ -507,8 +522,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
         departureTime: fromS.departureTime != '--:--'
             ? fromS.departureTime
             : '--:--',
-        arrivalTime:
-            toS.arrivalTime != '--:--' ? toS.arrivalTime : '--:--',
+        arrivalTime: toS.arrivalTime != '--:--' ? toS.arrivalTime : '--:--',
         travelDate: _travelDate,
         stations: stationDetails,
         // isStation=true 表示包含自定义车站或本页面来源，用于限制工具箱
@@ -549,7 +563,9 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
+      backgroundColor: isDark
+          ? const Color(0xFF111111)
+          : const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('自定义旅途'),
         backgroundColor: isDark ? Colors.black : Colors.white,
@@ -560,10 +576,12 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
             const Padding(
               padding: EdgeInsets.only(right: 16),
               child: Center(
-                  child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
             )
           else
             TextButton.icon(
@@ -571,7 +589,9 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
               icon: const Icon(Icons.check),
               label: const Text('保存'),
               style: TextButton.styleFrom(
-                foregroundColor: _canSave ? cs.primary : cs.onSurface.withAlpha(80),
+                foregroundColor: _canSave
+                    ? cs.primary
+                    : cs.onSurface.withAlpha(80),
               ),
             ),
         ],
@@ -605,8 +625,10 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
                 decoration: const InputDecoration(
                   hintText: '本务、组号、其他备注…',
                   border: OutlineInputBorder(),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
             ),
@@ -650,8 +672,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.confirmation_number_outlined),
           ),
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? '请输入车次号' : null,
+          validator: (v) => (v == null || v.trim().isEmpty) ? '请输入车次号' : null,
         ),
         const SizedBox(height: 12),
         // 日期
@@ -673,7 +694,11 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
                   style: const TextStyle(fontSize: 16),
                 ),
                 const Spacer(),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.grey,
+                ),
               ],
             ),
           ),
@@ -736,7 +761,10 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
               const Spacer(),
               Text(
                 '${_stations.length} 个站',
-                style: TextStyle(fontSize: 13, color: cs.onSurface.withAlpha(140)),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurface.withAlpha(140),
+                ),
               ),
             ],
           ),
@@ -753,14 +781,19 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.compare_arrows, size: 16, color: cs.onPrimaryContainer),
+                  Icon(
+                    Icons.compare_arrows,
+                    size: 16,
+                    color: cs.onPrimaryContainer,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     '${_fromIdx != null ? _stations[_fromIdx!].name : '?'} → ${_toIdx != null ? _stations[_toIdx!].name : '?'}',
                     style: TextStyle(
-                        fontSize: 13,
-                        color: cs.onPrimaryContainer,
-                        fontWeight: FontWeight.w600),
+                      fontSize: 13,
+                      color: cs.onPrimaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -783,7 +816,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ),
@@ -798,7 +832,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
         color: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-            color: isDark ? Colors.white.withAlpha(30) : Colors.grey.shade300),
+          color: isDark ? Colors.white.withAlpha(30) : Colors.grey.shade300,
+        ),
       ),
       child: Center(
         child: Text(
@@ -848,12 +883,12 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     final s = _stations[idx];
     final isFrom = _fromIdx == idx;
     final isTo = _toIdx == idx;
-    final inRange = _fromIdx != null &&
-        _toIdx != null &&
-        idx > _fromIdx! &&
-        idx < _toIdx!;
+    final inRange =
+        _fromIdx != null && _toIdx != null && idx > _fromIdx! && idx < _toIdx!;
 
-    Color borderColor = isDark ? Colors.white.withAlpha(30) : Colors.grey.shade300;
+    Color borderColor = isDark
+        ? Colors.white.withAlpha(30)
+        : Colors.grey.shade300;
     if (isFrom) borderColor = Colors.green;
     if (isTo) borderColor = Colors.orange;
 
@@ -870,7 +905,10 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor, width: isFrom || isTo ? 2 : 1),
+              border: Border.all(
+                color: borderColor,
+                width: isFrom || isTo ? 2 : 1,
+              ),
             ),
             child: Row(
               children: [
@@ -884,19 +922,20 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
                         color: isFrom
                             ? Colors.green
                             : isTo
-                                ? Colors.orange
-                                : inRange
-                                    ? cs.primary.withAlpha(180)
-                                    : Colors.grey.shade400,
+                            ? Colors.orange
+                            : inRange
+                            ? cs.primary.withAlpha(180)
+                            : Colors.grey.shade400,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Text(
                           '${idx + 1}',
                           style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold),
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -920,12 +959,9 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          if (s.isCustom)
-                            _badge('自定义', Colors.purple),
-                          if (isFrom)
-                            _badge('上车', Colors.green),
-                          if (isTo)
-                            _badge('下车', Colors.orange),
+                          if (s.isCustom) _badge('自定义', Colors.purple),
+                          if (isFrom) _badge('上车', Colors.green),
+                          if (isTo) _badge('下车', Colors.orange),
                           if (s.dayDiff > 0)
                             _badge('+${s.dayDiff}天', Colors.blue),
                         ],
@@ -941,8 +977,9 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
                             Text(
                               '停${s.stayMinutes}分',
                               style: TextStyle(
-                                  fontSize: 11,
-                                  color: cs.onSurface.withAlpha(140)),
+                                fontSize: 11,
+                                color: cs.onSurface.withAlpha(140),
+                              ),
                             ),
                           ],
                         ],
@@ -953,8 +990,11 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
                 // 右侧：拖拽把手
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
-                  child: Icon(Icons.drag_handle,
-                      color: Colors.grey.shade400, size: 20),
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: Colors.grey.shade400,
+                    size: 20,
+                  ),
                 ),
               ],
             ),
@@ -965,41 +1005,42 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
   }
 
   Widget _badge(String text, Color color) => Container(
-        margin: const EdgeInsets.only(right: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-          color: color.withAlpha(40),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withAlpha(120)),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-              fontSize: 10, color: color, fontWeight: FontWeight.bold),
-        ),
-      );
+    margin: const EdgeInsets.only(right: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(
+      color: color.withAlpha(40),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: color.withAlpha(120)),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+    ),
+  );
 
   Widget _timeChip(String label, String time) => RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: '$label ',
-              style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade500,
-                  fontFamily: DefaultTextStyle.of(context).style.fontFamily),
-            ),
-            TextSpan(
-              text: time,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontFamily: DefaultTextStyle.of(context).style.fontFamily),
-            ),
-          ],
+    text: TextSpan(
+      children: [
+        TextSpan(
+          text: '$label ',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade500,
+            fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+          ),
         ),
-      );
+        TextSpan(
+          text: time,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onSurface,
+            fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+          ),
+        ),
+      ],
+    ),
+  );
 
   // ── 通用卡片 ─────────────────────────────────────────────
 
@@ -1029,11 +1070,19 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                icon,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 8),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.bold)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -1043,10 +1092,11 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     );
   }
 
-  Widget _buildHintCard(
-      {required IconData icon,
-      required Color color,
-      required String text}) {
+  Widget _buildHintCard({
+    required IconData icon,
+    required Color color,
+    required String text,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1060,8 +1110,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 10),
           Expanded(
-              child: Text(text,
-                  style: TextStyle(fontSize: 12, color: color))),
+            child: Text(text, style: TextStyle(fontSize: 12, color: color)),
+          ),
         ],
       ),
     );
@@ -1075,8 +1125,7 @@ class _AddStationSheet extends StatelessWidget {
   final VoidCallback onAddRail;
   final VoidCallback onAddCustom;
 
-  const _AddStationSheet(
-      {required this.onAddRail, required this.onAddCustom});
+  const _AddStationSheet({required this.onAddRail, required this.onAddCustom});
 
   @override
   Widget build(BuildContext context) {
@@ -1087,10 +1136,11 @@ class _AddStationSheet extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          top: 16,
-          left: 20,
-          right: 20),
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        top: 16,
+        left: 20,
+        right: 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1106,8 +1156,10 @@ class _AddStationSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text('添加站点',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            '添加站点',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           // 国铁车站
           _OptionTile(
@@ -1176,13 +1228,18 @@ class _OptionTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
                 ],
               ),
             ),
@@ -1231,10 +1288,11 @@ class _StationMenuSheet extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          top: 16,
-          left: 20,
-          right: 20),
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        top: 16,
+        left: 20,
+        right: 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1244,8 +1302,9 @@ class _StationMenuSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(2)),
+                color: Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -1256,8 +1315,10 @@ class _StationMenuSheet extends StatelessWidget {
           if (isCustom)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text('自定义车站',
-                  style: TextStyle(fontSize: 12, color: Colors.purple.shade400)),
+              child: Text(
+                '自定义车站',
+                style: TextStyle(fontSize: 12, color: Colors.purple.shade400),
+              ),
             ),
           const SizedBox(height: 12),
           Wrap(
@@ -1339,11 +1400,14 @@ class _MenuChip extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: color,
-                    fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -1359,8 +1423,11 @@ class _TimeField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
 
-  const _TimeField(
-      {required this.label, required this.controller, required this.hint});
+  const _TimeField({
+    required this.label,
+    required this.controller,
+    required this.hint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1384,8 +1451,10 @@ class _TimeField extends StatelessWidget {
             final picked = await showTimePicker(
               context: context,
               initialTime: TimeOfDay(hour: initH, minute: initM),
-              builder: (ctx, child) =>
-                  MediaQuery(data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true), child: child!),
+              builder: (ctx, child) => MediaQuery(
+                data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+                child: child!,
+              ),
             );
             if (picked != null) {
               controller.text =
@@ -1404,7 +1473,9 @@ class _TimeField extends StatelessWidget {
 class UpperCaseTextFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     return newValue.copyWith(text: newValue.text.toUpperCase());
   }
 }

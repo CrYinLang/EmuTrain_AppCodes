@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 
-import 'journey_model.dart';
-import 'ui/linemap.dart';
+import '../journey_model.dart';
+import 'linemap.dart';
 
 class JourneyDetailPage extends StatelessWidget {
   final Journey journey;
@@ -749,9 +749,7 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _buildLineMapButton(context),
-                ),
+                Expanded(child: _buildLineMapButton(context)),
               ],
             ),
             // 自定义旅途限制提示
@@ -759,17 +757,23 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.purple.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                      color: Colors.purple.withValues(alpha: 0.3)),
+                    color: Colors.purple.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline,
-                        size: 14, color: Colors.purple.shade400),
+                    Icon(
+                      Icons.info_outline,
+                      size: 14,
+                      color: Colors.purple.shade400,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -777,8 +781,9 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
                             ? '包含自定义车站，不支持工具箱'
                             : '自定义旅途，仅支持本地线路图',
                         style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.purple.shade400),
+                          fontSize: 11,
+                          color: Colors.purple.shade400,
+                        ),
                       ),
                     ),
                   ],
@@ -795,8 +800,9 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
   Widget _buildLineMapButton(BuildContext context) {
     final journey = widget.journey;
     final isCustom = journey.id.startsWith('custom_');
-    final hasCustomStation = journey.stations
-        .any((s) => s.stationName.isNotEmpty && !_isRailStation(s.stationName));
+    final hasCustomStation = journey.stations.any(
+      (s) => s.stationName.isNotEmpty && !_isRailStation(s.stationName),
+    );
 
     if (isCustom && hasCustomStation) {
       // 包含自定义车站：禁用，不可点击
@@ -868,11 +874,16 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       child: Row(
                         children: [
-                          Icon(Icons.map_outlined,
-                              color: cs.onSurface, size: 20),
+                          Icon(
+                            Icons.map_outlined,
+                            color: cs.onSurface,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -889,19 +900,23 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
                             Container(
                               margin: const EdgeInsets.only(right: 8),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.purple.withAlpha(30),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                    color: Colors.purple.withAlpha(100)),
+                                  color: Colors.purple.withAlpha(100),
+                                ),
                               ),
                               child: const Text(
                                 '本地数据',
                                 style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.purple,
-                                    fontWeight: FontWeight.bold),
+                                  fontSize: 10,
+                                  color: Colors.purple,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           IconButton(
@@ -937,7 +952,8 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
                                 Text(
                                   '${journey.trainCode}次 • ${journey.fromStation} → ${journey.toStation}',
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 Text(
                                   '全程${journey.getTotalDuration()} • ${journey.stations.length}个站点',

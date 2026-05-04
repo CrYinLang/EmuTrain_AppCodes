@@ -583,7 +583,6 @@ class _MainScreenState extends State<MainScreen> {
     final version = versionInfo['Version']?.toString() ?? '';
     final qq = versionInfo['qq']?.toString() ?? '';
 
-
     // 先检查强制更新
     if (minVersion.isNotEmpty &&
         int.tryParse(minVersion) != null &&
@@ -623,7 +622,12 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _showForceUpdateDialog(BuildContext context, String message, String version, String qq) {
+  void _showForceUpdateDialog(
+    BuildContext context,
+    String message,
+    String version,
+    String qq,
+  ) {
     showDialog(
       context: context,
       barrierDismissible: false, // 不可关闭
@@ -636,7 +640,9 @@ class _MainScreenState extends State<MainScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('当前版本过低，请更新到最新版本后再使用。在更新之前，您无法使用任何功能\n请您更新到最新版本${Vars.version}→$version'),
+                Text(
+                  '当前版本过低，请更新到最新版本后再使用。在更新之前，您无法使用任何功能\n请您更新到最新版本${Vars.version}→$version',
+                ),
                 const SizedBox(height: 12),
                 const Text(
                   '更新说明：',
@@ -677,9 +683,7 @@ class _MainScreenState extends State<MainScreen> {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(message),
-              ],
+              children: [Text(message)],
             ),
             actions: [
               TextButton(

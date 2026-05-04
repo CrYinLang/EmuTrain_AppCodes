@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../journey_model.dart';
 import '../journey_provider.dart';
+import 'custom_journey_page.dart';
 import '../main.dart';
 import '../station_selector.dart';
 import 'linemap.dart';
@@ -900,6 +901,13 @@ class _AddJourneyPageState extends State<AddJourneyPage>
               onPressed: _clearResults,
               tooltip: '清除搜索结果',
             ),
+          IconButton(
+            icon: const Icon(Icons.more_horiz),
+            tooltip: '自定义',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CustomJourneyPage()),
+            ),
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -3936,11 +3944,16 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
                                 children: [
                                   Text(
                                     '${widget.journey.trainCode}次 • ${widget.journey.fromStation} → ${widget.journey.toStation}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   Text(
                                     '全程${widget.journey.getTotalDuration()} • ${widget.journey.stations.length}个站点',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -4025,128 +4038,131 @@ class _ToolboxDialogState extends State<_ToolboxDialog>
     return ColoredBox(
       color: isDark ? Colors.black : Colors.white,
       child: SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 车型信息
-          if (_trainModel.isNotEmpty)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(10),
-                // border: Border.all(color: primary.withAlpha(60)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.train, size: 18, color: primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _trainModel,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        // color: primary,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 车型信息
+            if (_trainModel.isNotEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                  // border: Border.all(color: primary.withAlpha(60)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.train, size: 18, color: primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _trainModel,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          // color: primary,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+
+            // 表头
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade800 : Colors.grey.shade900,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  topRight: Radius.circular(10),
+                ),
+              ),
+              child: _buildTableRow(
+                isHeader: true,
+                cells: const ['车次', '始发站', '出发', '终到站', '到达'],
               ),
             ),
 
-          // 表头
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade800 : Colors.grey.shade900,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(10),
-                topRight: Radius.circular(10),
+            // 数据行
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).dividerColor),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(10),
+                  bottomRight: Radius.circular(10),
+                ),
               ),
-            ),
-            child: _buildTableRow(
-              isHeader: true,
-              cells: const ['车次', '始发站', '出发', '终到站', '到达'],
-            ),
-          ),
+              child: Column(
+                children: _routingItems.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final item = entry.value as Map<String, dynamic>;
+                  final trainNumber = item['trainNumber']?.toString() ?? '--';
+                  final beginStation =
+                      item['beginStationName']?.toString() ?? '--';
+                  final endStation = item['endStationName']?.toString() ?? '--';
+                  final depTime = item['departureTime']?.toString() ?? '--:--';
+                  final arrTime = item['arrivalTime']?.toString() ?? '--:--';
 
-          // 数据行
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).dividerColor),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(10),
-                bottomRight: Radius.circular(10),
-              ),
-            ),
-            child: Column(
-              children: _routingItems.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final item = entry.value as Map<String, dynamic>;
-                final trainNumber = item['trainNumber']?.toString() ?? '--';
-                final beginStation =
-                    item['beginStationName']?.toString() ?? '--';
-                final endStation = item['endStationName']?.toString() ?? '--';
-                final depTime = item['departureTime']?.toString() ?? '--:--';
-                final arrTime = item['arrivalTime']?.toString() ?? '--:--';
+                  final isCurrent = trainNumber == currentCode;
+                  final isLast = idx == _routingItems.length - 1;
 
-                final isCurrent = trainNumber == currentCode;
-                final isLast = idx == _routingItems.length - 1;
+                  // 当前车次高亮
+                  final rowColor = isCurrent
+                      ? (isDark ? primary.withAlpha(60) : primary.withAlpha(30))
+                      : (idx.isEven
+                            ? (isDark
+                                  ? Colors.white.withAlpha(8)
+                                  : const Color(0xFFF5F5F5))
+                            : Colors.transparent);
 
-                // 当前车次高亮
-                final rowColor = isCurrent
-                    ? (isDark ? primary.withAlpha(60) : primary.withAlpha(30))
-                    : (idx.isEven
-                          ? (isDark
-                                ? Colors.white.withAlpha(8)
-                                : const Color(0xFFF5F5F5))
-                          : Colors.transparent);
-
-                return Container(
-                  decoration: BoxDecoration(
-                    color: rowColor,
-                    border: isLast
-                        ? null
-                        : Border(
-                            bottom: BorderSide(
-                              color: Theme.of(context).dividerColor,
-                              width: 0.5,
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: rowColor,
+                      border: isLast
+                          ? null
+                          : Border(
+                              bottom: BorderSide(
+                                color: Theme.of(context).dividerColor,
+                                width: 0.5,
+                              ),
                             ),
-                          ),
-                    borderRadius: isLast
-                        ? const BorderRadius.only(
-                            bottomLeft: Radius.circular(10),
-                            bottomRight: Radius.circular(10),
-                          )
-                        : null,
-                  ),
-                  child: _buildTableRow(
-                    isHeader: false,
-                    isCurrent: isCurrent,
-                    cells: [
-                      trainNumber,
-                      beginStation,
-                      depTime,
-                      endStation,
-                      arrTime,
-                    ],
-                  ),
-                );
-              }).toList(),
+                      borderRadius: isLast
+                          ? const BorderRadius.only(
+                              bottomLeft: Radius.circular(10),
+                              bottomRight: Radius.circular(10),
+                            )
+                          : null,
+                    ),
+                    child: _buildTableRow(
+                      isHeader: false,
+                      isCurrent: isCurrent,
+                      cells: [
+                        trainNumber,
+                        beginStation,
+                        depTime,
+                        endStation,
+                        arrTime,
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
 
-          const SizedBox(height: 12),
-          Text(
-            '数据来源：sharyou.moefactory.com，仅供参考',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Text(
+              '数据来源：sharyou.moefactory.com，仅供参考',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 

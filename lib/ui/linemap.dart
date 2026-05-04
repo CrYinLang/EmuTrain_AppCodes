@@ -95,6 +95,7 @@ class _LineMapContentState extends State<LineMapContent>
 
   // 停车站（带时间，isViaStation==false）
   List<_Station> _stops = [];
+
   // 全路线所有站（含小站）
   List<_Station> _full = [];
 
@@ -188,8 +189,9 @@ class _LineMapContentState extends State<LineMapContent>
 
   Future<void> _load() async {
     try {
-      final raw = await _fetchFromApi(widget.journey.trainCode)
-          .timeout(const Duration(seconds: 10));
+      final raw = await _fetchFromApi(
+        widget.journey.trainCode,
+      ).timeout(const Duration(seconds: 10));
       final withLoc = await _matchLocal(raw);
       final fullStations = _toStations(withLoc, isFiltered: false);
       final stopStations = _filterStops(withLoc, widget.journey.stations);
@@ -222,16 +224,19 @@ class _LineMapContentState extends State<LineMapContent>
   List<_Station> _buildFallback() {
     final js = widget.journey.stations;
     final n = js.length;
-    return List.generate(n, (i) => _Station(
-      name: js[i].stationName.replaceAll('站', '').trim(),
-      isVia: false,
-      arrivalTime: js[i].arrivalTime,
-      departureTime: js[i].departureTime,
-      hasLocation: true,
-      city: '',
-      x: n > 1 ? 0.1 + 0.8 * (i / (n - 1)) : 0.5,
-      y: 0.5,
-    ));
+    return List.generate(
+      n,
+      (i) => _Station(
+        name: js[i].stationName.replaceAll('站', '').trim(),
+        isVia: false,
+        arrivalTime: js[i].arrivalTime,
+        departureTime: js[i].departureTime,
+        hasLocation: true,
+        city: '',
+        x: n > 1 ? 0.1 + 0.8 * (i / (n - 1)) : 0.5,
+        y: 0.5,
+      ),
+    );
   }
 
   // ── 数据转换 ────────────────────────────────────────────────
@@ -240,18 +245,22 @@ class _LineMapContentState extends State<LineMapContent>
     List<Map<String, dynamic>> raw, {
     required bool isFiltered,
   }) {
-    return raw.map((m) => _Station(
-      name: ((m['stationName'] ?? m['name']) as String? ?? '')
-          .replaceAll('站', '')
-          .trim(),
-      isVia: (m['isViaStation'] as bool?) ?? false,
-      arrivalTime: m['arrivalTime'] as String?,
-      departureTime: m['departureTime'] as String?,
-      hasLocation: (m['hasLocation'] as bool?) ?? false,
-      city: (m['city'] as String?) ?? '',
-      lng: (m['longitude'] as num?)?.toDouble() ?? 0,
-      lat: (m['latitude'] as num?)?.toDouble() ?? 0,
-    )).toList();
+    return raw
+        .map(
+          (m) => _Station(
+            name: ((m['stationName'] ?? m['name']) as String? ?? '')
+                .replaceAll('站', '')
+                .trim(),
+            isVia: (m['isViaStation'] as bool?) ?? false,
+            arrivalTime: m['arrivalTime'] as String?,
+            departureTime: m['departureTime'] as String?,
+            hasLocation: (m['hasLocation'] as bool?) ?? false,
+            city: (m['city'] as String?) ?? '',
+            lng: (m['longitude'] as num?)?.toDouble() ?? 0,
+            lat: (m['latitude'] as num?)?.toDouble() ?? 0,
+          ),
+        )
+        .toList();
   }
 
   List<_Station> _filterStops(
@@ -301,7 +310,9 @@ class _LineMapContentState extends State<LineMapContent>
   // ── 坐标归一化 ──────────────────────────────────────────────
 
   void _normalizePositions(List<_Station> stations) {
-    final valid = stations.where((s) => s.hasLocation && (s.lng != 0 || s.lat != 0)).toList();
+    final valid = stations
+        .where((s) => s.hasLocation && (s.lng != 0 || s.lat != 0))
+        .toList();
     if (valid.length < 2) {
       // 退化：均匀排列
       final n = stations.length;
@@ -388,11 +399,13 @@ class _LineMapContentState extends State<LineMapContent>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(children: [
-          Icon(Icons.warning_amber, color: Colors.orange),
-          SizedBox(width: 8),
-          Text('走向图数据异常'),
-        ]),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('走向图数据异常'),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -402,12 +415,19 @@ class _LineMapContentState extends State<LineMapContent>
               const SizedBox(height: 8),
               ...bad.map((s) => Text('• $s')),
               const SizedBox(height: 12),
-              const Text('请联系技术支持。',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                '请联系技术支持。',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('确定'))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('确定'),
+          ),
+        ],
       ),
     );
   }
@@ -424,7 +444,8 @@ class _LineMapContentState extends State<LineMapContent>
     if (!real) return _fallbackRaw();
     try {
       final url = Uri.parse(
-          'https://rail.moefactory.com/api/trainDetails/queryTrainRoutes');
+        'https://rail.moefactory.com/api/trainDetails/queryTrainRoutes',
+      );
       final resp = await http.post(url, body: {'trainNumber': trainNumber});
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
@@ -459,21 +480,27 @@ class _LineMapContentState extends State<LineMapContent>
             .replaceAll('站', '')
             .trim();
         final match = all.firstWhere(
-          (s) => (s['name'] as String? ?? '').replaceAll('站', '').trim() == clean,
+          (s) =>
+              (s['name'] as String? ?? '').replaceAll('站', '').trim() == clean,
           orElse: () => <String, dynamic>{},
         );
         if (match.isNotEmpty) {
           final loc = match['location']?.toString() ?? '';
           final coords = loc.split(',');
-          final lng = coords.length == 2 ? (double.tryParse(coords[0]) ?? 0.0) : 0.0;
-          final lat = coords.length == 2 ? (double.tryParse(coords[1]) ?? 0.0) : 0.0;
+          final lng = coords.length == 2
+              ? (double.tryParse(coords[0]) ?? 0.0)
+              : 0.0;
+          final lat = coords.length == 2
+              ? (double.tryParse(coords[1]) ?? 0.0)
+              : 0.0;
           return {
             ...api,
             'name': api['stationName'],
             'city': match['city'] ?? '',
             'longitude': lng,
             'latitude': lat,
-            'hasLocation': loc.isNotEmpty && coords.length == 2 && (lng != 0 || lat != 0),
+            'hasLocation':
+                loc.isNotEmpty && coords.length == 2 && (lng != 0 || lat != 0),
           };
         }
         return {
@@ -486,7 +513,16 @@ class _LineMapContentState extends State<LineMapContent>
         };
       }).toList();
     } catch (_) {
-      return raw.map((s) => {...s, 'hasLocation': false, 'longitude': 0.0, 'latitude': 0.0}).toList();
+      return raw
+          .map(
+            (s) => {
+              ...s,
+              'hasLocation': false,
+              'longitude': 0.0,
+              'latitude': 0.0,
+            },
+          )
+          .toList();
     }
   }
 
@@ -566,7 +602,10 @@ class _LineMapContentState extends State<LineMapContent>
             child: AspectRatio(
               aspectRatio: 1.0,
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 440, maxHeight: 440),
+                constraints: const BoxConstraints(
+                  maxWidth: 440,
+                  maxHeight: 440,
+                ),
                 decoration: BoxDecoration(
                   color: surfaceColor,
                   borderRadius: BorderRadius.circular(12),
@@ -635,6 +674,7 @@ class _Station {
   String city;
   final double lng;
   final double lat;
+
   // 归一化后的相对坐标（可写，由 _normalizePositions / _reuseFromFull 填入）
   double x;
   double y;
@@ -862,8 +902,10 @@ class _MapPainter extends CustomPainter {
     ];
     Offset pos = candidates.first;
     for (final p in candidates) {
-      if (p.dx >= 0 && p.dx + lw <= size.width &&
-          p.dy >= 0 && p.dy + lh <= size.height) {
+      if (p.dx >= 0 &&
+          p.dx + lw <= size.width &&
+          p.dy >= 0 &&
+          p.dy + lh <= size.height) {
         pos = p;
         break;
       }
@@ -875,15 +917,15 @@ class _MapPainter extends CustomPainter {
     );
 
     final rect = RRect.fromLTRBR(
-      pos.dx, pos.dy, pos.dx + lw, pos.dy + lh,
+      pos.dx,
+      pos.dy,
+      pos.dx + lw,
+      pos.dy + lh,
       Radius.circular(_px(6.0)),
     );
 
     // 背景
-    canvas.drawRRect(
-      rect,
-      Paint()..color = Colors.white.withAlpha(242),
-    );
+    canvas.drawRRect(rect, Paint()..color = Colors.white.withAlpha(242));
     // 边框
     canvas.drawRRect(
       rect,
@@ -910,7 +952,12 @@ class _MapPainter extends CustomPainter {
     }
   }
 
-  TextPainter _makeTp(String text, double fontSize, Color color, {bool bold = false}) {
+  TextPainter _makeTp(
+    String text,
+    double fontSize,
+    Color color, {
+    bool bold = false,
+  }) {
     return TextPainter(
       text: TextSpan(
         text: text,

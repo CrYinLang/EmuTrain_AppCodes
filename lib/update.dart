@@ -218,9 +218,9 @@ class UpdateUI {
     }
 
     if (updated.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('所有数据已是最新版本')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('所有数据已是最新版本')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

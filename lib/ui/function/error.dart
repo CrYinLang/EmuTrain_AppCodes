@@ -24,14 +24,16 @@ class ErrorLog {
     DateTime? time,
   }) : time = time ?? DateTime.now();
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toJson() =>
+      {
         'from': from,
         'message': message,
         'level': level,
         'time': time.toIso8601String(),
       };
 
-  factory ErrorLog.fromJson(Map<String, dynamic> json) => ErrorLog(
+  factory ErrorLog.fromJson(Map<String, dynamic> json) =>
+      ErrorLog(
         from: json['from'] as String,
         message: json['message'] as String,
         level: json['level'] as int,
@@ -68,6 +70,7 @@ class ErrorLog {
 // ══════════════════════════════════════════════
 class ErrorLogStore {
   ErrorLogStore._();
+
   static final instance = ErrorLogStore._();
 
   final List<ErrorLog> logs = [];
@@ -89,7 +92,9 @@ class ErrorLogStore {
       if (!await f.exists()) return;
 
       final raw = await f.readAsString();
-      if (raw.trim().isEmpty) return;
+      if (raw
+          .trim()
+          .isEmpty) return;
 
       final List<dynamic> list = jsonDecode(raw);
       logs
@@ -140,7 +145,7 @@ Future<void> logError({
 
   debugPrint(
     '[${ErrorLog.labelForLevel(log.level)}] '
-    '($from) $error',
+        '($from) $error',
   );
 }
 
@@ -199,7 +204,8 @@ class _ErrorLogPageState extends State<ErrorLogPage>
     _headerAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
-    )..forward();
+    )
+      ..forward();
   }
 
   @override
@@ -275,7 +281,7 @@ class _ErrorLogPageState extends State<ErrorLogPage>
               const Spacer(),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(20),
@@ -659,22 +665,22 @@ class _LogCardState extends State<_LogCard>
                       duration: const Duration(milliseconds: 250),
                       child: _copied
                           ? Text(
-                              '已复制 ✓',
-                              key: const ValueKey('copied'),
-                              style: TextStyle(
-                                color: levelColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            )
+                        '已复制 ✓',
+                        key: const ValueKey('copied'),
+                        style: TextStyle(
+                          color: levelColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
                           : Text(
-                              _expanded ? '长按复制' : '点击展开 · 长按复制',
-                              key: const ValueKey('hint'),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                fontSize: 11,
-                              ),
-                            ),
+                        _expanded ? '长按复制' : '点击展开 · 长按复制',
+                        key: const ValueKey('hint'),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                   ],
                 ),

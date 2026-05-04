@@ -51,6 +51,7 @@ class SpeedService extends ChangeNotifier {
 
   // 当前是否实际运行在轮询模式（流失败降级后为 true）
   bool _usingPollFallback = false;
+
   bool get usingPollFallback => _usingPollFallback;
 
   StreamSubscription<Position>? _positionStream;
@@ -145,24 +146,23 @@ class SpeedService extends ChangeNotifier {
 
     final locationSettings = _buildStreamLocationSettings();
 
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (position) {
-        if (isTracking) _onPosition(position);
-      },
-      onError: (Object e) {
-        if (!isTracking) return;
-        // 流出错，降级到轮询
-        debugInfo = '流定位失败，切换轮询: $e';
-        _usingPollFallback = true;
-        notifyListeners();
-        _positionStream?.cancel();
-        _positionStream = null;
-        _startPolling();
-      },
-      cancelOnError: true,
-    );
+    _positionStream =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (position) {
+            if (isTracking) _onPosition(position);
+          },
+          onError: (Object e) {
+            if (!isTracking) return;
+            // 流出错，降级到轮询
+            debugInfo = '流定位失败，切换轮询: $e';
+            _usingPollFallback = true;
+            notifyListeners();
+            _positionStream?.cancel();
+            _positionStream = null;
+            _startPolling();
+          },
+          cancelOnError: true,
+        );
   }
 
   // ── 轮询模式（Android 专用）────────────────────────────────────
@@ -173,8 +173,7 @@ class SpeedService extends ChangeNotifier {
   // ── 构建流模式 LocationSettings ───────────────────────────────
   LocationSettings _buildStreamLocationSettings() {
     final s = SettingsModel();
-    final intervalMs =
-        (s.pollIntervalSeconds * 1000).round().clamp(100, 5000);
+    final intervalMs = (s.pollIntervalSeconds * 1000).round().clamp(100, 5000);
 
     if (Platform.isAndroid) {
       return AndroidSettings(
@@ -272,7 +271,8 @@ class SpeedService extends ChangeNotifier {
     avgSpeedKmh = _speedAccumulator / _speedSampleCount;
 
     final modeTag = _usingPollFallback ? '轮询' : '流';
-    debugInfo = '[$modeTag] 更新#$_updateCount | ${speedMs.toStringAsFixed(2)} m/s';
+    debugInfo =
+        '[$modeTag] 更新#$_updateCount | ${speedMs.toStringAsFixed(2)} m/s';
 
     if (currentSpeedKmh > maxSpeedKmh) maxSpeedKmh = currentSpeedKmh;
     statusMsg = '正在测速';
@@ -328,11 +328,14 @@ class SettingsModel extends ChangeNotifier {
 
   bool _forceLocationManager = false;
   double _pollIntervalSeconds = 1.0;
+
   // Android 专用：强制使用轮询模式（关闭时默认用持续流）
   bool _forcePolling = false;
 
   bool get forceLocationManager => _forceLocationManager;
+
   double get pollIntervalSeconds => _pollIntervalSeconds;
+
   bool get forcePolling => _forcePolling;
 
   Future<void> load() async {

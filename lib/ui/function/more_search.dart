@@ -20,9 +20,11 @@ class LocoDepotMapper {
     if (depot.startsWith('兰局')) return '兰州铁路局';
     if (depot.startsWith('南局')) return '南昌铁路局';
     if (depot.startsWith('宁局')) return '南宁铁路局';
-    if (depot.startsWith('呼局') || depot == '集通大段') return '呼和浩特铁路局';
+    if (depot.startsWith('呼局') || depot == '集通大段')
+      return '呼和浩特铁路局';
     if (depot.startsWith('哈局')) return '哈尔滨铁路局';
-    if (depot.startsWith('太局') || depot == '晋神铁路' || depot == '潞安公司') {
+    if (depot.startsWith('太局') || depot == '晋神铁路' ||
+        depot == '潞安公司') {
       return '太原铁路局';
     }
     if (depot.startsWith('成局')) return '成都铁路局';
@@ -46,7 +48,8 @@ class LocoDepotMapper {
         depot == '广通铁运') {
       return '广州铁路局';
     }
-    if (depot.startsWith('青藏') || depot == '青藏宁段' || depot == '青藏格段') {
+    if (depot.startsWith('青藏') || depot == '青藏宁段' ||
+        depot == '青藏格段') {
       return '青藏铁路局';
     }
 
@@ -191,7 +194,8 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
   }
 
   List<String> _getAllModels() {
-    return _locoData.map((r) => r['model'] as String).toSet().toList()..sort();
+    return _locoData.map((r) => r['model'] as String).toSet().toList()
+      ..sort();
   }
 
   List<String> _getAllDepots() {
@@ -282,14 +286,18 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
 
     setState(() {
       _results.addAll(
-        top.asMap().entries.map(
-          (e) => LocoResult(
-            model: e.value.key['model'],
-            number: e.value.key['number'],
-            depot: e.value.key['depot'],
-            score: e.value.value,
-            rank: e.key + 1,
-          ),
+        top
+            .asMap()
+            .entries
+            .map(
+              (e) =>
+              LocoResult(
+                model: e.value.key['model'],
+                number: e.value.key['number'],
+                depot: e.value.key['depot'],
+                score: e.value.value,
+                rank: e.key + 1,
+              ),
         ),
       );
       _totalResults = _results.length;
@@ -342,7 +350,7 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
     }
 
     matched.sort(
-      (a, b) => (a['number'] as String).compareTo(b['number'] as String),
+          (a, b) => (a['number'] as String).compareTo(b['number'] as String),
     );
 
     _allPageRecords = matched;
@@ -391,15 +399,16 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
   }
 
   // ==================== 分页控件 ====================
-  Widget _buildPaginationControls() => buildPaginationControls(
-    context: context,
-    currentPage: _currentPage,
-    totalPages: _totalPages,
-    totalResults: _totalResults,
-    loadingPage: _loadingPage,
-    pageController: _pageController,
-    onGoToPage: _goToPage,
-  );
+  Widget _buildPaginationControls() =>
+      buildPaginationControls(
+        context: context,
+        currentPage: _currentPage,
+        totalPages: _totalPages,
+        totalResults: _totalResults,
+        loadingPage: _loadingPage,
+        pageController: _pageController,
+        onGoToPage: _goToPage,
+      );
 
   // ==================== 结果卡片（与 EMU 高度一致） ====================
   Widget _buildResultCard(LocoResult result) {
@@ -508,7 +517,7 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
             height: 32,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) =>
-                const SizedBox(width: 32, height: 32),
+            const SizedBox(width: 32, height: 32),
           );
         }
         return const SizedBox(width: 32, height: 32);
@@ -551,9 +560,18 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
         });
       },
       style: SegmentedButton.styleFrom(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        selectedBackgroundColor: Theme.of(context).colorScheme.primary,
-        selectedForegroundColor: Theme.of(context).colorScheme.onPrimary,
+        backgroundColor: Theme
+            .of(context)
+            .colorScheme
+            .surfaceContainerHighest,
+        selectedBackgroundColor: Theme
+            .of(context)
+            .colorScheme
+            .primary,
+        selectedForegroundColor: Theme
+            .of(context)
+            .colorScheme
+            .onPrimary,
       ),
     );
   }
@@ -688,7 +706,7 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
               buildErrorCard(
                 context,
                 _errorMsg,
-                () => setState(() => _errorMsg = ''),
+                    () => setState(() => _errorMsg = ''),
               ),
 
             if (_results.isNotEmpty) ...[
@@ -697,12 +715,13 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
                 label: isPaged
                     ? '$_currentSearchLabel 共 $totalCount 条（当前 $displayedCount 条）'
                     : '共找到 $totalCount 条结果',
-                onClear: () => setState(() {
-                  _results.clear();
-                  _controller.clear();
-                  _errorMsg = '';
-                  _resetPagination();
-                }),
+                onClear: () =>
+                    setState(() {
+                      _results.clear();
+                      _controller.clear();
+                      _errorMsg = '';
+                      _resetPagination();
+                    }),
               ),
               const SizedBox(height: 12),
 
@@ -1039,7 +1058,10 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
+                    color: Theme
+                        .of(context)
+                        .colorScheme
+                        .primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1047,7 +1069,10 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      color: Theme
+                          .of(context)
+                          .colorScheme
+                          .onPrimaryContainer,
                     ),
                   ),
                 ),
@@ -1068,9 +1093,13 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
                           record.depot,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(
+                            color: Theme
+                                .of(
                               context,
-                            ).colorScheme.onSurface.withAlpha(150),
+                            )
+                                .colorScheme
+                                .onSurface
+                                .withAlpha(150),
                           ),
                         ),
                     ],
@@ -1101,7 +1130,11 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
               '查询时间: ${result.queryTime}',
               style: TextStyle(
                 fontSize: 11,
-                color: Theme.of(context).colorScheme.onSurface.withAlpha(120),
+                color: Theme
+                    .of(context)
+                    .colorScheme
+                    .onSurface
+                    .withAlpha(120),
               ),
             ),
           ],
@@ -1110,16 +1143,17 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
     );
   }
 
-  Widget _buildPaginationControls() => buildPaginationControls(
-    context: context,
-    currentPage: _currentPage,
-    totalPages: _totalPages,
-    totalResults: _totalResults,
-    loadingPage: _loadingPage,
-    pageController: _pageController,
-    onGoToPage: _goToPage,
-    padding: const EdgeInsets.symmetric(vertical: 12),
-  );
+  Widget _buildPaginationControls() =>
+      buildPaginationControls(
+        context: context,
+        currentPage: _currentPage,
+        totalPages: _totalPages,
+        totalResults: _totalResults,
+        loadingPage: _loadingPage,
+        pageController: _pageController,
+        onGoToPage: _goToPage,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+      );
 
   Widget _buildEmptyState() {
     return Container(
@@ -1129,7 +1163,11 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
           Icon(
             Icons.directions_railway_filled_outlined,
             size: 64,
-            color: Theme.of(context).colorScheme.onSurface.withAlpha(80),
+            color: Theme
+                .of(context)
+                .colorScheme
+                .onSurface
+                .withAlpha(80),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1263,21 +1301,31 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
                 ),
               ],
               selected: {_searchType},
-              onSelectionChanged: (s) => setState(() {
-                _searchType = s.first;
-                _controller.clear();
-                _searchResults.clear();
-                _errorMsg = '';
-                _resetPagination();
-              }),
+              onSelectionChanged: (s) =>
+                  setState(() {
+                    _searchType = s.first;
+                    _controller.clear();
+                    _searchResults.clear();
+                    _errorMsg = '';
+                    _resetPagination();
+                  }),
               style: SegmentedButton.styleFrom(
-                backgroundColor: Theme.of(
+                backgroundColor: Theme
+                    .of(
                   context,
-                ).colorScheme.surfaceContainerHighest,
-                selectedBackgroundColor: Theme.of(context).colorScheme.primary,
-                selectedForegroundColor: Theme.of(
+                )
+                    .colorScheme
+                    .surfaceContainerHighest,
+                selectedBackgroundColor: Theme
+                    .of(context)
+                    .colorScheme
+                    .primary,
+                selectedForegroundColor: Theme
+                    .of(
                   context,
-                ).colorScheme.onPrimary,
+                )
+                    .colorScheme
+                    .onPrimary,
               ),
             ),
 
@@ -1292,7 +1340,7 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
               buildErrorCard(
                 context,
                 _errorMsg,
-                () => setState(() => _errorMsg = ''),
+                    () => setState(() => _errorMsg = ''),
               ),
 
             // ---- 结果区域 ----
@@ -1306,9 +1354,12 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
                         horizontal: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(
+                        color: Theme
+                            .of(
                           context,
-                        ).colorScheme.surfaceContainerHighest,
+                        )
+                            .colorScheme
+                            .surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -1320,7 +1371,10 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
                             (_searchType == 'depot' || _searchType == 'model')
                                 ? '「$_currentSearchLabel」共 $totalCount 条（当前 $displayedCount 条）'
                                 : '共找到 $totalCount 条结果',
-                            style: Theme.of(context).textTheme.titleSmall
+                            style: Theme
+                                .of(context)
+                                .textTheme
+                                .titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ],

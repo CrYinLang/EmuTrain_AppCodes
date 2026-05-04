@@ -82,7 +82,10 @@ class _SettingsScreenState extends State<SettingsScreen>
               children: [
                 Icon(
                   icon,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Theme
+                      .of(context)
+                      .colorScheme
+                      .primary,
                   size: 20,
                 ),
                 const SizedBox(width: 12),
@@ -91,7 +94,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: Theme
+                        .of(context)
+                        .colorScheme
+                        .onSurface,
                   ),
                 ),
               ],
@@ -112,19 +118,27 @@ class _SettingsScreenState extends State<SettingsScreen>
     required IconData icon,
     required bool value,
     required Function(bool) onChanged,
-  }) => SwitchListTile(
-    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-    subtitle: Text(
-      subtitle,
-      style: TextStyle(
-        fontSize: 12,
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-      ),
-    ),
-    secondary: Icon(icon, color: Theme.of(context).colorScheme.primary),
-    value: value,
-    onChanged: onChanged,
-  );
+  }) =>
+      SwitchListTile(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme
+                .of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.7),
+          ),
+        ),
+        secondary: Icon(icon, color: Theme
+            .of(context)
+            .colorScheme
+            .primary),
+        value: value,
+        onChanged: onChanged,
+      );
 
   Widget _buildTile({
     IconData? icon,
@@ -142,21 +156,21 @@ class _SettingsScreenState extends State<SettingsScreen>
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: subtitle != null
           ? Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            )
+        subtitle,
+        style: TextStyle(
+          fontSize: 12,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+        ),
+      )
           : null,
       trailing:
-          trailing ??
+      trailing ??
           (trailingIcon != null
               ? Icon(
-                  trailingIcon,
-                  size: 16,
-                  color: theme.colorScheme.onSurfaceVariant,
-                )
+            trailingIcon,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          )
               : null),
       onTap: onTap,
     );
@@ -210,9 +224,18 @@ class _SettingsScreenState extends State<SettingsScreen>
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    final primary = Theme.of(context).colorScheme.primary;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final surface = Theme.of(context).colorScheme.surfaceContainerHighest;
+    final primary = Theme
+        .of(context)
+        .colorScheme
+        .primary;
+    final onSurface = Theme
+        .of(context)
+        .colorScheme
+        .onSurface;
+    final surface = Theme
+        .of(context)
+        .colorScheme
+        .surfaceContainerHighest;
 
     return GestureDetector(
       onTap: isSelected ? null : onTap,
@@ -277,186 +300,225 @@ class _SettingsScreenState extends State<SettingsScreen>
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => Dialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.3),
-                    width: 2,
-                  ),
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/icon/CrYinLang.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.1),
-                      child: Icon(
-                        Icons.person,
-                        size: 40,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '开发者',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Cr.YinLang',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'EmuTrain',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.5),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                '欢迎关注我的社交账号获取更多信息',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Row(
+      builder: (context) =>
+          Dialog(
+            backgroundColor: Theme
+                .of(context)
+                .colorScheme
+                .surface,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => launchSocialLink(
-                        context,
-                        'https://github.com/CrYinLang',
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme
+                            .of(
+                          context,
+                        )
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.3),
+                        width: 2,
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/icon/CrYinLang.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(
+                              color: Theme
+                                  .of(
+                                context,
+                              )
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.1),
+                              child: Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Theme
+                                    .of(context)
+                                    .colorScheme
+                                    .primary,
+                              ),
+                            ),
                       ),
-                      icon: const Icon(Icons.code, size: 20),
-                      label: const Text('GitHub'),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => launchSocialLink(
+                  const SizedBox(height: 16),
+                  Text(
+                    '开发者',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Theme
+                          .of(context)
+                          .colorScheme
+                          .onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Cr.YinLang',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme
+                          .of(
                         context,
-                        'https://www.douyin.com/user/MS4wLjABAAAA-bZxFhm96BhUle209c1gQ5HskPw4y-olT2PwOYevJ6fSkkHmIV23EuGfjaq1xHCx',
+                      )
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'EmuTrain',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme
+                          .of(
+                        context,
+                      )
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    '欢迎关注我的社交账号获取更多信息',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme
+                          .of(
+                        context,
+                      )
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              launchSocialLink(
+                                context,
+                                'https://github.com/CrYinLang',
+                              ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          icon: const Icon(Icons.code, size: 20),
+                          label: const Text('GitHub'),
+                        ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF000000),
-                        foregroundColor: const Color(0xFF00FF9D),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              launchSocialLink(
+                                context,
+                                'https://www.douyin.com/user/MS4wLjABAAAA-bZxFhm96BhUle209c1gQ5HskPw4y-olT2PwOYevJ6fSkkHmIV23EuGfjaq1xHCx',
+                              ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF000000),
+                            foregroundColor: const Color(0xFF00FF9D),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          icon: const Icon(Icons.video_library, size: 20),
+                          label: const Text('抖音'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              launchSocialLink(
+                                context,
+                                'https://gitee.com/CrYinLang',
+                              ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.red,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          icon: const Icon(Icons.code, size: 20),
+                          label: const Text('Gitee'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              launchSocialLink(
+                                context,
+                                'https://qm.qq.com/q/AJ71AadV5K',
+                              ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF000000),
+                            foregroundColor: const Color(0xFF0099FF),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          icon: const Icon(Icons.group, size: 20),
+                          label: const Text('QQ群'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme
+                            .of(context)
+                            .colorScheme
+                            .onSurface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      icon: const Icon(Icons.video_library, size: 20),
-                      label: const Text('抖音'),
+                      child: const Text('关闭'),
                     ),
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => launchSocialLink(
-                        context,
-                        'https://gitee.com/CrYinLang',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.red,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      icon: const Icon(Icons.code, size: 20),
-                      label: const Text('Gitee'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => launchSocialLink(
-                        context,
-                        'https://qm.qq.com/q/AJ71AadV5K',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF000000),
-                        foregroundColor: const Color(0xFF0099FF),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      icon: const Icon(Icons.group, size: 20),
-                      label: const Text('QQ群'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.onSurface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text('关闭'),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -473,7 +535,10 @@ class _SettingsScreenState extends State<SettingsScreen>
             ListTile(
               leading: Icon(
                 Icons.palette,
-                color: Theme.of(context).colorScheme.primary,
+                color: Theme
+                    .of(context)
+                    .colorScheme
+                    .primary,
               ),
               title: const Text(
                 '个性化主题',
@@ -486,13 +551,17 @@ class _SettingsScreenState extends State<SettingsScreen>
               trailing: Icon(
                 Icons.arrow_forward_ios,
                 size: 14,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Theme
+                    .of(context)
+                    .colorScheme
+                    .onSurfaceVariant,
               ),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ThemeSettingsScreen(),
-                ),
-              ),
+              onTap: () =>
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ThemeSettingsScreen(),
+                    ),
+                  ),
             ),
           ],
         ),
@@ -512,7 +581,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                       Icon(
                         Icons.home_work,
                         size: 20,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Theme
+                            .of(context)
+                            .colorScheme
+                            .primary,
                       ),
                       const SizedBox(width: 12),
                       Column(
@@ -523,16 +595,23 @@ class _SettingsScreenState extends State<SettingsScreen>
                             style: TextStyle(
                               fontWeight: FontWeight.w500,
                               fontSize: 16,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              color: Theme
+                                  .of(context)
+                                  .colorScheme
+                                  .onSurface,
                             ),
                           ),
                           Text(
                             '设置应用启动时显示的首页',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Theme.of(
+                              color: Theme
+                                  .of(
                                 context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.7),
+                              )
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.7),
                             ),
                           ),
                         ],
@@ -543,14 +622,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                     value: _defaultHomePage,
                     items: ['旅途', '搜索']
                         .map(
-                          (v) => DropdownMenuItem(
+                          (v) =>
+                          DropdownMenuItem(
                             value: v,
                             child: Text(
                               v,
                               style: const TextStyle(fontSize: 16),
                             ),
                           ),
-                        )
+                    )
                         .toList(),
                     onChanged: (v) async {
                       if (v != null) {
@@ -598,11 +678,12 @@ class _SettingsScreenState extends State<SettingsScreen>
               title: '数据版本管理',
               subtitle: '车站 / 动车组 / 普速 / 机车 数据更新',
               trailingIcon: Icons.arrow_forward_ios,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const DataVersionScreen(),
-                ),
-              ),
+              onTap: () =>
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DataVersionScreen(),
+                    ),
+                  ),
             ),
             const Divider(height: 1),
             Tool.buildSwitch(
@@ -625,7 +706,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   // ==================== 查询 Tab ====================
 
   Widget _buildSearchTab(AppSettings settings) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final onSurface = Theme
+        .of(context)
+        .colorScheme
+        .onSurface;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -876,7 +960,9 @@ class ThemeSettingsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('主题设置')),
       body: Consumer<AppSettings>(
         builder: (context, settings, _) {
-          final cs = Theme.of(context).colorScheme;
+          final cs = Theme
+              .of(context)
+              .colorScheme;
           final followSystem = settings.followSystem;
           final isDark = settings.themeMode == ThemeMode.dark;
           final usingMonet = settings.seedColor == null;
@@ -940,7 +1026,9 @@ class ThemeSettingsScreen extends StatelessWidget {
                         style: TextStyle(fontWeight: FontWeight.w500),
                       ),
                       subtitle: Text(
-                        followSystem ? '跟随系统时不可手动设置' : '手动切换深色/浅色',
+                        followSystem
+                            ? '跟随系统时不可手动设置'
+                            : '手动切换深色/浅色',
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurface.withValues(alpha: 0.6),
@@ -1012,10 +1100,10 @@ class ThemeSettingsScreen extends StatelessWidget {
                         ),
                         child: usingMonet
                             ? const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 18,
-                              )
+                          Icons.check,
+                          color: Colors.white,
+                          size: 18,
+                        )
                             : null,
                       ),
                       title: const Text(
@@ -1031,10 +1119,10 @@ class ThemeSettingsScreen extends StatelessWidget {
                       ),
                       trailing: usingMonet
                           ? Icon(
-                              Icons.check_circle,
-                              color: cs.primary,
-                              size: 20,
-                            )
+                        Icons.check_circle,
+                        color: cs.primary,
+                        size: 20,
+                      )
                           : null,
                       onTap: () => settings.setSeedColor(null),
                     ),
@@ -1075,9 +1163,9 @@ class ThemeSettingsScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(10),
                                   border: isSelected
                                       ? Border.all(
-                                          color: cs.onSurface,
-                                          width: 2.5,
-                                        )
+                                    color: cs.onSurface,
+                                    width: 2.5,
+                                  )
                                       : null,
                                   boxShadow: [
                                     BoxShadow(
@@ -1089,10 +1177,10 @@ class ThemeSettingsScreen extends StatelessWidget {
                                 ),
                                 child: isSelected
                                     ? const Icon(
-                                        Icons.check,
-                                        color: Colors.white,
-                                        size: 20,
-                                      )
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 20,
+                                )
                                     : null,
                               ),
                             ),
@@ -1157,7 +1245,9 @@ class _DataVersionScreenState extends State<DataVersionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final cs = Theme
+        .of(context)
+        .colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('数据版本管理')),
@@ -1328,48 +1418,50 @@ class _DataVersionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final cs = Theme
+        .of(context)
+        .colorScheme;
     return ListTile(
       leading: Icon(icon, color: cs.primary, size: 22),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: subtitle != null
           ? Text(
-              subtitle!,
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurface.withValues(alpha: 0.6),
-              ),
-            )
+        subtitle!,
+        style: TextStyle(
+          fontSize: 12,
+          color: cs.onSurface.withValues(alpha: 0.6),
+        ),
+      )
           : null,
       trailing: trailingWidget ??
           (version != null
               ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        version!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: cs.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 14,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ],
-                )
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  version!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: cs.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: cs.onSurfaceVariant,
+              ),
+            ],
+          )
               : null),
       onTap: onTap,
     );

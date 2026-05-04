@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'journey_detail_page.dart';
 import '../journey_model.dart';
 import '../journey_provider.dart';
-import 'function/custom_journey_page.dart';
+import 'custom_journey_page.dart';
 import 'journey.dart';
 
 class TravelScreen extends StatelessWidget {
@@ -330,13 +330,16 @@ class _JourneyCardState extends State<JourneyCard> {
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 4),
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.purple.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                                color: Colors.purple.withValues(alpha: 0.5),
-                                width: 1),
+                              color: Colors.purple.withValues(alpha: 0.5),
+                              width: 1,
+                            ),
                           ),
                           child: const Text(
                             '自定义',
@@ -559,7 +562,9 @@ class _AddJourneyFabState extends State<_AddJourneyFab>
   void initState() {
     super.initState();
     _anim = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 200));
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
     _scaleAnim = CurvedAnimation(parent: _anim, curve: Curves.easeOut);
   }
 
@@ -581,16 +586,16 @@ class _AddJourneyFabState extends State<_AddJourneyFab>
 
   void _goRail() {
     _close();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddJourneyPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AddJourneyPage()));
   }
 
   void _goCustom() {
     _close();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CustomJourneyPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CustomJourneyPage()));
   }
 
   @override
@@ -612,19 +617,24 @@ class _AddJourneyFabState extends State<_AddJourneyFab>
                 if (_open)
                   Container(
                     margin: const EdgeInsets.only(right: 8),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.surface,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 4)
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 4,
+                        ),
                       ],
                     ),
-                    child: const Text('查询国铁车次',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      '查询国铁车次',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 FloatingActionButton.small(
                   heroTag: 'fab_rail',
@@ -648,19 +658,24 @@ class _AddJourneyFabState extends State<_AddJourneyFab>
                 if (_open)
                   Container(
                     margin: const EdgeInsets.only(right: 8),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.surface,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 4)
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 4,
+                        ),
                       ],
                     ),
-                    child: const Text('自定义旅途',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      '自定义旅途',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 FloatingActionButton.small(
                   heroTag: 'fab_custom',
