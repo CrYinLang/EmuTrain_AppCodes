@@ -9,9 +9,9 @@ import 'package:provider/provider.dart';
 
 import '../journey_model.dart';
 import '../journey_provider.dart';
-import 'custom_journey_page.dart';
 import '../main.dart';
 import '../station_selector.dart';
+import 'custom_journey_page.dart';
 import 'linemap.dart';
 
 class AddJourneyPage extends StatefulWidget {
@@ -901,12 +901,31 @@ class _AddJourneyPageState extends State<AddJourneyPage>
               onPressed: _clearResults,
               tooltip: '清除搜索结果',
             ),
-          IconButton(
-            icon: const Icon(Icons.more_horiz),
-            tooltip: '自定义',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CustomJourneyPage()),
-            ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (v) {
+              if (v == 'custom') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CustomJourneyPage()),
+                );
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'custom',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.edit_location_alt,
+                      size: 18,
+                      color: Colors.purple,
+                    ),
+                    SizedBox(width: 10),
+                    Text('自定义旅途'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

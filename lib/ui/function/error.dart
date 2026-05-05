@@ -24,21 +24,19 @@ class ErrorLog {
     DateTime? time,
   }) : time = time ?? DateTime.now();
 
-  Map<String, dynamic> toJson() =>
-      {
-        'from': from,
-        'message': message,
-        'level': level,
-        'time': time.toIso8601String(),
-      };
+  Map<String, dynamic> toJson() => {
+    'from': from,
+    'message': message,
+    'level': level,
+    'time': time.toIso8601String(),
+  };
 
-  factory ErrorLog.fromJson(Map<String, dynamic> json) =>
-      ErrorLog(
-        from: json['from'] as String,
-        message: json['message'] as String,
-        level: json['level'] as int,
-        time: DateTime.parse(json['time'] as String),
-      );
+  factory ErrorLog.fromJson(Map<String, dynamic> json) => ErrorLog(
+    from: json['from'] as String,
+    message: json['message'] as String,
+    level: json['level'] as int,
+    time: DateTime.parse(json['time'] as String),
+  );
 
   static Color colorForLevel(int level) {
     const colors = [
@@ -92,15 +90,12 @@ class ErrorLogStore {
       if (!await f.exists()) return;
 
       final raw = await f.readAsString();
-      if (raw
-          .trim()
-          .isEmpty) return;
+      if (raw.trim().isEmpty) return;
 
       final List<dynamic> list = jsonDecode(raw);
       logs
         ..clear()
-        ..addAll(
-            list.map((e) => ErrorLog.fromJson(e as Map<String, dynamic>)));
+        ..addAll(list.map((e) => ErrorLog.fromJson(e as Map<String, dynamic>)));
     } catch (e) {
       debugPrint('日志文件损坏，已备份旧文件: $e');
       try {
@@ -145,7 +140,7 @@ Future<void> logError({
 
   debugPrint(
     '[${ErrorLog.labelForLevel(log.level)}] '
-        '($from) $error',
+    '($from) $error',
   );
 }
 
@@ -161,9 +156,9 @@ class ErrorLogPage extends StatefulWidget {
   static Future<void> open(BuildContext context) async {
     await ErrorLogStore.instance.loadIfNeeded();
     if (context.mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ErrorLogPage()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ErrorLogPage()));
     }
   }
 
@@ -204,8 +199,7 @@ class _ErrorLogPageState extends State<ErrorLogPage>
     _headerAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
-    )
-      ..forward();
+    )..forward();
   }
 
   @override
@@ -249,13 +243,10 @@ class _ErrorLogPageState extends State<ErrorLogPage>
   // ── 标题栏 ──
   Widget _buildTitleBar() {
     return SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(0, -0.4),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(
-        parent: _headerAnim,
-        curve: Curves.easeOutCubic,
-      )),
+      position: Tween<Offset>(begin: const Offset(0, -0.4), end: Offset.zero)
+          .animate(
+            CurvedAnimation(parent: _headerAnim, curve: Curves.easeOutCubic),
+          ),
       child: FadeTransition(
         opacity: _headerAnim,
         child: Padding(
@@ -280,8 +271,10 @@ class _ErrorLogPageState extends State<ErrorLogPage>
               ),
               const Spacer(),
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(20),
@@ -428,9 +421,11 @@ class _ErrorLogPageState extends State<ErrorLogPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_outline_rounded,
-                size: 56,
-                color: Colors.white.withValues(alpha: 0.12)),
+            Icon(
+              Icons.check_circle_outline_rounded,
+              size: 56,
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
             const SizedBox(height: 12),
             Text(
               _filterLevel == null ? '暂无错误日志' : '该等级下暂无日志',
@@ -545,8 +540,7 @@ class _LogCardState extends State<_LogCard>
         position: Tween<Offset>(
           begin: const Offset(0.12, 0),
           end: Offset.zero,
-        ).animate(
-            CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic)),
+        ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic)),
         child: GestureDetector(
           onTap: () => setState(() => _expanded = !_expanded),
           onLongPress: _handleLongPress,
@@ -580,7 +574,9 @@ class _LogCardState extends State<_LogCard>
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: levelColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
@@ -665,22 +661,22 @@ class _LogCardState extends State<_LogCard>
                       duration: const Duration(milliseconds: 250),
                       child: _copied
                           ? Text(
-                        '已复制 ✓',
-                        key: const ValueKey('copied'),
-                        style: TextStyle(
-                          color: levelColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      )
+                              '已复制 ✓',
+                              key: const ValueKey('copied'),
+                              style: TextStyle(
+                                color: levelColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            )
                           : Text(
-                        _expanded ? '长按复制' : '点击展开 · 长按复制',
-                        key: const ValueKey('hint'),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          fontSize: 11,
-                        ),
-                      ),
+                              _expanded ? '长按复制' : '点击展开 · 长按复制',
+                              key: const ValueKey('hint'),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                fontSize: 11,
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -693,9 +689,7 @@ class _LogCardState extends State<_LogCard>
   }
 
   Future<void> _handleLongPress() async {
-    await Clipboard.setData(
-      ClipboardData(text: widget.log.toCopyableText()),
-    );
+    await Clipboard.setData(ClipboardData(text: widget.log.toCopyableText()));
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _copied = false);

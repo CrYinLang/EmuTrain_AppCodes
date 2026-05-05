@@ -62,6 +62,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
 
   // ── 座位 ──────────────────────────────────────────────────
   String _seatType = 'ze_num';
+  String _customSeatTypeName = ''; // 自定义座位类型名称
   final _seatInfoCtrl = TextEditingController();
 
   // ── 站点 ──────────────────────────────────────────────────
@@ -72,6 +73,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
   // ── 表单相关 ──────────────────────────────────────────────
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
+  bool _onboardingShown = false; // 新手引导只弹一次
 
   // ── 常量 ──────────────────────────────────────────────────
   static const _seatTypes = {
@@ -87,6 +89,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     'yz_num': '硬座',
     'wz_num': '无座',
     'gr_num': '高级软卧',
+    'custom_num': '自定义…',
   };
 
   @override
@@ -103,11 +106,39 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
 
   bool get _hasCustomStation => _stations.any((s) => s.isCustom);
 
-  bool get _canSave {
-    if (_stations.length < 2) return false;
-    if (_fromIdx == null || _toIdx == null) return false;
-    if (_fromIdx! >= _toIdx!) return false;
-    return true;
+  void _maybeShowOnboardingHint() {
+    if (_onboardingShown) return;
+    if (_stations.length < 2) return; // 至少2站才提示
+    _onboardingShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(
+            Icons.lightbulb_outline,
+            color: Colors.orange,
+            size: 32,
+          ),
+          title: const Text('设置上下车站'),
+          content: const Text(
+            '添加完所有站点后，点击站点卡片可以：'
+            '• 设为上车站（绿色边框）'
+            '• 设为下车站（橙色边框）'
+            '• 编辑到达和出发时间'
+            '• 设置跨天（如次日到达）'
+            '上车站和下车站都设置好后，才能点击右上角「保存」。',
+            style: TextStyle(height: 1.6),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   void _showSnack(String msg) {
@@ -129,8 +160,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _travelDate,
-      firstDate: now.subtract(const Duration(days: 30)),
-      lastDate: now.add(const Duration(days: 180)),
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 730)),
     );
     if (picked != null) setState(() => _travelDate = picked);
   }
@@ -157,27 +188,33 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
   }
 
   Future<void> _pickRailStation() async {
+    // 注意：StationSelector 内部在 onSelected 前已经自己调用了 Navigator.pop()
+    // 所以这里的 onSelected 回调里不能再 pop，否则会多弹一层关掉整个页面
+    Map<String, String?>? result;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StationSelector(
         title: '选择国铁车站',
-        onSelected: (result) {
-          Navigator.pop(ctx);
-          final name = (result['name'] ?? '').replaceAll('站', '').trim();
-          if (name.isEmpty) return;
-          setState(() {
-            _stations.add(
-              _EditableStation(
-                name: name,
-                isCustom: false,
-                telecode: result['telecode'] ?? '',
-              ),
-            );
-          });
+        onSelected: (r) {
+          // StationSelector 已自行 pop，这里只记录结果即可
+          result = r;
         },
       ),
     );
+    if (result == null) return;
+    final name = (result!['name'] ?? '').replaceAll('站', '').trim();
+    if (name.isEmpty) return;
+    setState(() {
+      _stations.add(
+        _EditableStation(
+          name: name,
+          isCustom: false,
+          telecode: result!['telecode'] ?? '',
+        ),
+      );
+      _maybeShowOnboardingHint();
+    });
   }
 
   void _showCustomStationDialog({_EditableStation? existing, int? idx}) {
@@ -236,6 +273,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
         );
       } else {
         _stations.add(_EditableStation(name: name, isCustom: true));
+        _maybeShowOnboardingHint();
       }
     });
   }
@@ -478,20 +516,35 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
   // ─────────────────────────────────────────────────────────
 
   void _save() {
-    if (!_canSave) {
-      if (_stations.length < 2) {
-        _showSnack('至少需要 2 个站点');
-      } else if (_fromIdx == null || _toIdx == null) {
-        _showSnack('请设置上车站和下车站');
-      } else if (_fromIdx! >= _toIdx!) {
-        _showSnack('上车站必须在下车站前面');
+    final trainCode = _trainCodeCtrl.text.trim().toUpperCase();
+
+    // 收集所有问题
+    final issues = <String>[];
+    if (trainCode.isEmpty) issues.add('• 请在「列车信息」里填写车次号');
+    if (_stations.length < 2) issues.add('• 至少需要添加 2 个站点');
+    if (_stations.length >= 2) {
+      if (_fromIdx == null) issues.add('• 还没有设置上车站（点击站点卡片 → 设为上车站）');
+      if (_toIdx == null) issues.add('• 还没有设置下车站（点击站点卡片 → 设为下车站）');
+      if (_fromIdx != null && _toIdx != null && _fromIdx! >= _toIdx!) {
+        issues.add('• 上车站必须排在下车站前面（可拖动站点调整顺序）');
       }
-      return;
     }
 
-    final trainCode = _trainCodeCtrl.text.trim().toUpperCase();
-    if (trainCode.isEmpty) {
-      _showSnack('请填写车次号');
+    if (issues.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.error_outline, color: Colors.red, size: 32),
+          title: const Text('还不能保存'),
+          content: Text(issues.join(''), style: const TextStyle(height: 1.8)),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('知道了，去修改'),
+            ),
+          ],
+        ),
+      );
       return;
     }
 
@@ -585,14 +638,10 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
             )
           else
             TextButton.icon(
-              onPressed: _canSave ? _save : null,
+              onPressed: _save,
               icon: const Icon(Icons.check),
               label: const Text('保存'),
-              style: TextButton.styleFrom(
-                foregroundColor: _canSave
-                    ? cs.primary
-                    : cs.onSurface.withAlpha(80),
-              ),
+              style: TextButton.styleFrom(foregroundColor: cs.primary),
             ),
         ],
       ),
@@ -709,7 +758,51 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
 
   // ── 座位 ─────────────────────────────────────────────────
 
+  void _showCustomSeatNameDialog() {
+    final ctrl = TextEditingController(text: _customSeatTypeName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('自定义座位类型'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 10,
+          decoration: const InputDecoration(
+            hintText: '如：软卧上铺、包厢、餐车…',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) {
+            final name = ctrl.text.trim();
+            Navigator.pop(ctx);
+            setState(
+              () => _customSeatTypeName = name.isNotEmpty ? name : '自定义',
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = ctrl.text.trim();
+              Navigator.pop(ctx);
+              setState(
+                () => _customSeatTypeName = name.isNotEmpty ? name : '自定义',
+              );
+            },
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSeatSection() {
+    final isCustom = _seatType == 'custom_num';
+    final isNoSeat = _seatType == 'wz_num';
     return Column(
       children: [
         DropdownButtonFormField<String>(
@@ -722,17 +815,60 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
           items: _seatTypes.entries
               .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
               .toList(),
-          onChanged: (v) => setState(() {
-            _seatType = v ?? 'wz_num';
-          }),
+          onChanged: (v) {
+            setState(() => _seatType = v ?? 'wz_num');
+            if (v == 'custom_num') {
+              // 选完立即弹出名称输入
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => _showCustomSeatNameDialog(),
+              );
+            }
+          },
         ),
+        // 自定义座位类型名显示
+        if (isCustom && _customSeatTypeName.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: GestureDetector(
+              onTap: _showCustomSeatNameDialog,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withAlpha(20),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.purple.withAlpha(100)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.edit, size: 16, color: Colors.purple),
+                    const SizedBox(width: 8),
+                    Text(
+                      '类型名称：$_customSeatTypeName',
+                      style: const TextStyle(
+                        color: Colors.purple,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    const Text(
+                      '点击修改',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         const SizedBox(height: 12),
         TextField(
           controller: _seatInfoCtrl,
-          enabled: _seatType != 'wz_num',
+          enabled: !isNoSeat,
           decoration: InputDecoration(
             labelText: '座位号',
-            hintText: _seatType == 'wz_num' ? '无座无需填写' : '如 05车12F',
+            hintText: isNoSeat ? '无座无需填写' : '如 05车12F',
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.chair_outlined),
           ),
@@ -827,7 +963,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
 
   Widget _emptyStationsHint(bool isDark) {
     return Container(
-      height: 100,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(10),
@@ -835,11 +971,20 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
           color: isDark ? Colors.white.withAlpha(30) : Colors.grey.shade300,
         ),
       ),
-      child: Center(
-        child: Text(
-          '还没有站点，点击下方按钮添加',
-          style: TextStyle(color: Colors.grey.shade500),
-        ),
+      child: Column(
+        children: [
+          Icon(Icons.add_road, size: 36, color: Colors.grey.shade400),
+          const SizedBox(height: 8),
+          Text(
+            '还没有站点，点击下方「添加站点」',
+            style: TextStyle(color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '添加后点击卡片可设置上下车站和到发时间',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+          ),
+        ],
       ),
     );
   }
@@ -1320,7 +1465,28 @@ class _StationMenuSheet extends StatelessWidget {
                 style: TextStyle(fontSize: 12, color: Colors.purple.shade400),
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
+          // 操作引导提示
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.blue.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.touch_app, size: 14, color: Colors.blue.shade400),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '点击下方按钮设置上下车站、编辑时间',
+                    style: TextStyle(fontSize: 11, color: Colors.blue.shade400),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
