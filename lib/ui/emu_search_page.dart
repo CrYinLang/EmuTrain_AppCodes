@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../main.dart';
 import '../functions.dart';
+import 'function/more_search.dart';
 import 'journey.dart';
 
 // 搜索结果数据类（统一所有查询类型的结果）
@@ -68,6 +69,7 @@ class _SearchPageState extends State<SearchPage> {
   List<Map<String, dynamic>> trainData = [];
 
   List<String> _bureauNames = [];
+  List<String> _depotNames = [];
 
   final List<SearchResult> _searchResults = [];
 
@@ -106,9 +108,17 @@ class _SearchPageState extends State<SearchPage> {
                 .toSet()
                 .toList()
               ..sort();
+        final depotSet =
+            loadedData
+                .map((r) => (r['配属动车所'] ?? '').toString().trim())
+                .where((d) => d.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
         setState(() {
           trainData = loadedData;
           _bureauNames = bureauSet;
+          _depotNames = depotSet;
         });
       }
     } catch (e) {
@@ -315,6 +325,49 @@ class _SearchPageState extends State<SearchPage> {
     _loadBureauPage(1);
   }
 
+  // ==================== 动车所查询 ====================
+  Future<void> _searchByDepot(String depotInput) async {
+    if (depotInput.isEmpty) return;
+
+    setState(() {
+      isLoading = true;
+      errorMsg = '';
+      _searchResults.clear();
+      _resetPagination();
+    });
+
+    final pattern = depotInput.trim().toLowerCase();
+    final List<Map<String, dynamic>> matchedRecords = [];
+
+    for (var record in trainData) {
+      final depot = (record['配属动车所'] ?? '').toString().trim();
+      if (depot.isNotEmpty && depot.toLowerCase().contains(pattern)) {
+        matchedRecords.add(record);
+      }
+    }
+
+    if (matchedRecords.isEmpty) {
+      setState(() {
+        isLoading = false;
+        errorMsg = '未找到配属于"$depotInput"的车辆';
+      });
+      return;
+    }
+
+    matchedRecords.sort((a, b) {
+      final modelA = a['type_code'] ?? '';
+      final modelB = b['type_code'] ?? '';
+      if (modelA != modelB) return modelA.compareTo(modelB);
+      return (a['车组号'] ?? '').compareTo(b['车组号'] ?? '');
+    });
+
+    _allBureauRecords = matchedRecords;
+    _totalResults = matchedRecords.length;
+    _currentBureauSearch = depotInput.trim();
+
+    _loadBureauPage(1);
+  }
+
   void _loadBureauPage(int page) {
     if (_allBureauRecords.isEmpty || page < 1 || page > _totalPages) return;
 
@@ -442,6 +495,8 @@ class _SearchPageState extends State<SearchPage> {
         await _searchByBureau(input);
       } else if (searchType == 'carType') {
         await _searchByCarType(input);
+      } else if (searchType == 'depot') {
+        await _searchByDepot(input);
       }
       // ==================== 车次查询 ====================
       else if (searchType == 'trainCode') {
@@ -1076,7 +1131,9 @@ class _SearchPageState extends State<SearchPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (searchType == 'bureau' || searchType == 'carType')
+                        if (searchType == 'bureau' ||
+                            searchType == 'carType' ||
+                            searchType == 'depot')
                           Text(
                             result.bureauFullName,
                             style: TextStyle(
@@ -1128,7 +1185,8 @@ class _SearchPageState extends State<SearchPage> {
                 children: [
                   if (result.bureau.isNotEmpty &&
                       searchType != 'bureau' &&
-                      searchType != 'carType')
+                      searchType != 'carType' &&
+                      searchType != 'depot')
                     _buildInfoRow('配属路局', result.bureauFullName),
                   if (result.depot != null && result.depot!.isNotEmpty)
                     _buildInfoRow('配属动车所', result.depot!),
@@ -1197,11 +1255,55 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     final settings = Provider.of<AppSettings>(context);
     final int displayedCount = _searchResults.length;
-    final int totalCount = (searchType == 'bureau' || searchType == 'carType')
+    final int totalCount =
+        (searchType == 'bureau' ||
+            searchType == 'carType' ||
+            searchType == 'depot')
         ? _totalResults
         : displayedCount;
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('动车组查询'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'coach') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CoachSearchPage(),
+                  ),
+                );
+              } else if (value == 'loco') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const LocoSearchPage(),
+                  ),
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'coach',
+                child: ListTile(
+                  leading: Icon(Icons.directions_railway),
+                  title: Text('客车查询'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'loco',
+                child: ListTile(
+                  leading: Icon(Icons.train),
+                  title: Text('机车查询'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1250,14 +1352,18 @@ class _SearchPageState extends State<SearchPage> {
                           ? '输入车号'
                           : searchType == 'carType'
                           ? '输入车型代号'
-                          : '输入路局名称',
+                          : searchType == 'bureau'
+                          ? '输入路局名称'
+                          : '输入动车所名称',
                       hintText: searchType == 'trainCode'
                           ? '如: 31'
                           : searchType == 'trainId'
                           ? '如: CR400AF-AZ-2311'
                           : searchType == 'carType'
                           ? '如: CRH6F-A'
-                          : '如: 上局 或 上海铁路局',
+                          : searchType == 'bureau'
+                          ? '如: 上局 或 上海铁路局'
+                          : '如: 上海动车段',
                       border: const OutlineInputBorder(),
                       filled: true,
                     ),
@@ -1284,7 +1390,7 @@ class _SearchPageState extends State<SearchPage> {
                 ButtonSegment(
                   value: 'trainCode',
                   label: Text('车次查询'),
-                  icon: Icon(Icons.numbers),
+                  icon: Icon(Icons.confirmation_number),
                 ),
                 ButtonSegment(
                   value: 'trainId',
@@ -1300,6 +1406,11 @@ class _SearchPageState extends State<SearchPage> {
                   value: 'bureau',
                   label: Text('路局查询'),
                   icon: Icon(Icons.business),
+                ),
+                ButtonSegment(
+                  value: 'depot',
+                  label: Text('动车所'),
+                  icon: Icon(Icons.warehouse_outlined),
                 ),
               ],
               selected: {searchType},
@@ -1404,7 +1515,10 @@ class _SearchPageState extends State<SearchPage> {
             if (_searchResults.isNotEmpty) ...[
               buildResultCountBar(
                 context,
-                label: (searchType == 'bureau' || searchType == 'carType')
+                label:
+                    (searchType == 'bureau' ||
+                        searchType == 'carType' ||
+                        searchType == 'depot')
                     ? '$_currentBureauSearch 共 $totalCount 条（当前 $displayedCount 条）'
                     : '共找到 $totalCount 条结果',
                 onClear: () => setState(() {
@@ -1416,7 +1530,9 @@ class _SearchPageState extends State<SearchPage> {
               ),
               const SizedBox(height: 12),
 
-              if (searchType == 'bureau' || searchType == 'carType')
+              if (searchType == 'bureau' ||
+                  searchType == 'carType' ||
+                  searchType == 'depot')
                 _buildPaginationControls(),
 
               for (final result in _searchResults) _buildResultCard(result),
@@ -1435,7 +1551,9 @@ class _SearchPageState extends State<SearchPage> {
                     Icon(
                       searchType == 'bureau'
                           ? Icons.business
-                          : Icons.train_outlined,
+                          : searchType == 'depot'
+                          ? Icons.warehouse_outlined
+                          : Icons.card_travel_rounded,
                       size: 64,
                     ),
                     const SizedBox(height: 16),
@@ -1446,7 +1564,9 @@ class _SearchPageState extends State<SearchPage> {
                           ? '请输入车号进行查询'
                           : searchType == 'carType'
                           ? '请输入车型进行查询'
-                          : '请输入路局名称或点击下方简称查询',
+                          : searchType == 'bureau'
+                          ? '请输入路局名称或点击下方简称查询'
+                          : '请输入动车所名称或点击下方快捷查询',
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 16),
                     ),
@@ -1502,6 +1622,25 @@ class _SearchPageState extends State<SearchPage> {
                           return GestureDetector(
                             onTap: () => _handleBureauChipTap(bureauName),
                             child: Chip(label: Text(bureauName)),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    if (searchType == 'depot') ...[
+                      const SizedBox(height: 20),
+                      const Text('所有动车所:'),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.center,
+                        children: _depotNames.map((depotName) {
+                          return GestureDetector(
+                            onTap: () {
+                              controller.text = depotName;
+                              _performSearch();
+                            },
+                            child: Chip(label: Text(depotName)),
                           );
                         }).toList(),
                       ),

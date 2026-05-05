@@ -719,7 +719,9 @@ class _MainScreenState extends State<MainScreen> {
     return Consumer<AppSettings>(
       builder: (context, settings, _) {
         return Scaffold(
-          appBar: AppBar(title: Text(_currentPageTitle), centerTitle: true),
+          appBar: _currentIndex != 1
+              ? AppBar(title: Text(_currentPageTitle), centerTitle: true)
+              : null,
           body: _buildCurrentPage(),
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _currentIndex,
@@ -728,7 +730,7 @@ class _MainScreenState extends State<MainScreen> {
             unselectedItemColor: Colors.grey,
             onTap: (index) => setState(() => _currentIndex = index),
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home), label: '旅途'),
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: '旅行'),
               BottomNavigationBarItem(icon: Icon(Icons.search), label: '搜索'),
               BottomNavigationBarItem(icon: Icon(Icons.build), label: '其他'),
               BottomNavigationBarItem(icon: Icon(Icons.settings), label: '设置'),

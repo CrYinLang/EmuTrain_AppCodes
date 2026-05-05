@@ -37,38 +37,6 @@ class ToolScreen extends StatelessWidget {
             ),
             Card(
               child: ListTile(
-                leading: const Icon(Icons.train, size: 32),
-                title: const Text('客车查询'),
-                subtitle: const Text('查询普速客车'),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CoachSearchPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.train, size: 32),
-                title: const Text('机车查询'),
-                subtitle: const Text('查询机车车头'),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LocoSearchPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Card(
-              child: ListTile(
                 leading: const Icon(Icons.av_timer, size: 32),
                 title: const Text('速度计'),
                 subtitle: const Text('实验性功能，可能不准'),

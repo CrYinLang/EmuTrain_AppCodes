@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../main.dart';
 import '../../functions.dart';
 import '../../update.dart';
+import 'error.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -1218,6 +1219,18 @@ class _DataVersionScreenState extends State<DataVersionScreen> {
                   ),
                   subtitle: '检测并更新所有数据至最新版本',
                   onTap: () => UpdateUI.showUpdateAllDataFlow(context),
+                ),
+                const SizedBox(height: 8),
+                _DataVersionTile(
+                  title: '错误日志',
+                  version: null,
+                  icon: Icons.nearby_error_outlined,
+                  trailingWidget: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  onTap: () => ErrorLogPage(),
                 ),
                 const SizedBox(height: 8),
               ],
