@@ -1230,7 +1230,7 @@ class _DataVersionScreenState extends State<DataVersionScreen> {
                     size: 14,
                     color: cs.onSurfaceVariant,
                   ),
-                  onTap: () => ErrorLogPage(),
+                  onTap: () => ErrorLogPage.open(context),
                 ),
                 const SizedBox(height: 8),
               ],

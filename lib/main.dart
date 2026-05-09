@@ -23,14 +23,14 @@ import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '26-05-03-12-00';
+  static const String lastUpdate = '260510';
   static const String version = '1.2.2.0';
   static const String build = '1220';
 
-  static String defaultStationBuild = '4';
-  static String defaultTrainBuild = '7';
-  static String defaultCoachTrainBuild = '1';
-  static String defaultLocoBuild = '1';
+  static String defaultStationBuild = '20260509';
+  static String defaultTrainBuild = '20260509';
+  static String defaultCoachTrainBuild = '20260509';
+  static String defaultLocoBuild = '20260509';
 
   // ---------- stationBuild ----------
   static String _stationBuild = defaultStationBuild;
@@ -113,17 +113,43 @@ class Vars {
     _isLocoBuildInitialized = true;
   }
 
-  // ---------- 网络 ----------
+  static Map<String, dynamic>? _cachedVersionInfo;
+
+  /// 是否正在进行中的请求（防止并发重复请求）
+  static Future<Map<String, dynamic>?>? _pendingFetch;
+
   static Future<Map<String, dynamic>?> fetchVersionCommand() async {
-    final response = await http
-        .get(
-          Uri.parse(
-            'https://gitee.com/CrYinLang/EmuTrain/raw/master/version.json',
-          ),
-        )
-        .timeout(const Duration(seconds: 10));
-    if (response.statusCode == 200) return json.decode(response.body);
+    // 已有缓存直接返回
+    if (_cachedVersionInfo != null) return _cachedVersionInfo;
+
+    // 有进行中的请求则共享同一 Future，避免并发重复网络请求
+    _pendingFetch ??= _doFetch().then((result) {
+      if (result != null) _cachedVersionInfo = result;
+      _pendingFetch = null;
+      return result;
+    });
+
+    return _pendingFetch;
+  }
+
+  static Future<Map<String, dynamic>?> _doFetch() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://gitee.com/CrYinLang/EmuTrain/raw/master/version.json',
+            ),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) return json.decode(response.body);
+    } catch (_) {}
     return null;
+  }
+
+  /// 强制清除缓存（如需手动刷新时使用）
+  static void clearVersionCache() {
+    _cachedVersionInfo = null;
+    _pendingFetch = null;
   }
 }
 

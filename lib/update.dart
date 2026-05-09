@@ -9,28 +9,21 @@ import 'main.dart';
 import 'functions.dart';
 
 class UpdateService {
-  static Future<Map<String, dynamic>?> checkForUpdate() async {
+  static Future<Map<String, dynamic>?> checkForUpdate({
+    bool forceRefresh = false,
+  }) async {
     try {
-      final response = await http
-          .get(
-            Uri.parse(
-              'https://gitee.com/CrYinLang/EmuTrain/raw/master/version.json',
-            ),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        return {'error': '网络错误 ${response.statusCode}'};
-      }
+      if (forceRefresh) Vars.clearVersionCache();
+      final result = await Vars.fetchVersionCommand();
+      if (result != null) return result;
+      return {'error': '网络请求失败，请检查网络连接'};
     } catch (e) {
       return {'error': e.toString()};
     }
   }
 
-  static Future<List<String>?> silentUpdateAllData() async {
-    final versionInfo = await UpdateService.checkForUpdate();
+  static Future<({List<String> updated, List<String> failed})?> silentUpdateAllData() async {
+    final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
     if (versionInfo == null || versionInfo.containsKey('error')) return null;
 
     final tasks = [
@@ -69,6 +62,8 @@ class UpdateService {
     ];
 
     final updated = <String>[];
+    final failed = <String>[];
+
     for (final task in tasks) {
       final currentBuild = int.tryParse(task.currentBuildStr) ?? 0;
       final remoteBuild =
@@ -78,9 +73,7 @@ class UpdateService {
       try {
         final url =
             'https://gitee.com/CrYinLang/EmuTrain/raw/master/${task.remoteDataPath}.json';
-        final response = await http
-            .get(Uri.parse(url))
-            .timeout(const Duration(seconds: 30));
+        final response = await http.get(Uri.parse(url));
         if (response.statusCode == 200) {
           json.decode(response.body); // 验证 JSON 合法
           final directory = await getApplicationDocumentsDirectory();
@@ -88,12 +81,14 @@ class UpdateService {
           await file.writeAsString(response.body);
           await task.saveBuild(remoteBuild.toString());
           updated.add(task.label);
+        } else {
+          failed.add(task.label);
         }
       } catch (_) {
-        // 单个失败不影响其他，跳过
+        failed.add(task.label);
       }
     }
-    return updated;
+    return (updated: updated, failed: failed);
   }
 }
 
@@ -125,7 +120,7 @@ class UpdateUI {
       builder: (_) => const _CheckingDialog(),
     );
 
-    final versionInfo = await UpdateService.checkForUpdate();
+    final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
 
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
 
@@ -144,7 +139,7 @@ class UpdateUI {
       builder: (_) => const _CheckingDialog(),
     );
 
-    final versionInfo = await UpdateService.checkForUpdate();
+    final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
 
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
 
@@ -163,7 +158,7 @@ class UpdateUI {
       builder: (_) => const _CheckingDialog(),
     );
 
-    final versionInfo = await UpdateService.checkForUpdate();
+    final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
 
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
 
@@ -182,7 +177,7 @@ class UpdateUI {
       builder: (_) => const _CheckingDialog(),
     );
 
-    final versionInfo = await UpdateService.checkForUpdate();
+    final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
 
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
 
@@ -202,12 +197,12 @@ class UpdateUI {
       builder: (_) => const _CheckingDialog(),
     );
 
-    final updated = await UpdateService.silentUpdateAllData();
+    final result = await UpdateService.silentUpdateAllData();
 
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!context.mounted) return;
 
-    if (updated == null) {
+    if (result == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('检查更新失败，请检查网络连接'),
@@ -217,17 +212,30 @@ class UpdateUI {
       return;
     }
 
-    if (updated.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('所有数据已是最新版本')));
-    } else {
+    final updated = result.updated;
+    final failed = result.failed;
+
+    if (updated.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('已更新：${updated.join('、')}'),
           backgroundColor: Colors.green,
         ),
       );
+    }
+    if (failed.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('以下数据更新失败，请稍后重试：${failed.join('、')}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+    if (updated.isEmpty && failed.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('所有数据已是最新版本')));
     }
   }
 
@@ -238,7 +246,7 @@ class UpdateUI {
       builder: (_) => const _CheckingDialog(),
     );
 
-    final versionInfo = await UpdateService.checkForUpdate();
+    final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
 
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
 
