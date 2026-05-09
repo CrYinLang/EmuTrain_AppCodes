@@ -1265,6 +1265,148 @@ class _SearchPageState extends State<SearchPage> {
  );
 
  @override
+ 
+ // 查询类型切换
+void _changeSearchType(String newType) {
+  if (searchType == newType) return;
+
+  setState(() {
+    searchType = newType;
+    controller.clear();
+    _searchResults.clear();
+    errorMsg = '';
+    _resetPagination();
+
+    // 切换到车号查询时默认关闭交路（减少冷却时间）
+    if (newType == 'trainId') {
+      showRoutes = false;
+    }
+  });
+}
+
+// 查询类型 Chip 组件
+Widget _buildSearchTypeChip({
+  required String label,
+  required IconData icon,
+  required bool isSelected,
+  required VoidCallback onTap,
+}) {
+  final theme = Theme.of(context);
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outlineVariant,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isSelected
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurface,
+            size: 22,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// 更多 ▼ 下拉菜单
+Widget _buildMoreMenu() {
+  final theme = Theme.of(context);
+  final bool isMoreSelected = 
+      searchType == 'carType' || 
+      searchType == 'bureau' || 
+      searchType == 'depot';
+
+  return PopupMenuButton<String>(
+    onSelected: _changeSearchType,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    position: PopupMenuPosition.under,
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: isMoreSelected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isMoreSelected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outlineVariant,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.more_horiz,
+            color: isMoreSelected
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurface,
+            size: 22,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '更多',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    ),
+    itemBuilder: (context) => [
+      PopupMenuItem(
+        value: 'carType',
+        child: ListTile(
+          leading: const Icon(Icons.card_travel_rounded),
+          title: const Text('车型查询'),
+          dense: true,
+        ),
+      ),
+      PopupMenuItem(
+        value: 'bureau',
+        child: ListTile(
+          leading: const Icon(Icons.business),
+          title: const Text('路局查询'),
+          dense: true,
+        ),
+      ),
+      PopupMenuItem(
+        value: 'depot',
+        child: ListTile(
+          leading: const Icon(Icons.warehouse_outlined),
+          title: const Text('动车所查询'),
+          dense: true,
+        ),
+      ),
+    ],
+  );
+}
+
  Widget build(BuildContext context) {
  final settings = Provider.of<AppSettings>(context);
  final int displayedCount = _searchResults.length;
@@ -1390,56 +1532,41 @@ class _SearchPageState extends State<SearchPage> {
  ),
  ],
  ),
- const SizedBox(height: 20),
+const SizedBox(height: 20),
 
- SegmentedButton<String>(
- segments: const [
- ButtonSegment(
- value: 'trainCode',
- label: Text('车次查询'),
- icon: Icon(Icons.numbers),
- ),
- ButtonSegment(
- value: 'trainId',
- label: Text('车号查询'),
- icon: Icon(Icons.confirmation_number),
- ),
- ButtonSegment(
- value: 'carType',
- label: Text('车型查询'),
- icon: Icon(Icons.card_travel_rounded),
- ),
- ButtonSegment(
- value: 'bureau',
- label: Text('路局查询'),
- icon: Icon(Icons.business),
- ),
- ButtonSegment(
- value: 'depot',
- label: Text('动车所'),
- icon: Icon(Icons.warehouse_outlined),
- ),
- ],
- selected: {searchType},
- onSelectionChanged: (s) => setState(() {
- searchType = s.first;
- controller.clear();
- _searchResults.clear();
- errorMsg = '';
- _resetPagination();
- }),
- style: SegmentedButton.styleFrom(
- backgroundColor: Theme.of(
- context,
- ).colorScheme.surfaceContainerHighest,
- selectedBackgroundColor: Theme.of(context).colorScheme.primary,
- selectedForegroundColor: Theme.of(
- context,
- ).colorScheme.onPrimary,
- ),
- ),
+// ==================== 新版查询类型选择器 ====================
+Row(
+  children: [
+    // 车次查询
+    Expanded(
+      child: _buildSearchTypeChip(
+        label: '车次查询',
+        icon: Icons.numbers,
+        isSelected: searchType == 'trainCode',
+        onTap: () => _changeSearchType('trainCode'),
+      ),
+    ),
+    const SizedBox(width: 8),
 
- const SizedBox(height: 20),
+    // 车号查询
+    Expanded(
+      child: _buildSearchTypeChip(
+        label: '车号查询',
+        icon: Icons.confirmation_number,
+        isSelected: searchType == 'trainId',
+        onTap: () => _changeSearchType('trainId'),
+      ),
+    ),
+    const SizedBox(width: 8),
+
+    // 更多 ▼
+    Expanded(
+      child: _buildMoreMenu(),
+    ),
+  ],
+),
+
+const SizedBox(height: 20),
 
  if (searchType == 'trainId')
  Card(
@@ -1551,13 +1678,16 @@ class _SearchPageState extends State<SearchPage> {
  child: Column(
  children: [
  Icon(
- searchType == 'bureau'
- ? Icons.business
- : searchType == 'depot'
- ? Icons.warehouse_outlined
- : Icons.train_outlined,
- size: 64,
- ),
+  switch (searchType) {
+    'trainCode' => Icons.numbers,
+    'trainId' => Icons.confirmation_number,
+    'carType' => Icons.card_travel_rounded,
+    'bureau' => Icons.business,
+    'depot' => Icons.warehouse_outlined,
+    _ => Icons.train_outlined,
+  },
+  size: 64,
+),
  const SizedBox(height: 16),
  Text(
  searchType == 'trainCode'

@@ -6,15 +6,15 @@
   "minVersion": "1212",
   "message": "",
 
-  "StationBuild": "4",
-  "TrainBuild": "7",
-  "CoachTrainBuild": "2",
-  "LocoBuild": "2",
+  "StationBuild": "20260508",
+  "TrainBuild": "20260508",
+  "CoachTrainBuild": "20260508",
+  "LocoBuild": "20260508",
 
   "github": "https://gh-proxy.com/https://github.com/CrYinLang/EmuTrain/releases/download/1.2.2.0/app-release.apk",
   "gitee": "https://gitee.com/CrYinLang/EmuTrain/releases/download/1.2.2.0/app-release.apk",
   "qq": "https://qm.qq.com/q/fk5M9PJGyk",
 
-  "describe": "添加了动车所查询，优化了功能",
+  "describe": "添加了动车所查询，优化了功能界面",
   "Announcement": "公告:QQ群:667933194\n官网:https://emutrain.github.io/"
 }
