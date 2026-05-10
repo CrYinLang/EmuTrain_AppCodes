@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ui/function/error.dart';
 import 'ui/function/gps.dart';
 
 /// 轨迹点：经纬度 + 对应速度
@@ -22,14 +23,10 @@ class TrackPoint {
 }
 
 class SpeedService extends ChangeNotifier {
-  // ── 单例 ──────────────────────────────────────────────────────
   static final SpeedService _instance = SpeedService._internal();
-
   factory SpeedService() => _instance;
-
   SpeedService._internal();
 
-  // ── 状态数据 ──────────────────────────────────────────────────
   double speedKmh = 0.0;
   double maxSpeedKmh = 0.0;
   double totalDistanceM = 0.0;
@@ -49,9 +46,7 @@ class SpeedService extends ChangeNotifier {
   bool? lastSaveResult;
   DateTime? _trackingStartTime;
 
-  // 当前是否实际运行在轮询模式（流失败降级后为 true）
   bool _usingPollFallback = false;
-
   bool get usingPollFallback => _usingPollFallback;
 
   StreamSubscription<Position>? _positionStream;
@@ -59,84 +54,104 @@ class SpeedService extends ChangeNotifier {
 
   // ── 权限检查 ──────────────────────────────────────────────────
   Future<void> checkPermission() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      statusMsg = '请先开启设备定位服务';
-      hasPermission = false;
-      notifyListeners();
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      statusMsg = '位置权限被永久拒绝，请在系统设置中开启';
-      hasPermission = false;
-      notifyListeners();
-      return;
-    }
-
-    if (permission == LocationPermission.denied) {
-      statusMsg = '需要位置权限才能测速';
-      hasPermission = false;
-      notifyListeners();
-      return;
-    }
-
-    // Android 额外申请后台权限（Android 10+）
-    if (Platform.isAndroid) {
-      if (permission == LocationPermission.whileInUse) {
-        permission = await Geolocator.requestPermission();
-        // 用户拒绝后台权限不阻止使用，仅影响后台追踪
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        statusMsg = '请先开启设备定位服务';
+        hasPermission = false;
+        notifyListeners();
+        return;
       }
-    }
 
-    hasPermission = true;
-    statusMsg = isTracking ? '正在测速' : '点击开始测速';
-    notifyListeners();
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        statusMsg = '位置权限被永久拒绝，请在系统设置中开启';
+        hasPermission = false;
+        notifyListeners();
+        return;
+      }
+
+      if (permission == LocationPermission.denied) {
+        statusMsg = '需要位置权限才能测速';
+        hasPermission = false;
+        notifyListeners();
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        // 尝试请求后台权限
+        if (permission == LocationPermission.whileInUse) {
+          await Geolocator.requestPermission();
+        }
+      }
+
+      hasPermission = true;
+      statusMsg = isTracking ? '正在测速' : '点击开始测速';
+      notifyListeners();
+    } catch (e, stack) {
+      await logError(
+        from: 'SpeedService.checkPermission',
+        error: '位置权限检查失败: $e',
+        level: 4,
+      );
+      debugPrint('checkPermission error: $e\n$stack');
+      statusMsg = '权限检查异常';
+      hasPermission = false;
+      notifyListeners();
+    }
   }
 
   // ── 开始追踪 ──────────────────────────────────────────────────
   Future<void> startTracking() async {
-    isTracking = true;
-    statusMsg = '正在定位…';
-    _updateCount = 0;
-    debugInfo = '';
-    _lastPosition = null;
-    totalDistanceM = 0.0;
-    avgSpeedKmh = 0.0;
-    maxSpeedKmh = 0.0;
-    speedKmh = 0.0;
-    _speedAccumulator = 0.0;
-    _speedSampleCount = 0;
-    lastSaveResult = null;
-    _usingPollFallback = false;
-    trackPoints.clear();
-    _trackingStartTime = DateTime.now();
-    notifyListeners();
-
-    await SettingsModel().load();
-
-    // 先尝试拿上一次已知位置，让界面立刻有数据显示
     try {
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null && isTracking) {
-        debugInfo = '使用上次缓存位置';
-        _onPosition(last);
+      isTracking = true;
+      statusMsg = '正在定位…';
+      _updateCount = 0;
+      debugInfo = '';
+      _lastPosition = null;
+      totalDistanceM = 0.0;
+      avgSpeedKmh = 0.0;
+      maxSpeedKmh = 0.0;
+      speedKmh = 0.0;
+      _speedAccumulator = 0.0;
+      _speedSampleCount = 0;
+      lastSaveResult = null;
+      _usingPollFallback = false;
+      trackPoints.clear();
+      _trackingStartTime = DateTime.now();
+      notifyListeners();
+
+      await SettingsModel().load();
+
+      // 使用上次缓存位置快速显示
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && isTracking) {
+          debugInfo = '使用上次缓存位置';
+          _onPosition(last);
+        }
+      } catch (_) {}
+
+      final settings = SettingsModel();
+
+      if (Platform.isAndroid && settings.forcePolling) {
+        _startPolling();
+      } else {
+        _startStream();
       }
-    } catch (_) {}
-
-    final settings = SettingsModel();
-
-    // iOS 始终使用持续流
-    // Android：根据设置决定，流失败自动降级到轮询
-    if (Platform.isAndroid && settings.forcePolling) {
-      _startPolling();
-    } else {
-      _startStream();
+    } catch (e) {
+      await logError(
+        from: 'SpeedService.startTracking',
+        error: '启动测速失败: $e',
+        level: 4,
+      );
+      isTracking = false;
+      statusMsg = '启动失败';
+      notifyListeners();
     }
   }
 
@@ -146,73 +161,35 @@ class SpeedService extends ChangeNotifier {
 
     final locationSettings = _buildStreamLocationSettings();
 
-    _positionStream =
-        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-          (position) {
-            if (isTracking) _onPosition(position);
-          },
-          onError: (Object e) {
-            if (!isTracking) return;
-            // 流出错，降级到轮询
-            debugInfo = '流定位失败，切换轮询: $e';
-            _usingPollFallback = true;
-            notifyListeners();
-            _positionStream?.cancel();
-            _positionStream = null;
-            _startPolling();
-          },
-          cancelOnError: true,
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen(
+      (position) {
+        if (isTracking) _onPosition(position);
+      },
+      onError: (Object e, StackTrace stack) {
+        if (!isTracking) return;
+        logError(
+          from: 'SpeedService._startStream',
+          error: '位置流出错，准备降级: $e',
+          level: 4,
         );
+        debugInfo = '流定位失败，切换轮询: $e';
+        _usingPollFallback = true;
+        notifyListeners();
+        _positionStream?.cancel();
+        _positionStream = null;
+        _startPolling();
+      },
+      cancelOnError: true,
+    );
   }
 
-  // ── 轮询模式（Android 专用）────────────────────────────────────
+  // ── 轮询模式 ──────────────────────────────────────────────────
   void _startPolling() {
     _scheduleNextPoll();
   }
 
-  // ── 构建流模式 LocationSettings ───────────────────────────────
-  LocationSettings _buildStreamLocationSettings() {
-    final s = SettingsModel();
-    final intervalMs = (s.pollIntervalSeconds * 1000).round().clamp(100, 5000);
-
-    if (Platform.isAndroid) {
-      return AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        forceLocationManager: s.forceLocationManager,
-        intervalDuration: Duration(milliseconds: intervalMs),
-        distanceFilter: 0,
-      );
-    } else if (Platform.isIOS) {
-      return AppleSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        pauseLocationUpdatesAutomatically: false,
-        distanceFilter: 0,
-        allowBackgroundLocationUpdates: true,
-      );
-    } else {
-      return LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 0,
-      );
-    }
-  }
-
-  // ── 构建轮询模式 LocationSettings ─────────────────────────────
-  LocationSettings _buildPollLocationSettings() {
-    final s = SettingsModel();
-    if (Platform.isAndroid) {
-      return AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        forceLocationManager: s.forceLocationManager,
-      );
-    } else {
-      return const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-      );
-    }
-  }
-
-  // ── 递归单次轮询 ──────────────────────────────────────────────
   void _scheduleNextPoll() {
     if (!isTracking) return;
 
@@ -235,6 +212,11 @@ class SpeedService extends ChangeNotifier {
 
         if (isTracking) _onPosition(position);
       } catch (e) {
+        await logError(
+          from: 'SpeedService._scheduleNextPoll',
+          error: '轮询获取位置失败: $e',
+          level: 3,
+        );
         if (isTracking) {
           debugInfo = '定位错误: $e';
           notifyListeners();
@@ -245,7 +227,7 @@ class SpeedService extends ChangeNotifier {
     });
   }
 
-  // ── 处理新位置数据 ────────────────────────────────────────────
+  // ── 处理新位置 ────────────────────────────────────────────────
   void _onPosition(Position position) {
     _updateCount++;
     final speedMs = position.speed < 0 ? 0.0 : position.speed;
@@ -271,99 +253,170 @@ class SpeedService extends ChangeNotifier {
     avgSpeedKmh = _speedAccumulator / _speedSampleCount;
 
     final modeTag = _usingPollFallback ? '轮询' : '流';
-    debugInfo =
-        '[$modeTag] 更新#$_updateCount | ${speedMs.toStringAsFixed(2)} m/s';
+    debugInfo = '[$modeTag] 更新#$_updateCount | ${speedMs.toStringAsFixed(2)} m/s';
 
     if (currentSpeedKmh > maxSpeedKmh) maxSpeedKmh = currentSpeedKmh;
     statusMsg = '正在测速';
 
-    trackPoints.add(
-      TrackPoint(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        speedKmh: currentSpeedKmh,
-      ),
-    );
+    trackPoints.add(TrackPoint(
+      latitude: position.latitude,
+      longitude: position.longitude,
+      speedKmh: currentSpeedKmh,
+    ));
 
     notifyListeners();
   }
 
-  // ── 停止追踪并保存 ────────────────────────────────────────────
-  Future<void> stopTracking() async {
-    await _positionStream?.cancel();
-    _positionStream = null;
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    isTracking = false;
-    speedKmh = 0.0;
-    _updateCount = 0;
-    _usingPollFallback = false;
 
-    if (trackPoints.isNotEmpty && _trackingStartTime != null) {
-      final record = TrackRecord(
-        id: _trackingStartTime!.millisecondsSinceEpoch.toString(),
-        startTime: _trackingStartTime!,
-        endTime: DateTime.now(),
-        maxSpeedKmh: maxSpeedKmh,
-        avgSpeedKmh: avgSpeedKmh,
-        totalDistanceM: totalDistanceM,
-        points: List.unmodifiable(trackPoints),
+  // ── 构建流模式定位参数 ──────────────────────────────────────
+  LocationSettings _buildStreamLocationSettings() {
+    final settings = SettingsModel();
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        intervalDuration: const Duration(seconds: 1),
+        forceLocationManager: settings.forceLocationManager,
       );
-      lastSaveResult = await TrackRecord.save(record);
-      statusMsg = lastSaveResult! ? '已停止并保存记录' : '已停止（距离不足100m，未保存）';
-    } else {
-      statusMsg = '已停止';
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      return AppleSettings(
+        accuracy: LocationAccuracy.high,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+      );
     }
+    return const LocationSettings(accuracy: LocationAccuracy.high);
+  }
 
+  // ── 构建轮询模式定位参数 ──────────────────────────────────────
+  LocationSettings _buildPollLocationSettings() {
+    final settings = SettingsModel();
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        forceLocationManager: settings.forceLocationManager,
+      );
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      return AppleSettings(
+        accuracy: LocationAccuracy.high,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+      );
+    }
+    return const LocationSettings(accuracy: LocationAccuracy.high);
+  }
+
+  // ── 停止追踪 ──────────────────────────────────────────────────
+  Future<void> stopTracking() async {
+    try {
+      await _positionStream?.cancel();
+      _positionStream = null;
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      isTracking = false;
+      speedKmh = 0.0;
+      _updateCount = 0;
+      _usingPollFallback = false;
+
+      if (trackPoints.isNotEmpty && _trackingStartTime != null) {
+        final record = TrackRecord(
+          id: _trackingStartTime!.millisecondsSinceEpoch.toString(),
+          startTime: _trackingStartTime!,
+          endTime: DateTime.now(),
+          maxSpeedKmh: maxSpeedKmh,
+          avgSpeedKmh: avgSpeedKmh,
+          totalDistanceM: totalDistanceM,
+          points: List.unmodifiable(trackPoints),
+        );
+        lastSaveResult = await TrackRecord.save(record);
+        statusMsg = lastSaveResult! 
+            ? '已停止并保存记录' 
+            : '已停止（距离不足100m，未保存）';
+      } else {
+        statusMsg = '已停止';
+      }
+    } catch (e) {
+      await logError(
+        from: 'SpeedService.stopTracking',
+        error: '停止测速失败: $e',
+        level: 4,
+      );
+      statusMsg = '停止时发生错误';
+    }
     notifyListeners();
   }
 }
 
 class SettingsModel extends ChangeNotifier {
   static final SettingsModel _instance = SettingsModel._internal();
-
   factory SettingsModel() => _instance;
-
   SettingsModel._internal();
 
   bool _forceLocationManager = false;
   double _pollIntervalSeconds = 1.0;
-
-  // Android 专用：强制使用轮询模式（关闭时默认用持续流）
   bool _forcePolling = false;
 
   bool get forceLocationManager => _forceLocationManager;
-
   double get pollIntervalSeconds => _pollIntervalSeconds;
-
   bool get forcePolling => _forcePolling;
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _forceLocationManager = prefs.getBool('forceLocationManager') ?? false;
-    _pollIntervalSeconds = prefs.getDouble('pollIntervalSeconds') ?? 1.0;
-    _forcePolling = prefs.getBool('forcePolling') ?? false;
-    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _forceLocationManager = prefs.getBool('forceLocationManager') ?? false;
+      _pollIntervalSeconds = prefs.getDouble('pollIntervalSeconds') ?? 1.0;
+      _forcePolling = prefs.getBool('forcePolling') ?? false;
+      notifyListeners();
+    } catch (e) {
+      await logError(
+        from: 'SettingsModel.load',
+        error: '加载测速设置失败: $e',
+        level: 3,
+      );
+    }
   }
 
   Future<void> setForceLocationManager(bool value) async {
-    _forceLocationManager = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('forceLocationManager', value);
-    notifyListeners();
+    try {
+      _forceLocationManager = value;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('forceLocationManager', value);
+      notifyListeners();
+    } catch (e) {
+      await logError(
+        from: 'SettingsModel.setForceLocationManager',
+        error: '保存 forceLocationManager 失败: $e',
+        level: 4,
+      );
+    }
   }
 
   Future<void> setPollIntervalSeconds(double value) async {
-    _pollIntervalSeconds = value.clamp(0.1, 5.0);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('pollIntervalSeconds', _pollIntervalSeconds);
-    notifyListeners();
+    try {
+      _pollIntervalSeconds = value.clamp(0.1, 5.0);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('pollIntervalSeconds', _pollIntervalSeconds);
+      notifyListeners();
+    } catch (e) {
+      await logError(
+        from: 'SettingsModel.setPollIntervalSeconds',
+        error: '保存 pollIntervalSeconds 失败: $e',
+        level: 4,
+      );
+    }
   }
 
   Future<void> setForcePolling(bool value) async {
-    _forcePolling = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('forcePolling', value);
-    notifyListeners();
+    try {
+      _forcePolling = value;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('forcePolling', value);
+      notifyListeners();
+    } catch (e) {
+      await logError(
+        from: 'SettingsModel.setForcePolling',
+        error: '保存 forcePolling 失败: $e',
+        level: 4,
+      );
+    }
   }
 }

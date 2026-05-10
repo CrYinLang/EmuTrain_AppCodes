@@ -1034,7 +1034,7 @@ class _TrackHistoryPageState extends State<TrackHistoryPage> {
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: _records!.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final r = _records![index];
                 return _RecordCard(

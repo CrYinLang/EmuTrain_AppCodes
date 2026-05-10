@@ -5,23 +5,51 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
 import 'main.dart';
+import 'ui/function/error.dart';
 
 // ========== Config 全局函数 ==========
 
 Future<bool> readConfig(String key) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool(key) ?? false;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(key) ?? false;
+  } catch (e, stack) {
+    await logError(
+      from: 'readConfig',
+      error: '读取配置失败 key=$key: $e',
+      level: 3,
+    );
+    debugPrint('readConfig error: $e\n$stack');
+    return false;
+  }
 }
 
 Future<void> writeConfig(String key, bool value) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool(key, value);
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  } catch (e, stack) {
+    await logError(
+      from: 'writeConfig',
+      error: '写入配置失败 key=$key, value=$value: $e',
+      level: 4,
+    );
+    debugPrint('writeConfig error: $e\n$stack');
+  }
 }
 
 Future<void> toggleConfig(String key) async {
-  final current = await readConfig(key);
-  final newValue = !current;
-  await writeConfig(key, newValue);
+  try {
+    final current = await readConfig(key);
+    final newValue = !current;
+    await writeConfig(key, newValue);
+  } catch (e) {
+    await logError(
+      from: 'toggleConfig',
+      error: '切换配置失败 key=$key: $e',
+      level: 4,
+    );
+  }
 }
 
 // ========== 工具全局函数 ==========
@@ -33,16 +61,51 @@ Future<void> showSnack(BuildContext context, String message) async {
 }
 
 Future<void> launchSocialLink(BuildContext context, String url) async {
-  final uri = Uri.parse(url);
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('正在打开链接...'),
-        duration: Duration(seconds: 2),
-      ),
+  try {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('正在打开链接...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      await logError(
+        from: 'launchSocialLink',
+        error: '无法打开链接: $url',
+        level: 3,
+      );
+      if (context.mounted) {
+        showSnack(context, '无法打开该链接');
+      }
+    }
+  } catch (e) {
+    await logError(
+      from: 'launchSocialLink',
+      error: '打开链接失败: $url\n$e',
+      level: 4,
     );
+    if (context.mounted) {
+      showSnack(context, '打开链接失败');
+    }
+  }
+}
+
+// ==================== 资产检查 ====================
+Future<bool> checkAssetExists(String path) async {
+  try {
+    await rootBundle.load(path);
+    return true;
+  } catch (e) {
+    await logError(
+      from: 'checkAssetExists',
+      error: '资产文件不存在或加载失败: $path',
+      level: 3,
+    );
+    return false;
   }
 }
 
@@ -168,18 +231,7 @@ class Tool {
   }
 }
 
-// ==================== 资产检查 ====================
-Future<bool> checkAssetExists(String path) async {
-  try {
-    await rootBundle.load(path);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
 // ==================== 信息行 ====================
-/// 通用键值信息行，labelWidth 默认 80，可按需调整
 Widget buildInfoRow(String label, String value, {double labelWidth = 80}) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 4),

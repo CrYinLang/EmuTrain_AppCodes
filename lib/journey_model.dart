@@ -1,4 +1,8 @@
 // journey_model.dart
+import 'dart:async';
+
+import 'ui/function/error.dart';
+
 class Journey {
   final String id;
   final String trainCode;
@@ -42,96 +46,99 @@ class Journey {
     String seatType = '',
     String seatInfo = '',
   }) {
-    final allStations = stationList.map((s) {
-      return StationDetail(
-        stationName: s['stationName']?.toString() ?? '',
-        arrivalTime: s['arriveTime']?.toString() ?? '--:--',
-        departureTime: s['departTime']?.toString() ?? '--:--',
-        stayTime: int.tryParse(s['stayTime']?.toString() ?? '0') ?? 0,
-        dayDifference: int.tryParse(s['DayDifference']?.toString() ?? '0') ?? 0,
-        isStart: s['isFirst'] == true,
-        isEnd: s['isLast'] == true,
-      );
-    }).toList();
+    try {
+      final allStations = stationList.map((s) {
+        return StationDetail(
+          stationName: s['stationName']?.toString() ?? '',
+          arrivalTime: s['arriveTime']?.toString() ?? '--:--',
+          departureTime: s['departTime']?.toString() ?? '--:--',
+          stayTime: int.tryParse(s['stayTime']?.toString() ?? '0') ?? 0,
+          dayDifference: int.tryParse(s['DayDifference']?.toString() ?? '0') ?? 0,
+          isStart: s['isFirst'] == true,
+          isEnd: s['isLast'] == true,
+        );
+      }).toList();
 
-    // 确定起止站 - 修复环线列车逻辑
-    String actualFromStation;
-    String actualToStation;
-    String actualDepartureTime;
-    String actualArrivalTime;
+      String actualFromStation = fromStation ?? '';
+      String actualToStation = toStation ?? '';
+      String actualDepartureTime = '';
+      String actualArrivalTime = '';
 
-    // 优先使用用户选择的站点
-    if (fromStation != null && toStation != null) {
-      actualFromStation = fromStation;
-      actualToStation = toStation;
+      if (fromStation != null && toStation != null) {
+        if (fromStation == toStation && allStations.isNotEmpty) {
+          // 环线列车
+          final first = allStations.first;
+          final last = allStations.last;
+          actualFromStation = first.stationName;
+          actualToStation = last.stationName;
+          actualDepartureTime = first.departureTime;
+          actualArrivalTime = last.arrivalTime;
+        } else {
+          final fromData = allStations.firstWhere(
+            (s) => s.stationName == fromStation,
+            orElse: () => allStations.first,
+          );
+          final toData = allStations.firstWhere(
+            (s) => s.stationName == toStation,
+            orElse: () => allStations.last,
+          );
 
-      // 检查是否是环线列车（始发站和终点站相同）
-      if (fromStation == toStation) {
-        // 环线列车：使用第一个站作为出发站，最后一个站作为到达站
-        final firstStation = allStations.first;
-        final lastStation = allStations.last;
-
-        actualDepartureTime = firstStation.departureTime;
-        actualArrivalTime = lastStation.arrivalTime;
-
-        // 确保显示正确的站名（使用第一个和最后一个站的名称）
-        actualFromStation = firstStation.stationName;
-        actualToStation = lastStation.stationName;
+          actualFromStation = fromData.stationName;
+          actualToStation = toData.stationName;
+          actualDepartureTime = fromData.departureTime;
+          actualArrivalTime = toData.arrivalTime;
+        }
       } else {
-        // 普通列车：找到对应站点的时间
-        final fromStationData = allStations.firstWhere(
-          (s) => s.stationName == fromStation,
-          orElse: () => allStations.first,
-        );
-        final toStationData = allStations.firstWhere(
-          (s) => s.stationName == toStation,
-          orElse: () => allStations.last,
-        );
-
-        actualDepartureTime = fromStationData.departureTime;
-        actualArrivalTime = toStationData.arrivalTime;
+        actualFromStation = trainInfo['from_station']?.toString() ?? '';
+        actualToStation = trainInfo['to_station']?.toString() ?? '';
+        actualDepartureTime = trainInfo['start_time']?.toString() ?? '';
+        actualArrivalTime = trainInfo['arrive_time']?.toString() ?? '';
       }
-    } else {
-      // 使用车次信息中的起止站
-      actualFromStation = trainInfo['from_station']?.toString() ?? '';
-      actualToStation = trainInfo['to_station']?.toString() ?? '';
-      actualDepartureTime = trainInfo['start_time']?.toString() ?? '';
-      actualArrivalTime = trainInfo['arrive_time']?.toString() ?? '';
 
-      // 检查是否是环线列车
-      if (actualFromStation == actualToStation && allStations.isNotEmpty) {
-        final firstStation = allStations.first;
-        final lastStation = allStations.last;
-
-        // 环线列车使用第一个站的发车时间和最后一个站的到达时间
-        actualDepartureTime = firstStation.departureTime;
-        actualArrivalTime = lastStation.arrivalTime;
+      // 兜底处理
+      if (actualFromStation.isEmpty && allStations.isNotEmpty) {
+        actualFromStation = allStations.first.stationName;
       }
-    }
+      if (actualToStation.isEmpty && allStations.isNotEmpty) {
+        actualToStation = allStations.last.stationName;
+      }
 
-    // 验证站点名称，确保显示正确的名称
-    if (actualFromStation.isEmpty && allStations.isNotEmpty) {
-      actualFromStation = allStations.first.stationName;
+      return Journey(
+        id: '${trainInfo['station_train_code']}_${date.millisecondsSinceEpoch}',
+        trainCode: trainInfo['station_train_code']?.toString() ?? '',
+        fromStation: actualFromStation,
+        toStation: actualToStation,
+        fromStationCode: trainInfo['from_station_code']?.toString() ?? '',
+        toStationCode: trainInfo['to_station_code']?.toString() ?? '',
+        departureTime: actualDepartureTime,
+        arrivalTime: actualArrivalTime,
+        travelDate: date,
+        stations: allStations,
+        isStation: isStation,
+        seatType: seatType,
+        seatInfo: seatInfo,
+      );
+    } catch (e) {
+      unawaited(logError(
+        from: 'Journey.fromMapWithStations',
+        error: '创建行程模型失败 trainCode=${trainInfo["station_train_code"]}: $e',
+        level: 4,
+      ));
+      // 返回一个安全的错误对象
+      return Journey(
+        id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+        trainCode: trainInfo['station_train_code']?.toString() ?? '未知车次',
+        fromStation: fromStation ?? '未知',
+        toStation: toStation ?? '未知',
+        fromStationCode: '',
+        toStationCode: '',
+        departureTime: '--:--',
+        arrivalTime: '--:--',
+        travelDate: date,
+        stations: [],
+        isStation: isStation,
+      );
     }
-    if (actualToStation.isEmpty && allStations.isNotEmpty) {
-      actualToStation = allStations.last.stationName;
-    }
-
-    return Journey(
-      id: '${trainInfo['station_train_code']}_${date.millisecondsSinceEpoch}',
-      trainCode: trainInfo['station_train_code']?.toString() ?? '',
-      fromStation: actualFromStation,
-      toStation: actualToStation,
-      fromStationCode: trainInfo['from_station_code']?.toString() ?? '',
-      toStationCode: trainInfo['to_station_code']?.toString() ?? '',
-      departureTime: actualDepartureTime,
-      arrivalTime: actualArrivalTime,
-      travelDate: date,
-      stations: allStations,
-      isStation: isStation,
-      seatType: seatType,
-      seatInfo: seatInfo, // 传递座位信息文本
-    );
   }
 
   // 转换为 Map（用于持久化存储）
@@ -164,7 +171,7 @@ class Journey {
       DateTime travelDate;
       try {
         travelDate = DateTime.parse(map['travelDate'] as String);
-      } catch (e) {
+      } catch (_) {
         travelDate = DateTime.now();
       }
 
@@ -181,9 +188,15 @@ class Journey {
         stations: stations,
         isStation: map['isStation'] as bool? ?? false,
         seatType: map['seatType']?.toString() ?? '',
-        seatInfo: map['seatInfo']?.toString() ?? '', // 解析座位信息文本
+        seatInfo: map['seatInfo']?.toString() ?? '',
       );
     } catch (e) {
+      unawaited(logError(
+        from: 'Journey.fromStorageMap',
+        error: '从存储恢复行程失败: $e',
+        level: 4,
+      ));
+
       return Journey(
         id: 'error_${DateTime.now().millisecondsSinceEpoch}',
         trainCode: '解析错误',
@@ -195,7 +208,6 @@ class Journey {
         arrivalTime: '--:--',
         travelDate: DateTime.now(),
         stations: [],
-        isStation: false,
       );
     }
   }

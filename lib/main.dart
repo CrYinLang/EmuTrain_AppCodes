@@ -16,6 +16,7 @@ import 'speed_service.dart';
 import 'ui/function/gallery_page.dart';
 import 'ui/emu_search_page.dart';
 import 'ui/function/more_search.dart';
+import 'ui/function/error.dart';
 import 'ui/function/settings.dart';
 import 'ui/function/tool_screen.dart';
 import 'ui/travel_screen.dart';
@@ -132,7 +133,7 @@ class Vars {
     return _pendingFetch;
   }
 
-  static Future<Map<String, dynamic>?> _doFetch() async {
+static Future<Map<String, dynamic>?> _doFetch() async {
     try {
       final response = await http
           .get(
@@ -141,112 +142,182 @@ class Vars {
             ),
           )
           .timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) return json.decode(response.body);
-    } catch (_) {}
-    return null;
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        await logError(
+          from: 'Vars._doFetch',
+          error: '版本信息请求失败，HTTP ${response.statusCode}',
+          level: 4,
+        );
+        return null;
+      }
+    } catch (e, stack) {
+      await logError(
+        from: 'Vars._doFetch',
+        error: '获取版本信息异常: $e',
+        level: 4,
+      );
+      debugPrint('fetchVersion error: $e\n$stack');
+      return null;
+    }
   }
 
-  /// 强制清除缓存（如需手动刷新时使用）
   static void clearVersionCache() {
     _cachedVersionInfo = null;
     _pendingFetch = null;
   }
 }
 
-// ==================== 数据文件帮助类 ====================
+// ==================== 数据文件 ====================
 
 class DataFileHelper {
+  /// 加载客车配属数据
   static Future<List<CoachRecord>> loadCoaches() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/coach.json');
-    String? jsonString;
-    if (await file.exists()) {
-      try {
-        jsonString = await file.readAsString();
-        json.decode(jsonString); // 验证 JSON 合法
-        debugPrint('[DataFileHelper] 已加载下载版本 coach.json');
-      } catch (e) {
-        debugPrint('[DataFileHelper] coach.json 损坏，回退 assets: $e');
-        jsonString = null;
-      }
-    }
-    jsonString ??= await rootBundle.loadString('assets/coach.json');
-    debugPrint('[DataFileHelper] 已加载 assets/coach.json');
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/coach.json');
+      String? jsonString;
 
-    final Map<String, dynamic> dataJson = json.decode(jsonString);
-    final List<CoachRecord> result = [];
-    for (final model in dataJson.keys) {
-      for (final record in dataJson[model]) {
-        result.add(CoachRecord.fromJson(Map<String, dynamic>.from(record)));
+      if (await file.exists()) {
+        try {
+          jsonString = await file.readAsString();
+          json.decode(jsonString); // 验证 JSON 合法性
+          debugPrint('[DataFileHelper] 已加载下载版本 coach.json');
+        } catch (e, stack) {
+          await logError(
+            from: 'DataFileHelper.loadCoaches',
+            error: 'coach.json 文件损坏或解析失败，回退到 assets: $e',
+            level: 3,
+          );
+          debugPrint('coach.json 损坏: $e\n$stack');
+          jsonString = null;
+        }
       }
+
+      // 如果本地文件不存在或损坏，则加载 assets 默认数据
+      jsonString ??= await rootBundle.loadString('assets/coach.json');
+      debugPrint('[DataFileHelper] 已加载 assets/coach.json');
+
+      final Map<String, dynamic> dataJson = json.decode(jsonString);
+      final List<CoachRecord> result = [];
+
+      for (final model in dataJson.keys) {
+        for (final record in dataJson[model]) {
+          result.add(CoachRecord.fromJson(Map<String, dynamic>.from(record)));
+        }
+      }
+      return result;
+    } catch (e, stack) {
+      await logError(
+        from: 'DataFileHelper.loadCoaches',
+        error: '加载客车配属数据失败: $e',
+        level: 4,
+      );
+      debugPrint('loadCoaches 严重错误: $e\n$stack');
+      rethrow; // 让上层捕获处理
     }
-    return result;
   }
 
   /// 读取列车数据（Map 结构），并展开为带 type_code 的 List
   static Future<List<Map<String, dynamic>>> loadTrains() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/train.json');
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/train.json');
 
-    String? jsonString;
+      String? jsonString;
 
-    if (await file.exists()) {
-      try {
-        jsonString = await file.readAsString();
-        json.decode(jsonString); // 验证 JSON 合法
-        debugPrint('[DataFileHelper] 已加载下载版本 train.json');
-      } catch (e) {
-        debugPrint('[DataFileHelper] train.json 损坏，回退 assets: $e');
-        jsonString = null;
+      if (await file.exists()) {
+        try {
+          jsonString = await file.readAsString();
+          json.decode(jsonString); // 验证 JSON 合法
+          debugPrint('[DataFileHelper] 已加载下载版本 train.json');
+        } catch (e, stack) {
+          await logError(
+            from: 'DataFileHelper.loadTrains',
+            error: 'train.json 文件损坏或解析失败，回退到 assets: $e',
+            level: 3,
+          );
+          debugPrint('train.json 损坏: $e\n$stack');
+          jsonString = null;
+        }
       }
-    }
 
-    jsonString ??= await rootBundle.loadString('assets/train.json');
+      jsonString ??= await rootBundle.loadString('assets/train.json');
+      debugPrint('[DataFileHelper] 已加载 assets/train.json');
 
-    final Map<String, dynamic> dataJson = json.decode(jsonString);
-    final List<Map<String, dynamic>> result = [];
-    for (var model in dataJson.keys) {
-      for (var record in dataJson[model]) {
-        final r = Map<String, dynamic>.from(record);
-        r['type_code'] = model;
-        result.add(r);
+      final Map<String, dynamic> dataJson = json.decode(jsonString);
+      final List<Map<String, dynamic>> result = [];
+
+      for (var model in dataJson.keys) {
+        for (var record in dataJson[model]) {
+          final r = Map<String, dynamic>.from(record);
+          r['type_code'] = model;
+          result.add(r);
+        }
       }
+      return result;
+    } catch (e, stack) {
+      await logError(
+        from: 'DataFileHelper.loadTrains',
+        error: '加载列车数据失败: $e',
+        level: 4,
+      );
+      debugPrint('loadTrains 严重错误: $e\n$stack');
+      rethrow;
     }
-    return result;
   }
 
+  /// 加载机车配属数据
   static Future<List<Map<String, dynamic>>> loadLocos() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/loco.json');
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/loco.json');
 
-    String? jsonString;
+      String? jsonString;
 
-    if (await file.exists()) {
-      try {
-        jsonString = await file.readAsString();
-        json.decode(jsonString); // 验证 JSON 合法
-        debugPrint('[DataFileHelper] 已加载下载版本 loco.json');
-      } catch (e) {
-        debugPrint('[DataFileHelper] loco.json 损坏，回退 assets: $e');
-        jsonString = null;
+      if (await file.exists()) {
+        try {
+          jsonString = await file.readAsString();
+          json.decode(jsonString); // 验证 JSON 合法
+          debugPrint('[DataFileHelper] 已加载下载版本 loco.json');
+        } catch (e, stack) {
+          await logError(
+            from: 'DataFileHelper.loadLocos',
+            error: 'loco.json 文件损坏或解析失败，回退到 assets: $e',
+            level: 3,
+          );
+          debugPrint('loco.json 损坏: $e\n$stack');
+          jsonString = null;
+        }
       }
-    }
 
-    jsonString ??= await rootBundle.loadString('assets/loco.json');
-    debugPrint('[DataFileHelper] 已加载 assets/loco.json');
+      jsonString ??= await rootBundle.loadString('assets/loco.json');
+      debugPrint('[DataFileHelper] 已加载 assets/loco.json');
 
-    final Map<String, dynamic> dataJson = json.decode(jsonString);
-    final List<Map<String, dynamic>> result = [];
-    for (final model in dataJson.keys) {
-      for (final record in dataJson[model]) {
-        result.add({
-          'model': model,
-          'number': (record['车组号'] ?? '').toString(),
-          'depot': (record['配属段'] ?? '').toString(),
-        });
+      final Map<String, dynamic> dataJson = json.decode(jsonString);
+      final List<Map<String, dynamic>> result = [];
+
+      for (final model in dataJson.keys) {
+        for (final record in dataJson[model]) {
+          result.add({
+            'model': model,
+            'number': (record['车组号'] ?? '').toString(),
+            'depot': (record['配属段'] ?? '').toString(),
+          });
+        }
       }
+      return result;
+    } catch (e, stack) {
+      await logError(
+        from: 'DataFileHelper.loadLocos',
+        error: '加载机车配属数据失败: $e',
+        level: 4,
+      );
+      debugPrint('loadLocos 严重错误: $e\n$stack');
+      rethrow;
     }
-    return result;
   }
 }
 
@@ -371,41 +442,53 @@ class AppSettings extends ChangeNotifier {
   }
 
   // ==================== 初始化 ====================
+// ==================== 初始化 ====================
   Future<void> loadSettings() async {
     _isLoading = true;
     notifyListeners();
+
     try {
       final prefs = await SharedPreferences.getInstance();
+
       _themeMode = (prefs.getBool('isDark') ?? true)
           ? ThemeMode.dark
           : ThemeMode.light;
+
       _midnightMode = prefs.getBool('midnightMode') ?? false;
       _followSystem = prefs.getBool('followSystem') ?? false;
+
       final seedColorValue = prefs.getInt('seedColor');
       _seedColor = seedColorValue != null ? Color(seedColorValue) : null;
+
       _showTrainIcons = prefs.getBool('showTrainIcons') ?? true;
       _showBureauIcons = prefs.getBool('showBureauIcons') ?? true;
       _showAutoUpdate = prefs.getBool('showAutoUpdate') ?? true;
 
-      // 数据源
+      // 数据源 - 车次查询
       final dataSourceIndex = prefs.getInt('dataSource') ?? 0;
-      _dataSource = TrainDataSource
-          .values[dataSourceIndex.clamp(0, TrainDataSource.values.length - 1)];
+      _dataSource = TrainDataSource.values[
+          dataSourceIndex.clamp(0, TrainDataSource.values.length - 1)];
 
+      // 数据源 - 车号/交路查询
       final dataEmuSourceIndex = prefs.getInt('dataEmuSource') ?? 0;
-      _dataEmuSource =
-          TrainEmuDataSource.values[dataEmuSourceIndex.clamp(
-            0,
-            TrainEmuDataSource.values.length - 1,
-          )];
+      _dataEmuSource = TrainEmuDataSource.values[
+          dataEmuSourceIndex.clamp(0, TrainEmuDataSource.values.length - 1)];
 
+      // 数据源 - 车站查询
       final dataStationSourceIndex = prefs.getInt('dataStationSource') ?? 0;
-      _dataStationSource =
-          TrainStationDataSource.values[dataStationSourceIndex.clamp(
-            0,
-            TrainStationDataSource.values.length - 1,
-          )];
-    } catch (_) {
+      _dataStationSource = TrainStationDataSource.values[
+          dataStationSourceIndex.clamp(0, TrainStationDataSource.values.length - 1)];
+
+      debugPrint('AppSettings: 设置加载完成');
+    } catch (e, stack) {
+      await logError(
+        from: 'AppSettings.loadSettings',
+        error: '加载应用设置失败: $e',
+        level: 4,
+      );
+      debugPrint('loadSettings 异常: $e\n$stack');
+      
+      // 发生错误时使用默认值
       _setDefaultValues();
     } finally {
       _isLoading = false;

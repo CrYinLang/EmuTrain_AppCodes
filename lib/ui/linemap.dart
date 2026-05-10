@@ -100,7 +100,7 @@ class _LineMapContentState extends State<LineMapContent>
   List<_Station> _full = [];
 
   bool _isLoading = true;
-  String _errorMessage = '';
+  final String _errorMessage = '';
 
   // 当前选中站的序号（stops 列表下标），null 表示无
   int? _selectedStop;

@@ -1264,8 +1264,6 @@ class _SearchPageState extends State<SearchPage> {
  onGoToPage: _goToPage,
  );
 
- @override
- 
  // 查询类型切换
 void _changeSearchType(String newType) {
   if (searchType == newType) return;
@@ -1407,6 +1405,7 @@ Widget _buildMoreMenu() {
   );
 }
 
+ @override
  Widget build(BuildContext context) {
  final settings = Provider.of<AppSettings>(context);
  final int displayedCount = _searchResults.length;

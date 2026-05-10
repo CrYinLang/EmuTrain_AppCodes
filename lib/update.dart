@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import 'main.dart';
+import 'ui/function/error.dart';
 import 'functions.dart';
 
 class UpdateService {
@@ -17,78 +18,113 @@ class UpdateService {
       final result = await Vars.fetchVersionCommand();
       if (result != null) return result;
       return {'error': '网络请求失败，请检查网络连接'};
-    } catch (e) {
+    } catch (e, stack) {
+      await logError(
+        from: 'UpdateService.checkForUpdate',
+        error: '检查更新失败: $e',
+        level: 4,
+      );
+      debugPrint('checkForUpdate error: $e\n$stack');
       return {'error': e.toString()};
     }
   }
 
   static Future<({List<String> updated, List<String> failed})?> silentUpdateAllData() async {
-    final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
-    if (versionInfo == null || versionInfo.containsKey('error')) return null;
-
-    final tasks = [
-      _SilentTask(
-        remoteBuildKey: 'StationBuild',
-        currentBuildStr: Vars.stationBuild,
-        remoteDataPath: 'assets/stations',
-        localFileName: 'stations.json',
-        saveBuild: Vars.setStationBuild,
-        label: '车站数据',
-      ),
-      _SilentTask(
-        remoteBuildKey: 'TrainBuild',
-        currentBuildStr: Vars.trainBuild,
-        remoteDataPath: 'assets/train',
-        localFileName: 'train.json',
-        saveBuild: Vars.setTrainBuild,
-        label: '动车组配属数据',
-      ),
-      _SilentTask(
-        remoteBuildKey: 'CoachTrainBuild',
-        currentBuildStr: Vars.coachTrainBuild,
-        remoteDataPath: 'assets/coach',
-        localFileName: 'coach.json',
-        saveBuild: Vars.setCoachTrainBuild,
-        label: '普速客车配属数据',
-      ),
-      _SilentTask(
-        remoteBuildKey: 'LocoBuild',
-        currentBuildStr: Vars.locoBuild,
-        remoteDataPath: 'assets/loco',
-        localFileName: 'loco.json',
-        saveBuild: Vars.setLocoBuild,
-        label: '机车配属数据',
-      ),
-    ];
-
-    final updated = <String>[];
-    final failed = <String>[];
-
-    for (final task in tasks) {
-      final currentBuild = int.tryParse(task.currentBuildStr) ?? 0;
-      final remoteBuild =
-          int.tryParse(versionInfo[task.remoteBuildKey]?.toString() ?? '') ?? 0;
-      if (remoteBuild <= currentBuild) continue;
-
-      try {
-        final url =
-            'https://gitee.com/CrYinLang/EmuTrain/raw/master/${task.remoteDataPath}.json';
-        final response = await http.get(Uri.parse(url));
-        if (response.statusCode == 200) {
-          json.decode(response.body); // 验证 JSON 合法
-          final directory = await getApplicationDocumentsDirectory();
-          final file = File('${directory.path}/${task.localFileName}');
-          await file.writeAsString(response.body);
-          await task.saveBuild(remoteBuild.toString());
-          updated.add(task.label);
-        } else {
-          failed.add(task.label);
-        }
-      } catch (_) {
-        failed.add(task.label);
+    try {
+      final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
+      if (versionInfo == null || versionInfo.containsKey('error')) {
+        await logError(
+          from: 'UpdateService.silentUpdateAllData',
+          error: '静默更新前检查版本失败',
+          level: 4,
+        );
+        return null;
       }
+
+      final tasks = [
+        _SilentTask(
+          remoteBuildKey: 'StationBuild',
+          currentBuildStr: Vars.stationBuild,
+          remoteDataPath: 'assets/stations',
+          localFileName: 'stations.json',
+          saveBuild: Vars.setStationBuild,
+          label: '车站数据',
+        ),
+        _SilentTask(
+          remoteBuildKey: 'TrainBuild',
+          currentBuildStr: Vars.trainBuild,
+          remoteDataPath: 'assets/train',
+          localFileName: 'train.json',
+          saveBuild: Vars.setTrainBuild,
+          label: '动车组配属数据',
+        ),
+        _SilentTask(
+          remoteBuildKey: 'CoachTrainBuild',
+          currentBuildStr: Vars.coachTrainBuild,
+          remoteDataPath: 'assets/coach',
+          localFileName: 'coach.json',
+          saveBuild: Vars.setCoachTrainBuild,
+          label: '普速客车配属数据',
+        ),
+        _SilentTask(
+          remoteBuildKey: 'LocoBuild',
+          currentBuildStr: Vars.locoBuild,
+          remoteDataPath: 'assets/loco',
+          localFileName: 'loco.json',
+          saveBuild: Vars.setLocoBuild,
+          label: '机车配属数据',
+        ),
+      ];
+
+      final updated = <String>[];
+      final failed = <String>[];
+
+      for (final task in tasks) {
+        final currentBuild = int.tryParse(task.currentBuildStr) ?? 0;
+        final remoteBuild =
+            int.tryParse(versionInfo[task.remoteBuildKey]?.toString() ?? '') ?? 0;
+        if (remoteBuild <= currentBuild) continue;
+
+        try {
+          final url =
+              'https://gitee.com/CrYinLang/EmuTrain/raw/master/${task.remoteDataPath}.json';
+          final response = await http.get(Uri.parse(url));
+
+          if (response.statusCode == 200) {
+            json.decode(response.body); // 验证 JSON 合法
+            final directory = await getApplicationDocumentsDirectory();
+            final file = File('${directory.path}/${task.localFileName}');
+            await file.writeAsString(response.body);
+            await task.saveBuild(remoteBuild.toString());
+            updated.add(task.label);
+          } else {
+            failed.add(task.label);
+            await logError(
+              from: 'UpdateService.silentUpdateAllData',
+              error: '${task.label} 下载失败，HTTP状态码: ${response.statusCode}',
+              level: 4,
+            );
+          }
+        } catch (e, stack) {
+          failed.add(task.label);
+          await logError(
+            from: 'UpdateService.silentUpdateAllData',
+            error: '${task.label} 更新异常: $e',
+            level: 4,
+          );
+          debugPrint('${task.label} update error: $e\n$stack');
+        }
+      }
+      return (updated: updated, failed: failed);
+    } catch (e, stack) {
+      await logError(
+        from: 'UpdateService.silentUpdateAllData',
+        error: '静默更新全部数据过程异常: $e',
+        level: 5,
+      );
+      debugPrint('silentUpdateAllData outer error: $e\n$stack');
+      return null;
     }
-    return (updated: updated, failed: failed);
   }
 }
 
@@ -458,7 +494,6 @@ class _DataUpdateDialog extends StatelessWidget {
                               final response = await http.get(Uri.parse(url));
 
                               if (response.statusCode == 200) {
-                                // 验证 JSON 合法
                                 json.decode(response.body);
 
                                 final directory =
@@ -485,6 +520,12 @@ class _DataUpdateDialog extends StatelessWidget {
                                 throw Exception('下载失败: ${response.statusCode}');
                               }
                             } catch (e) {
+                              await logError(
+                                from: '_DataUpdateDialog.download',
+                                error: '$remoteDataPath 下载失败: $e',
+                                level: 4,
+                              );
+
                               if (context.mounted) {
                                 Navigator.of(
                                   context,

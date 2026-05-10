@@ -789,7 +789,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     return Column(
       children: [
         DropdownButtonFormField<String>(
-          value: _seatType,
+          initialValue: _seatType,
           decoration: const InputDecoration(
             labelText: '座位类型',
             border: OutlineInputBorder(),

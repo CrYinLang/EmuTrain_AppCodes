@@ -1,9 +1,12 @@
-// lib/widgets/station_selector.dart
+// lib/station_selector.dart
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:convert';
+
+// 新增：错误日志记录
+import 'ui/function/error.dart'; 
 
 // ============================================================
 // 热门车站（20个，按知名度排序）
@@ -35,15 +38,28 @@ const List<String> _kPopularTelecodes = [
 // loadStations
 // ============================================================
 Future<List<dynamic>> loadStations() async {
-  final directory = await getApplicationDocumentsDirectory();
-  final file = File('${directory.path}/stations.json');
-  if (await file.exists()) {
-    final jsonString = await file.readAsString();
-    final data = json.decode(jsonString);
-    if (data is List) return data;
+  try {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/stations.json');
+
+    if (await file.exists()) {
+      final jsonString = await file.readAsString();
+      final data = json.decode(jsonString);
+      if (data is List) return data;
+    }
+
+    // 加载 assets 默认数据
+    final jsonString = await rootBundle.loadString('assets/stations.json');
+    return json.decode(jsonString) as List<dynamic>;
+  } catch (e, stack) {
+    await logError(
+      from: 'loadStations',
+      error: '加载车站数据失败: $e',
+      level: 4,
+    );
+    debugPrint('loadStations error: $e\n$stack');
+    rethrow; // 让调用方可以继续处理
   }
-  final jsonString = await rootBundle.loadString('assets/stations.json');
-  return json.decode(jsonString) as List<dynamic>;
 }
 
 // ============================================================
@@ -58,15 +74,32 @@ Future<Map<String, dynamic>> _loadPrefs() async {
   try {
     final f = await _prefsFile();
     if (await f.exists()) {
-      return json.decode(await f.readAsString()) as Map<String, dynamic>;
+      final content = await f.readAsString();
+      return json.decode(content) as Map<String, dynamic>;
     }
-  } catch (_) {}
+  } catch (e, stack) {
+    await logError(
+      from: '_loadPrefs',
+      error: '读取 station_prefs.json 失败: $e',
+      level: 3, // WARNING
+    );
+    debugPrint('_loadPrefs error: $e\n$stack');
+  }
   return {};
 }
 
 Future<void> _savePrefs(Map<String, dynamic> prefs) async {
-  final f = await _prefsFile();
-  await f.writeAsString(json.encode(prefs));
+  try {
+    final f = await _prefsFile();
+    await f.writeAsString(json.encode(prefs), flush: true);
+  } catch (e, stack) {
+    await logError(
+      from: '_savePrefs',
+      error: '保存 station_prefs.json 失败: $e',
+      level: 4,
+    );
+    debugPrint('_savePrefs error: $e\n$stack');
+  }
 }
 
 Future<List<String>> loadRecentTelecodes() async {
@@ -75,13 +108,21 @@ Future<List<String>> loadRecentTelecodes() async {
 }
 
 Future<void> addRecentTelecode(String telecode) async {
-  final p = await _loadPrefs();
-  final List<String> recent = List<String>.from(p['recent'] ?? []);
-  recent.remove(telecode);
-  recent.insert(0, telecode);
-  if (recent.length > 10) recent.removeLast();
-  p['recent'] = recent;
-  await _savePrefs(p);
+  try {
+    final p = await _loadPrefs();
+    final List<String> recent = List<String>.from(p['recent'] ?? []);
+    recent.remove(telecode);
+    recent.insert(0, telecode);
+    if (recent.length > 10) recent.removeLast();
+    p['recent'] = recent;
+    await _savePrefs(p);
+  } catch (e) {
+    await logError(
+      from: 'addRecentTelecode',
+      error: '添加最近使用车站失败: $e, telecode: $telecode',
+      level: 3,
+    );
+  }
 }
 
 Future<List<String>> loadFavoriteTelecodes() async {
@@ -90,15 +131,23 @@ Future<List<String>> loadFavoriteTelecodes() async {
 }
 
 Future<void> toggleFavoriteTelecode(String telecode) async {
-  final p = await _loadPrefs();
-  final List<String> favs = List<String>.from(p['favorites'] ?? []);
-  if (favs.contains(telecode)) {
-    favs.remove(telecode);
-  } else {
-    favs.add(telecode);
+  try {
+    final p = await _loadPrefs();
+    final List<String> favs = List<String>.from(p['favorites'] ?? []);
+    if (favs.contains(telecode)) {
+      favs.remove(telecode);
+    } else {
+      favs.add(telecode);
+    }
+    p['favorites'] = favs;
+    await _savePrefs(p);
+  } catch (e) {
+    await logError(
+      from: 'toggleFavoriteTelecode',
+      error: '切换收藏车站失败: $e, telecode: $telecode',
+      level: 3,
+    );
   }
-  p['favorites'] = favs;
-  await _savePrefs(p);
 }
 
 // ============================================================
@@ -106,7 +155,7 @@ Future<void> toggleFavoriteTelecode(String telecode) async {
 // ============================================================
 class StationSelector extends StatefulWidget {
   final String title;
-  final String? selectedCode; // telecode
+  final String? selectedCode;
   final Function(Map<String, String?>) onSelected;
 
   const StationSelector({
@@ -125,8 +174,7 @@ class _StationSelectorState extends State<StationSelector> {
   final FocusNode _searchFocus = FocusNode();
 
   List<dynamic> _allStations = [];
-  Map<String, dynamic> _teleIndex = {}; // telecode → station
-
+  Map<String, dynamic> _teleIndex = {};
   List<dynamic> _filtered = [];
   bool _loadingStations = true;
 
@@ -149,33 +197,47 @@ class _StationSelectorState extends State<StationSelector> {
   }
 
   Future<void> _init() async {
-    final stationsList = await loadStations();
-    final recent = await loadRecentTelecodes();
-    final favs = await loadFavoriteTelecodes();
+    try {
+      final stationsList = await loadStations();
+      final recent = await loadRecentTelecodes();
+      final favs = await loadFavoriteTelecodes();
 
-    // 建立 telecode 索引
-    final Map<String, dynamic> idx = {};
-    for (final s in stationsList) {
-      final tc = (s['telecode'] ?? '').toString().trim();
-      if (tc.isNotEmpty) idx[tc] = s;
+      // 建立 telecode 索引
+      final Map<String, dynamic> idx = {};
+      for (final s in stationsList) {
+        final tc = (s['telecode'] ?? '').toString().trim();
+        if (tc.isNotEmpty) idx[tc] = s;
+      }
+
+      // 热门站
+      final popular = _kPopularTelecodes
+          .where((tc) => idx.containsKey(tc))
+          .map((tc) => idx[tc]!)
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _allStations = stationsList;
+        _teleIndex = idx;
+        _filtered = stationsList;
+        _recentTelecodes = recent;
+        _favoriteTelecodes = favs;
+        _popularStations = popular;
+        _loadingStations = false;
+      });
+    } catch (e, stack) {
+      await logError(
+        from: 'StationSelector._init',
+        error: '车站选择器初始化失败: $e',
+        level: 4,
+      );
+      debugPrint('StationSelector _init error: $e\n$stack');
+
+      if (mounted) {
+        setState(() => _loadingStations = false);
+      }
     }
-
-    // 热门站（按 _kPopularTelecodes 顺序）
-    final popular = _kPopularTelecodes
-        .where((tc) => idx.containsKey(tc))
-        .map((tc) => idx[tc]!)
-        .toList();
-
-    if (!mounted) return;
-    setState(() {
-      _allStations = stationsList;
-      _teleIndex = idx;
-      _filtered = stationsList;
-      _recentTelecodes = recent;
-      _favoriteTelecodes = favs;
-      _popularStations = popular;
-      _loadingStations = false;
-    });
   }
 
   void _onSearchChanged() {
@@ -197,17 +259,28 @@ class _StationSelectorState extends State<StationSelector> {
   }
 
   Future<void> _onStationTap(dynamic station) async {
-    final telecode = (station['telecode'] ?? '').toString();
-    final name = (station['name'] ?? '').toString();
-    final city = (station['city'] ?? '').toString();
-    await addRecentTelecode(telecode);
-    if (mounted) Navigator.of(context).pop();
-    widget.onSelected({
-      'code': telecode,
-      'telecode': telecode,
-      'name': name,
-      'city': city,
-    });
+    try {
+      final telecode = (station['telecode'] ?? '').toString();
+      final name = (station['name'] ?? '').toString();
+      final city = (station['city'] ?? '').toString();
+
+      await addRecentTelecode(telecode);
+
+      if (mounted) Navigator.of(context).pop();
+
+      widget.onSelected({
+        'code': telecode,
+        'telecode': telecode,
+        'name': name,
+        'city': city,
+      });
+    } catch (e) {
+      await logError(
+        from: 'StationSelector._onStationTap',
+        error: '选择车站失败: $e',
+        level: 3,
+      );
+    }
   }
 
   Future<void> _onToggleFavorite(String telecode) async {
@@ -226,7 +299,6 @@ class _StationSelectorState extends State<StationSelector> {
     return _favoriteTelecodes.contains(tc);
   }
 
-  // ---- 构建单个车站 Tile ----
   Widget _stationTile(dynamic station, {bool compact = false}) {
     final selected = _isSelected(station);
     final fav = _isFavorite(station);
@@ -260,7 +332,6 @@ class _StationSelectorState extends State<StationSelector> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 收藏星星
           GestureDetector(
             onTap: () => _onToggleFavorite(tc),
             child: Padding(
@@ -272,7 +343,6 @@ class _StationSelectorState extends State<StationSelector> {
               ),
             ),
           ),
-          // 已选中勾
           if (selected)
             const Icon(Icons.check_circle, size: 18, color: Colors.blue),
         ],
@@ -281,7 +351,6 @@ class _StationSelectorState extends State<StationSelector> {
     );
   }
 
-  // ---- 分组标题 ----
   Widget _sectionHeader(String label, IconData icon) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -303,15 +372,14 @@ class _StationSelectorState extends State<StationSelector> {
     );
   }
 
-  // ---- 无搜索时的首屏（收藏 + 常用 + 热门） ----
   Widget _buildHomeSections() {
     final List<Widget> sections = [];
 
-    // 收藏
     final favStations = _favoriteTelecodes
         .where(_teleIndex.containsKey)
         .map((tc) => _teleIndex[tc]!)
         .toList();
+
     if (favStations.isNotEmpty) {
       sections.add(_sectionHeader('收藏车站', Icons.star_rounded));
       for (final s in favStations) {
@@ -320,11 +388,11 @@ class _StationSelectorState extends State<StationSelector> {
       sections.add(const Divider(height: 1, indent: 16, endIndent: 16));
     }
 
-    // 最近使用
     final recentStations = _recentTelecodes
         .where(_teleIndex.containsKey)
         .map((tc) => _teleIndex[tc]!)
         .toList();
+
     if (recentStations.isNotEmpty) {
       sections.add(_sectionHeader('最近使用', Icons.history_rounded));
       for (final s in recentStations) {
@@ -333,7 +401,6 @@ class _StationSelectorState extends State<StationSelector> {
       sections.add(const Divider(height: 1, indent: 16, endIndent: 16));
     }
 
-    // 热门车站
     if (_popularStations.isNotEmpty) {
       sections.add(_sectionHeader('热门车站', Icons.local_fire_department_rounded));
       for (final s in _popularStations) {
@@ -344,7 +411,6 @@ class _StationSelectorState extends State<StationSelector> {
     return ListView(children: sections);
   }
 
-  // ---- 搜索结果列表 ----
   Widget _buildSearchResults() {
     if (_filtered.isEmpty) {
       return Center(
@@ -386,7 +452,6 @@ class _StationSelectorState extends State<StationSelector> {
       ),
       child: Column(
         children: [
-          // 顶部拖动条
           Container(
             margin: const EdgeInsets.only(top: 8, bottom: 4),
             width: 36,
@@ -396,7 +461,6 @@ class _StationSelectorState extends State<StationSelector> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // 标题行
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -418,7 +482,6 @@ class _StationSelectorState extends State<StationSelector> {
               ],
             ),
           ),
-          // 搜索框
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
@@ -437,9 +500,7 @@ class _StationSelectorState extends State<StationSelector> {
                       )
                     : null,
                 filled: true,
-                fillColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -451,7 +512,6 @@ class _StationSelectorState extends State<StationSelector> {
               ),
             ),
           ),
-          // 计数提示（搜索中时显示）
           if (isSearching)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
@@ -468,13 +528,12 @@ class _StationSelectorState extends State<StationSelector> {
             )
           else
             const SizedBox(height: 6),
-          // 内容区
           Expanded(
             child: _loadingStations
                 ? const Center(child: CircularProgressIndicator())
                 : isSearching
-                ? _buildSearchResults()
-                : _buildHomeSections(),
+                    ? _buildSearchResults()
+                    : _buildHomeSections(),
           ),
         ],
       ),
