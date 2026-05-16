@@ -10,16 +10,66 @@ import 'package:path_provider/path_provider.dart';
 import '../../station_selector.dart';
 
 // ═════════════════════════════════════════════════════════════
+// 分页控制器
+// ═════════════════════════════════════════════════════════════
+
+class PaginatedController<T> {
+  final int pageSize;
+
+  PaginatedController({this.pageSize = 20});
+  List<T> _allItems = [];
+  List<T> _pagedItems = [];
+  int _currentPage = 1;
+  bool isLoading = false;
+  List<T> get allItems => _allItems;
+
+
+  List<T> get items => _pagedItems;
+  int get currentPage => _currentPage;
+  int get totalPages => _allItems.isEmpty ? 1 : (_allItems.length / pageSize).ceil();
+  int get totalCount => _allItems.length;
+  bool get hasMultiplePages => totalPages > 1;
+
+  void resetAndLoad(List<T> allItems) {
+    _allItems = allItems;
+    _currentPage = 1;
+    loadPage(1);
+  }
+
+  void loadPage(int page) {
+    if (page < 1 || page > totalPages) return;
+    isLoading = true;
+    final start = (page - 1) * pageSize;
+    final end = (start + pageSize).clamp(0, _allItems.length);
+    _pagedItems = _allItems.sublist(start, end);
+    _currentPage = page;
+    isLoading = false;
+  }
+
+  void goToPage(int page, VoidCallback onUpdate) {
+    if (page == _currentPage || isLoading) return;
+    loadPage(page);
+    onUpdate();
+  }
+
+  void clear() {
+    _allItems.clear();
+    _pagedItems.clear();
+    _currentPage = 1;
+  }
+
+  /// 当前页所有条目的标识集合（用于全选当页）
+  List<T> get currentPageItems => _pagedItems;
+}
+
+// ═════════════════════════════════════════════════════════════
 // 数据模型
 // ═════════════════════════════════════════════════════════════
 
-/// 线路中的一个站点
 class RouteStation {
   final String name;
   final String telecode;
   final String city;
-
-  /// 到下一站的里程（km），终点站为 null
   final double? mileageToNext;
 
   const RouteStation({
@@ -30,21 +80,20 @@ class RouteStation {
   });
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'telecode': telecode,
-    'city': city,
-    if (mileageToNext != null) 'mileageToNext': mileageToNext,
-  };
+        'name': name,
+        'telecode': telecode,
+        'city': city,
+        if (mileageToNext != null) 'mileageToNext': mileageToNext,
+      };
 
   factory RouteStation.fromJson(Map<String, dynamic> j) => RouteStation(
-    name: j['name'] as String? ?? '',
-    telecode: j['telecode'] as String? ?? '',
-    city: j['city'] as String? ?? '',
-    mileageToNext: (j['mileageToNext'] as num?)?.toDouble(),
-  );
+        name: j['name'] as String? ?? '',
+        telecode: j['telecode'] as String? ?? '',
+        city: j['city'] as String? ?? '',
+        mileageToNext: (j['mileageToNext'] as num?)?.toDouble(),
+      );
 }
 
-/// 一条线路
 class RouteModel {
   final String id;
   final String name;
@@ -69,30 +118,30 @@ class RouteModel {
   }
 
   String get fromStation => stations.isNotEmpty ? stations.first.name : '';
-
   String get toStation => stations.isNotEmpty ? stations.last.name : '';
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'createdAt': createdAt.toIso8601String(),
-    'updatedAt': updatedAt.toIso8601String(),
-    'stations': stations.map((s) => s.toJson()).toList(),
-  };
+        'id': id,
+        'name': name,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'stations': stations.map((s) => s.toJson()).toList(),
+      };
 
   factory RouteModel.fromJson(Map<String, dynamic> j) => RouteModel(
-    id: j['id'] as String? ?? '',
-    name: j['name'] as String? ?? '',
-    createdAt: j['createdAt'] != null
-        ? DateTime.tryParse(j['createdAt'] as String) ?? DateTime.now()
-        : DateTime.now(),
-    updatedAt: j['updatedAt'] != null
-        ? DateTime.tryParse(j['updatedAt'] as String) ?? DateTime.now()
-        : DateTime.now(),
-    stations: (j['stations'] as List<dynamic>? ?? [])
-        .map((e) => RouteStation.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList(),
-  );
+        id: j['id'] as String? ?? '',
+        name: j['name'] as String? ?? '',
+        createdAt: j['createdAt'] != null
+            ? DateTime.tryParse(j['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        updatedAt: j['updatedAt'] != null
+            ? DateTime.tryParse(j['updatedAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        stations: (j['stations'] as List<dynamic>? ?? [])
+            .map((e) =>
+                RouteStation.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+      );
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -112,7 +161,8 @@ class RouteStorage {
       final raw = json.decode(await f.readAsString());
       if (raw is! List) return [];
       final list = raw
-          .map((e) => RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map((e) =>
+              RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
       list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return list;
@@ -159,11 +209,17 @@ class RouteHubPage extends StatefulWidget {
 }
 
 class _RouteHubPageState extends State<RouteHubPage> {
-  List<RouteModel> _routes = [];
+// 新增字段（替换原来的 List<RouteModel> _routes）
+  List<RouteModel> get allItems => List.unmodifiable(_pager.allItems);
+  final _pager = PaginatedController<RouteModel>(pageSize: 20);
+
   bool _loading = true;
   final Set<String> _selected = {};
 
   bool get _selecting => _selected.isNotEmpty;
+  bool get _currentPageAllSelected =>
+      _pager.currentPageItems.isNotEmpty &&
+          _pager.currentPageItems.every((r) => _selected.contains(r.id));
 
   @override
   void initState() {
@@ -172,17 +228,171 @@ class _RouteHubPageState extends State<RouteHubPage> {
   }
 
   Future<void> _reload() async {
+    setState(() => _loading = true);
     final all = await RouteStorage.loadAll();
     if (!mounted) return;
     setState(() {
-      _routes = all;
+      _pager.resetAndLoad(all);
+      _selected.retainWhere((id) => all.any((r) => r.id == id));
       _loading = false;
     });
   }
 
+  Future<void> _exportSelected() async {
+    final sel = _pager.allItems
+        .where((r) => _selected.contains(r.id))
+        .toList();
+    if (sel.isEmpty) return;
+    final jsonStr = const JsonEncoder.withIndent('  ')
+        .convert(sel.map((r) => r.toJson()).toList());
+    await Clipboard.setData(ClipboardData(text: jsonStr));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已复制 ${sel.length} 条线路的 JSON 到剪贴板'),
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: '查看',
+          onPressed: () =>
+              showDialog(
+                context: context,
+                builder: (ctx) =>
+                    AlertDialog(
+                      title: const Text('导出 JSON'),
+                      content: SingleChildScrollView(
+                        child: SelectableText(
+                          jsonStr,
+                          style: const TextStyle(
+                              fontSize: 11, fontFamily: 'monospace'),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('关闭'),
+                        ),
+                      ],
+                    ),
+              ),
+        ),
+      ),
+    );
+  }
+
+    Future<void> _importFromJson() async {
+      final ctrl = TextEditingController();
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) =>
+            AlertDialog(
+              title: const Text('导入线路 JSON'),
+              content: TextField(
+                controller: ctrl,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  hintText: '粘贴从「导出」获得的 JSON 文本…',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('取消')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('导入')),
+              ],
+            ),
+      );
+      if (confirmed != true || ctrl.text
+          .trim()
+          .isEmpty) return;
+
+      List<RouteModel> imported;
+      try {
+        final raw = json.decode(ctrl.text.trim());
+        if (raw is! List) throw const FormatException('顶层必须是 JSON 数组');
+        imported = raw
+            .map((e) =>
+            RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('JSON 解析失败：$e')));
+        return;
+      }
+
+      final existing = await RouteStorage.loadAll();
+      final existingNames = {for (final r in existing) r.name: r};
+
+      int added = 0,
+          updated = 0,
+          skipped = 0;
+
+      for (final r in imported) {
+        final conflict = existingNames[r.name];
+        if (conflict != null) {
+          // 同名线路，询问是否覆盖
+          if (!mounted) break;
+          final overwrite = await showDialog<bool>(
+            context: context,
+            builder: (ctx) =>
+                AlertDialog(
+                  title: const Text('同名线路'),
+                  content: Text('已存在线路「${r.name}」，是否覆盖？'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('跳过')),
+                    ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('覆盖')),
+                  ],
+                ),
+          );
+          if (overwrite == true) {
+            // 用原 id 覆盖
+            final merged = RouteModel(
+              id: conflict.id,
+              name: r.name,
+              createdAt: conflict.createdAt,
+              updatedAt: DateTime.now(),
+              stations: r.stations,
+            );
+            await RouteStorage.save(merged);
+            updated++;
+          } else {
+            skipped++;
+          }
+        } else {
+          await RouteStorage.save(r);
+          added++;
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('导入完成：新增 $added，覆盖 $updated，跳过 $skipped'),
+      ));
+      _reload();
+    }
+
+  void _goPage(int page) => setState(() => _pager.loadPage(page));
+
+  void _toggleSelectCurrentPage() {
+    setState(() {
+      if (_currentPageAllSelected) {
+        for (final r in _pager.currentPageItems) _selected.remove(r.id);
+      } else {
+        for (final r in _pager.currentPageItems) _selected.add(r.id);
+      }
+    });
+  }
+
   void _toggleSelect(String id) => setState(() {
-    _selected.contains(id) ? _selected.remove(id) : _selected.add(id);
-  });
+        _selected.contains(id) ? _selected.remove(id) : _selected.add(id);
+      });
 
   void _clearSelect() => setState(() => _selected.clear());
 
@@ -194,9 +404,8 @@ class _RouteHubPageState extends State<RouteHubPage> {
         content: Text('删除线路「${r.name}」？此操作不可撤销。'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -212,27 +421,168 @@ class _RouteHubPageState extends State<RouteHubPage> {
     }
   }
 
+  Future<void> _deleteBatch() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('批量删除'),
+        content: Text('确定删除已选中的 ${_selected.length} 条线路吗？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      for (final id in _selected) {
+        await RouteStorage.delete(id);
+      }
+      _selected.clear();
+      if (mounted) _reload();
+    }
+  }
+
   Future<void> _openNew() async {
-    final result = await Navigator.of(
-      context,
-    ).push<RouteModel>(MaterialPageRoute(builder: (_) => const RoutePage()));
+    final result = await Navigator.of(context)
+        .push<RouteModel>(MaterialPageRoute(builder: (_) => const RoutePage()));
     if (result != null) _reload();
   }
 
   Future<void> _openEdit(RouteModel r) async {
     final result = await Navigator.of(context).push<RouteModel>(
-      MaterialPageRoute(builder: (_) => RoutePage(existing: r)),
-    );
+        MaterialPageRoute(builder: (_) => RoutePage(existing: r)));
     if (result != null) _reload();
   }
 
   void _openMap() {
-    final sel = _routes.where((r) => _selected.contains(r.id)).toList();
+    final sel = _pager.allItems.where((r) => _selected.contains(r.id)).toList();
     if (sel.isEmpty) return;
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => RouteMapPage(routes: sel)));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => RouteMapPage(routes: sel)));
   }
+
+  // ── 点击卡片弹出操作菜单 ────────────────────────────────────
+
+  void _showCardMenu(RouteModel r) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            top: 16,
+            left: 20,
+            right: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 拖动条
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 14),
+              // 线路标题
+              Row(children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                      color: cs.primary.withAlpha(30),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Icon(Icons.route, color: cs.primary, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(r.name,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('${r.fromStation} → ${r.toStation}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurface.withAlpha(150))),
+                    ],
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _RhMenuChip(
+                    icon: Icons.edit_outlined,
+                    label: '编辑线路',
+                    color: cs.primary,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openEdit(r);
+                    },
+                  ),
+                  _RhMenuChip(
+                    icon: _selected.contains(r.id)
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                    label: _selected.contains(r.id) ? '取消选中' : '选中此线路',
+                    color: Colors.teal,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _toggleSelect(r.id);
+                    },
+                  ),
+                  _RhMenuChip(
+                    icon: Icons.map_outlined,
+                    label: '单独查看走向图',
+                    color: Colors.indigo,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => RouteMapPage(routes: [r])));
+                    },
+                  ),
+                  _RhMenuChip(
+                    icon: Icons.delete_outline,
+                    label: '删除',
+                    color: Colors.red,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _deleteRoute(r);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Build ────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -240,83 +590,60 @@ class _RouteHubPageState extends State<RouteHubPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF111111)
-          : const Color(0xFFF5F5F5),
+      backgroundColor:
+          isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: Text(_selecting ? '已选 ${_selected.length} 条线路' : '线路处'),
+        title:
+            Text(_selecting ? '已选 ${_selected.length} 条线路' : '线路处'),
         backgroundColor: isDark ? Colors.black : Colors.white,
         foregroundColor: cs.onSurface,
         elevation: 0,
         leading: _selecting
-            ? IconButton(icon: const Icon(Icons.close), onPressed: _clearSelect)
+            ? IconButton(
+                icon: const Icon(Icons.close), onPressed: _clearSelect)
             : null,
         actions: [
-          if (_selecting)
+          if (_selecting) ...[
             IconButton(
-              onPressed: _selected.length == _routes.length
-                  ? _clearSelect
-                  : () => setState(() {
-                      _selected
-                        ..clear()
-                        ..addAll(_routes.map((r) => r.id));
-                    }),
-              icon: Icon(
-                _selected.length == _routes.length
-                    ? Icons.deselect
-                    : Icons.select_all,
-              ),
-              style: TextButton.styleFrom(foregroundColor: cs.primary),
-            )
-          else
+              icon: Icon(_currentPageAllSelected ? Icons.deselect : Icons.select_all),
+              tooltip: _currentPageAllSelected ? '取消全选本页' : '全选本页',
+              onPressed: _toggleSelectCurrentPage,
+            ),
+            IconButton(
+              icon: const Icon(Icons.ios_share_outlined),
+              tooltip: '导出选中',
+              onPressed: _exportSelected,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: '批量删除',
+              onPressed: _deleteBatch,
+              style: IconButton.styleFrom(foregroundColor: Colors.red),
+            ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.file_download_outlined),
+              tooltip: '导入线路',
+              onPressed: _importFromJson,
+            ),
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _reload,
               tooltip: '刷新',
             ),
-          if (_selecting)
-            IconButton(
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('删除'),
-                    content: Text('确定删除已选中的 ${_selected.length} 条线路吗？'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('取消'),
-                      ),
-                      TextButton(
-                        child: const Text('删除'),
-                        onPressed: () => Navigator.pop(ctx, true),
-                      )
-                    ],
-                  ),
-                );
-
-                if (confirm == true) {
-                  for (final id in _selected) {
-                    await RouteStorage.delete(id);
-                  }
-
-                  _selected.clear();
-
-                  if (mounted) {
-                    _reload();
-                  }
-                }
-              },
-              icon: const Icon(Icons.delete_outline),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-            ),
+          ],
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _routes.isEmpty
+          : _pager.totalCount == 0
           ? _buildEmpty(isDark)
-          : _buildList(isDark, cs),
+          : Column(
+        children: [
+          Expanded(child: _buildList(isDark, cs)),
+          if (_pager.hasMultiplePages) _buildPager(isDark, cs),
+        ],
+      ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -343,65 +670,156 @@ class _RouteHubPageState extends State<RouteHubPage> {
     );
   }
 
-  Widget _buildEmpty(bool isDark) => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.route, size: 64, color: Colors.grey.shade400),
-        const SizedBox(height: 16),
-        Text(
-          '还没有线路',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '点击右下角「+」新建第一条线路',
-          style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
-        ),
-      ],
-    ),
-  );
+  // ── 空态 ────────────────────────────────────────────────────
 
-  Widget _buildList(bool isDark, ColorScheme cs) => ListView(
-    padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
-    children: [
-      Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: cs.primary.withAlpha(18),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: cs.primary.withAlpha(50)),
-        ),
-        child: Row(
+  Widget _buildEmpty(bool isDark) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.touch_app_outlined, size: 18, color: cs.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '长按线路可进入多选模式，支持查看线路图与批量删除',
+            Icon(Icons.route, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text('还没有线路',
                 style: TextStyle(
-                  fontSize: 13,
-                  color: cs.primary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade500)),
+            const SizedBox(height: 8),
+            Text('点击右下角「+」新建第一条线路',
+                style:
+                    TextStyle(fontSize: 14, color: Colors.grey.shade400)),
           ],
         ),
-      ),
+      );
 
-      ..._routes.map((r) => _buildCard(r, isDark, cs)),
-    ],
-  );
+  Widget _buildPager(bool isDark, ColorScheme cs) {
+    final total = _pager.totalPages;
+    final cur = _pager.currentPage;
+    return Container(
+      color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: cur > 1 ? () => _goPage(cur - 1) : null,
+            visualDensity: VisualDensity.compact,
+          ),
+          ..._buildPageNumbers(cur, total, cs),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: cur < total ? () => _goPage(cur + 1) : null,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 8),
+          Text('共 ${_pager.totalCount} 条',
+              style: TextStyle(
+                  fontSize: 12, color: cs.onSurface.withAlpha(140))),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildPageNumbers(int cur, int total, ColorScheme cs) {
+    final pages = <int>[];
+    if (total <= 5) {
+      pages.addAll(List.generate(total, (i) => i + 1));
+    } else {
+      pages.add(1);
+      if (cur > 3) pages.add(-1);
+      for (int p = max(2, cur - 1); p <= min(total - 1, cur + 1); p++) {
+        pages.add(p);
+      }
+      if (cur < total - 2) pages.add(-1);
+      pages.add(total);
+    }
+    return pages.map((p) {
+      if (p == -1) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Text('…',
+              style: TextStyle(color: cs.onSurface.withAlpha(120))),
+        );
+      }
+      final isActive = p == cur;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: InkWell(
+          onTap: () => _goPage(p),
+          borderRadius: BorderRadius.circular(6),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isActive ? cs.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: isActive
+                  ? null
+                  : Border.all(color: cs.onSurface.withAlpha(40)),
+            ),
+            child: Center(
+              child: Text('$p',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                    isActive ? FontWeight.bold : FontWeight.normal,
+                    color: isActive
+                        ? cs.onPrimary
+                        : cs.onSurface.withAlpha(180),
+                  )),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+  // ── 列表 ────────────────────────────────────────────────────
+
+  Widget _buildList(bool isDark, ColorScheme cs) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      children: [
+        if (!_selecting)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: cs.primary.withAlpha(18),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.primary.withAlpha(50)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.touch_app_outlined, size: 16, color: cs.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '点击卡片可编辑或选中，长按进入多选模式',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: cs.primary,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ..._pager.items.map((r) => _buildCard(r, isDark, cs)),
+      ],
+    );
+  }
+
+  // ── 分页控制栏 ───────────────────────────────────────────────
+
+
+
+  // ── 卡片 ─────────────────────────────────────────────────────
 
   Widget _buildCard(RouteModel r, bool isDark, ColorScheme cs) {
     final isSel = _selected.contains(r.id);
     final mileage = r.totalMileage;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Dismissible(
@@ -411,21 +829,20 @@ class _RouteHubPageState extends State<RouteHubPage> {
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(
-            Icons.delete_outline,
-            color: Colors.white,
-            size: 28,
-          ),
+              color: Colors.red, borderRadius: BorderRadius.circular(14)),
+          child: const Icon(Icons.delete_outline,
+              color: Colors.white, size: 28),
         ),
         confirmDismiss: (_) async {
           await _deleteRoute(r);
           return false;
         },
         child: GestureDetector(
-          onTap: () => _selecting ? _toggleSelect(r.id) : _openEdit(r),
+          // 普通点击 → 弹出操作菜单（含编辑/选中/删除）
+          onTap: () => _selecting
+              ? _toggleSelect(r.id)
+              : _showCardMenu(r),
+          // 长按 → 进入多选模式并选中
           onLongPress: () => _toggleSelect(r.id),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -436,24 +853,24 @@ class _RouteHubPageState extends State<RouteHubPage> {
                 color: isSel
                     ? cs.primary
                     : isDark
-                    ? Colors.white.withAlpha(20)
-                    : Colors.transparent,
+                        ? Colors.white.withAlpha(20)
+                        : Colors.transparent,
                 width: isSel ? 2 : 1,
               ),
               boxShadow: isDark
                   ? []
                   : [
                       BoxShadow(
-                        color: Colors.black.withAlpha(15),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
+                          color: Colors.black.withAlpha(15),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2))
                     ],
             ),
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
+                  // 多选圆圈
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: _selecting
@@ -464,24 +881,23 @@ class _RouteHubPageState extends State<RouteHubPage> {
                             margin: const EdgeInsets.only(right: 12),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isSel ? cs.primary : Colors.transparent,
+                              color: isSel
+                                  ? cs.primary
+                                  : Colors.transparent,
                               border: Border.all(
-                                color: isSel
-                                    ? cs.primary
-                                    : Colors.grey.shade400,
-                                width: 2,
-                              ),
+                                  color: isSel
+                                      ? cs.primary
+                                      : Colors.grey.shade400,
+                                  width: 2),
                             ),
                             child: isSel
-                                ? const Icon(
-                                    Icons.check,
-                                    size: 14,
-                                    color: Colors.white,
-                                  )
+                                ? const Icon(Icons.check,
+                                    size: 14, color: Colors.white)
                                 : null,
                           )
                         : const SizedBox(key: ValueKey('none')),
                   ),
+                  // 图标
                   Container(
                     width: 44,
                     height: 44,
@@ -489,55 +905,47 @@ class _RouteHubPageState extends State<RouteHubPage> {
                       color: cs.primary.withAlpha(30),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.route, color: cs.primary, size: 24),
+                    child:
+                        Icon(Icons.route, color: cs.primary, size: 24),
                   ),
                   const SizedBox(width: 12),
+                  // 信息
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          r.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        Text(r.name,
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 3),
                         Text(
                           '${r.fromStation} → ${r.toStation}',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: cs.onSurface.withAlpha(160),
-                          ),
+                              fontSize: 13,
+                              color: cs.onSurface.withAlpha(160)),
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            _infoChip(
-                              Icons.location_on_outlined,
-                              '${r.stations.length} 站',
-                              cs,
-                            ),
-                            if (mileage > 0) ...[
-                              const SizedBox(width: 6),
-                              _infoChip(
-                                Icons.straighten,
-                                '${mileage.toStringAsFixed(0)} km',
-                                cs,
-                              ),
-                            ],
+                        Row(children: [
+                          _infoChip(Icons.location_on_outlined,
+                              '${r.stations.length} 站', cs),
+                          if (mileage > 0) ...[
+                            const SizedBox(width: 6),
+                            _infoChip(Icons.straighten,
+                                '${mileage.toStringAsFixed(0)} km', cs),
                           ],
-                        ),
+                        ]),
                       ],
                     ),
                   ),
+                  // 编辑笔（仅非多选时显示）
                   if (!_selecting)
                     IconButton(
                       icon: const Icon(Icons.edit_outlined, size: 20),
                       onPressed: () => _openEdit(r),
                       color: Colors.grey.shade400,
+                      tooltip: '编辑线路',
                     ),
                 ],
               ),
@@ -549,16 +957,15 @@ class _RouteHubPageState extends State<RouteHubPage> {
   }
 
   Widget _infoChip(IconData icon, String label, ColorScheme cs) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 12, color: cs.onSurface.withAlpha(120)),
-      const SizedBox(width: 3),
-      Text(
-        label,
-        style: TextStyle(fontSize: 11, color: cs.onSurface.withAlpha(120)),
-      ),
-    ],
-  );
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: cs.onSurface.withAlpha(120)),
+          const SizedBox(width: 3),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, color: cs.onSurface.withAlpha(120))),
+        ],
+      );
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -567,7 +974,6 @@ class _RouteHubPageState extends State<RouteHubPage> {
 
 class RoutePage extends StatefulWidget {
   final RouteModel? existing;
-
   const RoutePage({super.key, this.existing});
 
   @override
@@ -579,21 +985,20 @@ class _RoutePageState extends State<RoutePage> {
   final List<_EditableRouteStation> _stations = [];
   bool _saving = false;
 
+  // 每条线路最多 20 辆（站点数量上限）
+  static const int _maxStations = 20;
+
   @override
   void initState() {
     super.initState();
     if (widget.existing != null) {
       _nameCtrl.text = widget.existing!.name;
-      _stations.addAll(
-        widget.existing!.stations.map(
-          (s) => _EditableRouteStation(
-            name: s.name,
-            telecode: s.telecode,
-            city: s.city,
-            mileageToNext: s.mileageToNext,
-          ),
-        ),
-      );
+      _stations.addAll(widget.existing!.stations.map((s) =>
+          _EditableRouteStation(
+              name: s.name,
+              telecode: s.telecode,
+              city: s.city,
+              mileageToNext: s.mileageToNext)));
     }
   }
 
@@ -606,6 +1011,10 @@ class _RoutePageState extends State<RoutePage> {
   // ── 添加车站 ────────────────────────────────────────────────
 
   Future<void> _pickStation() async {
+    if (_stations.length >= _maxStations) {
+      _showSnack('每条线路最多添加 $_maxStations 个站点');
+      return;
+    }
     Map<String, String?>? result;
     await showModalBottomSheet(
       context: context,
@@ -614,21 +1023,17 @@ class _RoutePageState extends State<RoutePage> {
           StationSelector(title: '选择国铁车站', onSelected: (r) => result = r),
     );
     if (result == null) return;
-    final name = (result!['name'] ?? '').replaceAll('站', '').trim();
+    final name =
+        (result!['name'] ?? '').replaceAll('站', '').trim();
     if (name.isEmpty) return;
     if (_stations.any((s) => s.name == name)) {
       _showSnack('「$name」已在线路中');
       return;
     }
-    setState(
-      () => _stations.add(
-        _EditableRouteStation(
-          name: name,
-          telecode: result!['telecode'] ?? '',
-          city: result!['city'] ?? '',
-        ),
-      ),
-    );
+    setState(() => _stations.add(_EditableRouteStation(
+        name: name,
+        telecode: result!['telecode'] ?? '',
+        city: result!['city'] ?? '')));
   }
 
   // ── 编辑里程 ────────────────────────────────────────────────
@@ -640,8 +1045,7 @@ class _RoutePageState extends State<RoutePage> {
     }
     final s = _stations[idx];
     final ctrl = TextEditingController(
-      text: s.mileageToNext != null ? '${s.mileageToNext}' : '',
-    );
+        text: s.mileageToNext != null ? '${s.mileageToNext}' : '');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -650,17 +1054,14 @@ class _RoutePageState extends State<RoutePage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              '${s.name} → ${_stations[idx + 1].name}',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
+            Text('${s.name} → ${_stations[idx + 1].name}',
+                style: const TextStyle(fontSize: 13, color: Colors.grey)),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                 LengthLimitingTextInputFormatter(7),
@@ -671,26 +1072,27 @@ class _RoutePageState extends State<RoutePage> {
                 border: OutlineInputBorder(),
                 suffixText: 'km',
               ),
-              onSubmitted: (_) => _saveMileage(ctx, idx, ctrl.text.trim()),
+              onSubmitted: (_) =>
+                  _saveMileage(ctx, idx, ctrl.text.trim()),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消')),
           TextButton(
             onPressed: () {
               setState(() => _stations[idx].mileageToNext = null);
               Navigator.pop(ctx);
             },
-            child: const Text('清除', style: TextStyle(color: Colors.orange)),
+            child: const Text('清除',
+                style: TextStyle(color: Colors.orange)),
           ),
           ElevatedButton(
-            onPressed: () => _saveMileage(ctx, idx, ctrl.text.trim()),
-            child: const Text('保存'),
-          ),
+              onPressed: () =>
+                  _saveMileage(ctx, idx, ctrl.text.trim()),
+              child: const Text('保存')),
         ],
       ),
     );
@@ -719,7 +1121,8 @@ class _RoutePageState extends State<RoutePage> {
         return Container(
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
           ),
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
@@ -736,24 +1139,18 @@ class _RoutePageState extends State<RoutePage> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade400,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                '${s.name}站',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('${s.name}站',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
               if (s.city.isNotEmpty)
-                Text(
-                  s.city,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                ),
+                Text(s.city,
+                    style: TextStyle(
+                        fontSize: 12, color: Colors.grey.shade500)),
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
@@ -773,7 +1170,7 @@ class _RoutePageState extends State<RoutePage> {
                     ),
                   _RhMenuChip(
                     icon: Icons.delete_outline,
-                    label: '',
+                    label: '删除',
                     color: Colors.red,
                     onTap: () {
                       Navigator.pop(ctx);
@@ -800,14 +1197,15 @@ class _RoutePageState extends State<RoutePage> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.error_outline, color: Colors.red, size: 32),
+          icon: const Icon(Icons.error_outline,
+              color: Colors.red, size: 32),
           title: const Text('还不能保存'),
-          content: Text(issues.join('\n'), style: const TextStyle(height: 1.8)),
+          content: Text(issues.join('\n'),
+              style: const TextStyle(height: 1.8)),
           actions: [
             ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('知道了'),
-            ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('知道了'))
           ],
         ),
       );
@@ -816,26 +1214,24 @@ class _RoutePageState extends State<RoutePage> {
     setState(() => _saving = true);
     try {
       final model = RouteModel(
-        id:
-            widget.existing?.id ??
+        id: widget.existing?.id ??
             'route_${DateTime.now().millisecondsSinceEpoch}',
         name: name,
         createdAt: widget.existing?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
         stations: _stations
-            .map(
-              (s) => RouteStation(
+            .map((s) => RouteStation(
                 name: s.name,
                 telecode: s.telecode,
                 city: s.city,
-                mileageToNext: s.mileageToNext,
-              ),
-            )
+                mileageToNext: s.mileageToNext))
             .toList(),
       );
       await RouteStorage.save(model);
       if (mounted) {
-        _showSnack(widget.existing == null ? '线路「$name」已保存' : '线路「$name」已更新');
+        _showSnack(widget.existing == null
+            ? '线路「$name」已保存'
+            : '线路「$name」已更新');
         Navigator.of(context).pop(model);
       }
     } catch (e) {
@@ -848,8 +1244,9 @@ class _RoutePageState extends State<RoutePage> {
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
-    );
+        SnackBar(
+            content: Text(msg),
+            duration: const Duration(seconds: 2)));
   }
 
   // ── Build ────────────────────────────────────────────────────
@@ -858,11 +1255,11 @@ class _RoutePageState extends State<RoutePage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final remaining = _maxStations - _stations.length;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF111111)
-          : const Color(0xFFF5F5F5),
+      backgroundColor:
+          isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: Text(widget.existing == null ? '新建线路' : '编辑线路'),
         backgroundColor: isDark ? Colors.black : Colors.white,
@@ -873,12 +1270,10 @@ class _RoutePageState extends State<RoutePage> {
             const Padding(
               padding: EdgeInsets.only(right: 16),
               child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
+                  child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))),
             )
           else
             TextButton.icon(
@@ -908,14 +1303,15 @@ class _RoutePageState extends State<RoutePage> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildStationsSection(isDark, cs),
+          _buildStationsSection(isDark, cs, remaining),
           const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  Widget _buildStationsSection(bool isDark, ColorScheme cs) {
+  Widget _buildStationsSection(
+      bool isDark, ColorScheme cs, int remaining) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -925,35 +1321,39 @@ class _RoutePageState extends State<RoutePage> {
             children: [
               Icon(Icons.linear_scale, color: cs.primary, size: 20),
               const SizedBox(width: 8),
-              const Text(
-                '站点列表',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              const Text('站点列表',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
               const Spacer(),
               Text(
-                '${_stations.length} 个站',
+                '${_stations.length} / $_maxStations 站',
                 style: TextStyle(
-                  fontSize: 13,
-                  color: cs.onSurface.withAlpha(140),
-                ),
+                    fontSize: 13,
+                    color: remaining == 0
+                        ? Colors.orange
+                        : cs.onSurface.withAlpha(140)),
               ),
             ],
           ),
         ),
         const SizedBox(height: 6),
-        if (_stations.isEmpty) _emptyHint(isDark) else _buildList(isDark, cs),
+        if (_stations.isEmpty)
+          _emptyHint(isDark)
+        else
+          _buildList(isDark, cs),
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _pickStation,
+            onPressed: remaining > 0 ? _pickStation : null,
             icon: const Icon(Icons.add_location_alt_outlined),
-            label: const Text('添加国铁车站'),
+            label: Text(remaining > 0
+                ? '添加国铁车站（还可添加 $remaining 个）'
+                : '已达站点上限（$_maxStations 个）'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+                  borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ),
@@ -962,30 +1362,30 @@ class _RoutePageState extends State<RoutePage> {
   }
 
   Widget _emptyHint(bool isDark) => Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(
-        color: isDark ? Colors.white.withAlpha(30) : Colors.grey.shade300,
-      ),
-    ),
-    child: Column(
-      children: [
-        Icon(Icons.add_road, size: 36, color: Colors.grey.shade400),
-        const SizedBox(height: 8),
-        Text(
-          '还没有站点，点击下方「添加国铁车站」',
-          style: TextStyle(color: Colors.grey.shade500),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withAlpha(10)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: isDark
+                  ? Colors.white.withAlpha(30)
+                  : Colors.grey.shade300),
         ),
-        const SizedBox(height: 4),
-        Text(
-          '点击已添加的车站可设置与下一站里程',
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+        child: Column(
+          children: [
+            Icon(Icons.add_road, size: 36, color: Colors.grey.shade400),
+            const SizedBox(height: 8),
+            Text('还没有站点，点击下方「添加国铁车站」',
+                style: TextStyle(color: Colors.grey.shade500)),
+            const SizedBox(height: 4),
+            Text('点击已添加的车站可设置与下一站里程',
+                style: TextStyle(
+                    fontSize: 11, color: Colors.grey.shade400)),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
   Widget _buildList(bool isDark, ColorScheme cs) {
     return ReorderableListView.builder(
@@ -999,30 +1399,20 @@ class _RoutePageState extends State<RoutePage> {
         });
       },
       proxyDecorator: (child, idx, anim) => Material(
-        elevation: 4,
-        borderRadius: BorderRadius.circular(12),
-        child: child,
-      ),
+          elevation: 4,
+          borderRadius: BorderRadius.circular(12),
+          child: child),
       itemBuilder: (ctx, idx) => _buildTile(idx, isDark, cs),
     );
   }
 
   Widget _buildTile(int idx, bool isDark, ColorScheme cs) {
     final s = _stations[idx];
-
-    final firstName = _stations.isNotEmpty ? _stations.first.name : '';
-
-    final lastName = _stations.isNotEmpty ? _stations.last.name : '';
-
-    final isStartStation = s.name == firstName;
-    final isEndStation = s.name == lastName;
-
     final isFirst = idx == 0;
     final isLast = idx == _stations.length - 1;
-
+    // 兼顾起始站和终点站（仅一个站时，或首尾相同名时）
+    final isBoth = isFirst && isLast;
     final hasMileage = s.mileageToNext != null;
-
-    final isBoth = isStartStation && isEndStation;
 
     return Column(
       key: ValueKey('rs_$idx'),
@@ -1030,155 +1420,141 @@ class _RoutePageState extends State<RoutePage> {
         InkWell(
           onTap: () => _showStationMenu(idx),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             child: Row(
               children: [
                 // 竖线 + 圆点
                 SizedBox(
                   width: 32,
-                  child: Column(
-                    children: [
-                      if (!isFirst)
-                        Container(
-                          width: 2,
-                          height: 8,
-                          color: cs.primary.withAlpha(100),
-                        ),
+                  child: Column(children: [
+                    if (!isFirst)
                       Container(
-                        width: isStartStation || isEndStation ? 16 : 12,
-                        height: isStartStation || isEndStation ? 16 : 12,
-                        decoration: BoxDecoration(
-                          color: isBoth
-                              ? Colors.orange
-                              : isStartStation
-                              ? Colors.green
-                              : isEndStation
-                              ? Colors.red
-                              : cs.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                      ),
-
-                      if (!isLast)
-                        Container(
                           width: 2,
                           height: 8,
-                          color: cs.primary.withAlpha(100),
-                        ),
-                    ],
-                  ),
+                          color: cs.primary.withAlpha(100)),
+                    Container(
+                      width: isFirst || isLast ? 16 : 12,
+                      height: isFirst || isLast ? 16 : 12,
+                      decoration: BoxDecoration(
+                        color: isBoth
+                            ? Colors.orange
+                            : isFirst
+                                ? Colors.green
+                                : isLast
+                                    ? Colors.red
+                                    : cs.primary,
+                        shape: BoxShape.circle,
+                        border:
+                            Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                    if (!isLast)
+                      Container(
+                          width: 2,
+                          height: 8,
+                          color: cs.primary.withAlpha(100)),
+                  ]),
                 ),
-
                 const SizedBox(width: 10),
-
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${s.name}站',
-                              style: TextStyle(
+                      Row(children: [
+                        Expanded(
+                          child: Text(
+                            '${s.name}站',
+                            style: TextStyle(
                                 fontSize: 15,
-                                fontWeight: isStartStation || isEndStation
+                                fontWeight: isFirst || isLast
                                     ? FontWeight.bold
-                                    : FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-
-                          const SizedBox(width: 6),
-
-                          if (isStartStation)
-                            _badge('起点', isBoth ? Colors.orange : Colors.green),
-
-                          if (isEndStation)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4),
-                              child: _badge(
-                                '终点',
-                                isBoth ? Colors.orange : Colors.red,
-                              ),
-                            ),
-                        ],
-                      ),
-
-                      if (s.city.isNotEmpty)
-                        Text(
-                          s.city,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: cs.onSurface.withAlpha(130),
+                                    : FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        // 同时显示起点和终点标签
+                        if (isBoth) ...[
+                          _badge('起点', Colors.green),
+                          const SizedBox(width: 4),
+                          _badge('终点', Colors.red),
+                        ] else if (isFirst)
+                          _badge('起点', Colors.green)
+                        else if (isLast)
+                          _badge('终点', Colors.red),
+                      ]),
+                      if (s.city.isNotEmpty)
+                        Text(s.city,
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSurface.withAlpha(130))),
                     ],
                   ),
                 ),
-
+                // 里程 badge
                 if (!isLast)
                   GestureDetector(
                     onTap: () => _editMileage(idx),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: hasMileage
                             ? Colors.blue.withAlpha(30)
                             : Colors.grey.withAlpha(30),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: hasMileage
-                              ? Colors.blue.withAlpha(100)
-                              : Colors.grey.withAlpha(80),
-                        ),
+                            color: hasMileage
+                                ? Colors.blue.withAlpha(100)
+                                : Colors.grey.withAlpha(80)),
                       ),
                       child: Text(
-                        hasMileage ? '${s.mileageToNext} km' : '设置里程',
+                        hasMileage
+                            ? '${s.mileageToNext} km'
+                            : '设置里程',
                         style: TextStyle(
-                          fontSize: 11,
-                          color: hasMileage ? Colors.blue : Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
+                            fontSize: 11,
+                            color: hasMileage
+                                ? Colors.blue
+                                : Colors.grey,
+                            fontWeight: FontWeight.w500),
                       ),
                     ),
                   ),
-
                 const SizedBox(width: 6),
-
-                Icon(Icons.drag_handle, color: Colors.grey.shade400, size: 20),
+                Icon(Icons.drag_handle,
+                    color: Colors.grey.shade400, size: 20),
               ],
             ),
           ),
         ),
-
         Divider(
           height: 1,
           indent: 54,
-          color: isDark ? Colors.white.withAlpha(20) : Colors.grey.shade200,
+          color: isDark
+              ? Colors.white.withAlpha(20)
+              : Colors.grey.shade200,
         ),
       ],
     );
   }
 
   Widget _badge(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-    decoration: BoxDecoration(
-      color: color.withAlpha(40),
-      borderRadius: BorderRadius.circular(4),
-      border: Border.all(color: color.withAlpha(120)),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
-    ),
-  );
+        padding:
+            const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: color.withAlpha(40),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withAlpha(120)),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.bold)),
+      );
 
   Widget _sectionCard({
     required IconData icon,
@@ -1194,33 +1570,24 @@ class _RoutePageState extends State<RoutePage> {
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withAlpha(15),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
+                    color: Colors.black.withAlpha(15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2))
               ],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(
-                icon,
+          Row(children: [
+            Icon(icon,
                 size: 18,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
+                color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(title,
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+                    fontSize: 15, fontWeight: FontWeight.bold)),
+          ]),
           const SizedBox(height: 14),
           child,
         ],
@@ -1230,7 +1597,7 @@ class _RoutePageState extends State<RoutePage> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 内部编辑模型（仅 RoutePage 使用）
+// 内部编辑模型
 // ─────────────────────────────────────────────────────────────
 class _EditableRouteStation {
   String name;
@@ -1247,7 +1614,7 @@ class _EditableRouteStation {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 菜单 Chip（内部共用）
+// 菜单 Chip
 // ─────────────────────────────────────────────────────────────
 class _RhMenuChip extends StatelessWidget {
   final IconData icon;
@@ -1268,7 +1635,8 @@ class _RhMenuChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: color.withAlpha(20),
           borderRadius: BorderRadius.circular(24),
@@ -1279,14 +1647,11 @@ class _RhMenuChip extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: color,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -1347,7 +1712,6 @@ class _PlottedRoute {
 
 class RouteMapPage extends StatefulWidget {
   final List<RouteModel> routes;
-
   const RouteMapPage({super.key, required this.routes});
 
   @override
@@ -1378,7 +1742,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final allStations = await loadStations();
     final Map<String, Map<String, dynamic>> nameIdx = {};
     for (final s in allStations) {
-      final name = (s['name'] as String? ?? '').replaceAll('站', '').trim();
+      final name =
+          (s['name'] as String? ?? '').replaceAll('站', '').trim();
       final loc = (s['location'] as String? ?? '');
       final parts = loc.split(',');
       if (parts.length == 2) {
@@ -1456,8 +1821,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
     }
 
     final cx = (minLng + maxLng) / 2, cy = (minLat + maxLat) / 2;
-    final fMinLng = cx - adjLng * 0.6, fMaxLng = cx + adjLng * 0.6;
-    final fMinLat = cy - adjLat * 0.6, fMaxLat = cy + adjLat * 0.6;
+    final fMinLng = cx - adjLng * 0.6,
+        fMaxLng = cx + adjLng * 0.6;
+    final fMinLat = cy - adjLat * 0.6,
+        fMaxLat = cy + adjLat * 0.6;
     final lngR = fMaxLng - fMinLng, latR = fMaxLat - fMinLat;
 
     for (final r in routes) {
@@ -1475,9 +1842,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
 
   void _handleTap(TapUpDetails details, Size sz) {
     final local = MatrixUtils.transformPoint(
-      Matrix4.inverted(_txCtrl.value),
-      details.localPosition,
-    );
+        Matrix4.inverted(_txCtrl.value), details.localPosition);
     final hr = 20.0 / _scale;
     int? br, bs;
     double md = double.infinity;
@@ -1486,7 +1851,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
       for (int si = 0; si < _plotted[ri].stations.length; si++) {
         final s = _plotted[ri].stations[si];
         if (!s.hasLocation) continue;
-        final d = (local - Offset(s.x * sz.width, s.y * sz.height)).distance;
+        final d =
+            (local - Offset(s.x * sz.width, s.y * sz.height)).distance;
         if (d < hr && d < md) {
           md = d;
           br = ri;
@@ -1510,9 +1876,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF111111)
-          : const Color(0xFFF5F5F5),
+      backgroundColor:
+          isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('线路走向图'),
         backgroundColor: isDark ? Colors.black : Colors.white,
@@ -1542,67 +1907,63 @@ class _RouteMapPageState extends State<RouteMapPage> {
   }
 
   Widget _buildLegend(bool isDark) => Container(
-    color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _plotted.map((r) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => r.visible = !r.visible),
-              child: AnimatedOpacity(
-                opacity: r.visible ? 1.0 : 0.4,
-                duration: const Duration(milliseconds: 200),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: r.color.withAlpha(r.visible ? 30 : 15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: r.color.withAlpha(r.visible ? 150 : 60),
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _plotted.map((r) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => r.visible = !r.visible),
+                  child: AnimatedOpacity(
+                    opacity: r.visible ? 1.0 : 0.4,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: r.color
+                            .withAlpha(r.visible ? 30 : 15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: r.color
+                                .withAlpha(r.visible ? 150 : 60)),
+                      ),
+                      child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                    color: r.color,
+                                    shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            Text(r.model.name,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: r.color,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 4),
+                            Icon(
+                              r.visible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              size: 12,
+                              color: r.color.withAlpha(180),
+                            ),
+                          ]),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: r.color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        r.model.name,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: r.color,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        r.visible ? Icons.visibility : Icons.visibility_off,
-                        size: 12,
-                        color: r.color.withAlpha(180),
-                      ),
-                    ],
-                  ),
                 ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    ),
-  );
+              );
+            }).toList(),
+          ),
+        ),
+      );
 
   Widget _buildMap() {
     final surfaceColor = Theme.of(context).colorScheme.surface;
@@ -1610,50 +1971,48 @@ class _RouteMapPageState extends State<RouteMapPage> {
       child: AspectRatio(
         aspectRatio: 1.0,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
+          constraints:
+              const BoxConstraints(maxWidth: 480, maxHeight: 480),
           margin: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: surfaceColor,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(30),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
+                  color: Colors.black.withAlpha(30),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4))
             ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: LayoutBuilder(
-              builder: (ctx, constraints) {
-                final side = constraints.biggest.shortestSide;
-                final sz = Size(side, side);
-                return GestureDetector(
-                  onTapUp: (d) => _handleTap(d, sz),
-                  child: InteractiveViewer(
-                    transformationController: _txCtrl,
-                    minScale: 0.8,
-                    maxScale: 8.0,
-                    boundaryMargin: const EdgeInsets.all(80),
-                    onInteractionUpdate: (_) {
-                      final s = _txCtrl.value.getMaxScaleOnAxis();
-                      if (s != _scale) setState(() => _scale = s);
-                    },
-                    child: CustomPaint(
-                      size: sz,
-                      painter: _RouteMapPainter(
-                        routes: _plotted,
-                        selRouteIdx: _selRouteIdx,
-                        selStopIdx: _selStopIdx,
-                        scale: _scale,
-                        surfaceColor: surfaceColor,
-                      ),
+            child: LayoutBuilder(builder: (ctx, constraints) {
+              final side = constraints.biggest.shortestSide;
+              final sz = Size(side, side);
+              return GestureDetector(
+                onTapUp: (d) => _handleTap(d, sz),
+                child: InteractiveViewer(
+                  transformationController: _txCtrl,
+                  minScale: 0.8,
+                  maxScale: 8.0,
+                  boundaryMargin: const EdgeInsets.all(80),
+                  onInteractionUpdate: (_) {
+                    final s = _txCtrl.value.getMaxScaleOnAxis();
+                    if (s != _scale) setState(() => _scale = s);
+                  },
+                  child: CustomPaint(
+                    size: sz,
+                    painter: _RouteMapPainter(
+                      routes: _plotted,
+                      selRouteIdx: _selRouteIdx,
+                      selStopIdx: _selStopIdx,
+                      scale: _scale,
+                      surfaceColor: surfaceColor,
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            }),
           ),
         ),
       ),
@@ -1666,7 +2025,9 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final route = _plotted[ri];
     if (si >= route.stations.length) return const SizedBox();
     final s = route.stations[si];
-    final isFirst = si == 0, isLast = si == route.stations.length - 1;
+    final isFirst = si == 0;
+    final isLast = si == route.stations.length - 1;
+    final isBoth = isFirst && isLast;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
@@ -1674,13 +2035,13 @@ class _RouteMapPageState extends State<RouteMapPage> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: route.color.withAlpha(120), width: 1.5),
+        border:
+            Border.all(color: route.color.withAlpha(120), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(20),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withAlpha(20),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
         ],
       ),
       child: Row(
@@ -1689,71 +2050,55 @@ class _RouteMapPageState extends State<RouteMapPage> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: route.color.withAlpha(30),
-              shape: BoxShape.circle,
-            ),
+                color: route.color.withAlpha(30),
+                shape: BoxShape.circle),
             child: Center(
-              child: Text(
-                '${si + 1}',
-                style: TextStyle(
-                  color: route.color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
+              child: Text('${si + 1}',
+                  style: TextStyle(
+                      color: route.color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14)),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      '${s.name}站',
+                Row(children: [
+                  Text('${s.name}站',
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    if (isFirst)
-                      _rmBadge('起点', Colors.green)
-                    else if (isLast)
-                      _rmBadge('终点', Colors.red),
-                  ],
-                ),
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 6),
+                  // 同时显示起点和终点标签
+                  if (isBoth) ...[
+                    _rmBadge('起点', Colors.green),
+                    const SizedBox(width: 4),
+                    _rmBadge('终点', Colors.red),
+                  ] else if (isFirst)
+                    _rmBadge('起点', Colors.green)
+                  else if (isLast)
+                    _rmBadge('终点', Colors.red),
+                ]),
                 const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text(
-                      route.model.name,
+                Row(children: [
+                  Text(route.model.name,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: route.color,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (s.city.isNotEmpty) ...[
-                      Text(
-                        ' · ',
-                        style: TextStyle(
                           fontSize: 12,
-                          color: cs.onSurface.withAlpha(100),
-                        ),
-                      ),
-                      Text(
-                        s.city,
+                          color: route.color,
+                          fontWeight: FontWeight.w500)),
+                  if (s.city.isNotEmpty) ...[
+                    Text(' · ',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurface.withAlpha(140),
-                        ),
-                      ),
-                    ],
+                            fontSize: 12,
+                            color: cs.onSurface.withAlpha(100))),
+                    Text(s.city,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurface.withAlpha(140))),
                   ],
-                ),
+                ]),
               ],
             ),
           ),
@@ -1762,21 +2107,15 @@ class _RouteMapPageState extends State<RouteMapPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '${s.mileageToNext} km',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: route.color,
-                  ),
-                ),
-                Text(
-                  '至下一站',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: cs.onSurface.withAlpha(120),
-                  ),
-                ),
+                Text('${s.mileageToNext} km',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: route.color)),
+                Text('至下一站',
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: cs.onSurface.withAlpha(120))),
               ],
             ),
         ],
@@ -1785,17 +2124,19 @@ class _RouteMapPageState extends State<RouteMapPage> {
   }
 
   Widget _rmBadge(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-    decoration: BoxDecoration(
-      color: color.withAlpha(40),
-      borderRadius: BorderRadius.circular(4),
-      border: Border.all(color: color.withAlpha(120)),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
-    ),
-  );
+        padding:
+            const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: color.withAlpha(40),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withAlpha(120)),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.bold)),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1835,7 +2176,8 @@ class _RouteMapPainter extends CustomPainter {
     }
   }
 
-  void _drawLine(Canvas canvas, Size size, _PlottedRoute r, bool isSelected) {
+  void _drawLine(
+      Canvas canvas, Size size, _PlottedRoute r, bool isSelected) {
     final valid = r.stations.where((s) => s.hasLocation).toList();
     if (valid.length < 2) return;
     final paint = Paint()
@@ -1845,14 +2187,16 @@ class _RouteMapPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final path = Path()
-      ..moveTo(valid.first.x * size.width, valid.first.y * size.height);
+      ..moveTo(
+          valid.first.x * size.width, valid.first.y * size.height);
     for (int i = 1; i < valid.length; i++) {
       path.lineTo(valid[i].x * size.width, valid[i].y * size.height);
     }
     canvas.drawPath(path, paint);
   }
 
-  void _drawStops(Canvas canvas, Size size, _PlottedRoute r, int routeIdx) {
+  void _drawStops(
+      Canvas canvas, Size size, _PlottedRoute r, int routeIdx) {
     final baseR = _px(6.0);
     for (int si = 0; si < r.stations.length; si++) {
       final s = r.stations[si];
@@ -1861,30 +2205,25 @@ class _RouteMapPainter extends CustomPainter {
       final markerR = isSel ? _px(9.0) : baseR;
       final c = Offset(s.x * size.width, s.y * size.height);
       if (isSel) {
-        canvas.drawCircle(
-          c,
-          markerR + _px(4),
-          Paint()..color = r.color.withAlpha(50),
-        );
+        canvas.drawCircle(c, markerR + _px(4),
+            Paint()..color = r.color.withAlpha(50));
       }
       canvas.drawCircle(c, markerR, Paint()..color = r.color);
       canvas.drawCircle(
-        c,
-        markerR,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = _px(2.0),
-      );
+          c,
+          markerR,
+          Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = _px(2.0));
       final tp = TextPainter(
         text: TextSpan(
           text: '${si + 1}',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: _px(6.5),
-            fontWeight: FontWeight.bold,
-            height: 1.0,
-          ),
+              color: Colors.white,
+              fontSize: _px(6.5),
+              fontWeight: FontWeight.bold,
+              height: 1.0),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -1900,15 +2239,19 @@ class _RouteMapPainter extends CustomPainter {
     if (!s.hasLocation) return;
 
     final cx = s.x * size.width, cy = s.y * size.height;
-    final sub = r.model.name + (s.city.isNotEmpty ? ' · ${s.city}' : '');
-    final mileStr = (si < r.stations.length - 1 && s.mileageToNext != null)
-        ? '至下站 ${s.mileageToNext} km'
-        : null;
+    final sub =
+        r.model.name + (s.city.isNotEmpty ? ' · ${s.city}' : '');
+    final mileStr =
+        (si < r.stations.length - 1 && s.mileageToNext != null)
+            ? '至下站 ${s.mileageToNext} km'
+            : null;
 
     final fs = _px(11.0), fsS = _px(9.5);
-    final nameTp = _tp('${s.name}站', fs, Colors.black87, bold: true);
+    final nameTp =
+        _tp('${s.name}站', fs, Colors.black87, bold: true);
     final subTp = _tp(sub, fsS, r.color);
-    final mileTp = mileStr != null ? _tp(mileStr, fsS, Colors.black54) : null;
+    final mileTp =
+        mileStr != null ? _tp(mileStr, fsS, Colors.black54) : null;
 
     final padH = _px(8.0), padV = _px(5.0), gap = _px(3.0);
     double cw = max(nameTp.width, subTp.width);
@@ -1916,7 +2259,9 @@ class _RouteMapPainter extends CustomPainter {
     double ch = nameTp.height + gap + subTp.height;
     if (mileTp != null) ch += gap + mileTp.height;
 
-    final lw = cw + padH * 2, lh = ch + padV * 2, mg = _px(10.0);
+    final lw = cw + padH * 2,
+        lh = ch + padV * 2,
+        mg = _px(10.0);
     final candidates = [
       Offset(cx + mg, cy - lh / 2),
       Offset(cx - lw - mg, cy - lh / 2),
@@ -1933,26 +2278,19 @@ class _RouteMapPainter extends CustomPainter {
         break;
       }
     }
-    pos = Offset(
-      pos.dx.clamp(0.0, size.width - lw),
-      pos.dy.clamp(0.0, size.height - lh),
-    );
+    pos = Offset(pos.dx.clamp(0.0, size.width - lw),
+        pos.dy.clamp(0.0, size.height - lh));
 
-    final rr = RRect.fromLTRBR(
-      pos.dx,
-      pos.dy,
-      pos.dx + lw,
-      pos.dy + lh,
-      Radius.circular(_px(6)),
-    );
-    canvas.drawRRect(rr, Paint()..color = Colors.white.withAlpha(240));
+    final rr = RRect.fromLTRBR(pos.dx, pos.dy, pos.dx + lw,
+        pos.dy + lh, Radius.circular(_px(6)));
     canvas.drawRRect(
-      rr,
-      Paint()
-        ..color = r.color.withAlpha(180)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = _px(1.2),
-    );
+        rr, Paint()..color = Colors.white.withAlpha(240));
+    canvas.drawRRect(
+        rr,
+        Paint()
+          ..color = r.color.withAlpha(180)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _px(1.2));
 
     double tx = pos.dx + padH, ty = pos.dy + padV;
     nameTp.paint(canvas, Offset(tx, ty));
@@ -1964,21 +2302,17 @@ class _RouteMapPainter extends CustomPainter {
     }
   }
 
-  TextPainter _tp(
-    String text,
-    double fontSize,
-    Color color, {
-    bool bold = false,
-  }) {
+  TextPainter _tp(String text, double fontSize, Color color,
+      {bool bold = false}) {
     return TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
-          fontSize: fontSize,
-          color: color,
-          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-          height: 1.2,
-        ),
+            fontSize: fontSize,
+            color: color,
+            fontWeight:
+                bold ? FontWeight.bold : FontWeight.normal,
+            height: 1.2),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

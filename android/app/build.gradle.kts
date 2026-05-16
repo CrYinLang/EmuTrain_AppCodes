@@ -15,6 +15,10 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+dependencies {
+    Implementation 'com.github.L-JINBIN:MTDataFilesProvider:v1.0.0'
+}
+
 android {
     namespace = "com.cryinlang.emutrain"
     compileSdk = flutter.compileSdkVersion
