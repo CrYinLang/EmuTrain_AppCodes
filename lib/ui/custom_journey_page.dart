@@ -864,7 +864,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
 
   Widget _buildStationsSection(bool isDark, ColorScheme cs) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 标题行
         Padding(
