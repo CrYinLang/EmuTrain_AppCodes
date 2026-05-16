@@ -200,7 +200,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
+            child: const Text(''),
           ),
         ],
       ),
@@ -308,10 +308,6 @@ class _RouteHubPageState extends State<RouteHubPage> {
 
                   if (mounted) {
                     _reload();
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('已删除 ${_selected.length} 条线路')),
-                    );
                   }
                 }
               },
@@ -782,7 +778,7 @@ class _RoutePageState extends State<RoutePage> {
                     ),
                   _RhMenuChip(
                     icon: Icons.delete_outline,
-                    label: '删除',
+                    label: '',
                     color: Colors.red,
                     onTap: () {
                       Navigator.pop(ctx);
