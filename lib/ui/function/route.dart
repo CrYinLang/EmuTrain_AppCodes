@@ -200,7 +200,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text(''),
+            child: const Text('删除'),
           ),
         ],
       ),
@@ -253,7 +253,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
             : null,
         actions: [
           if (_selecting)
-            TextButton.icon(
+            IconButton(
               onPressed: _selected.length == _routes.length
                   ? _clearSelect
                   : () => setState(() {
@@ -266,7 +266,6 @@ class _RouteHubPageState extends State<RouteHubPage> {
                     ? Icons.deselect
                     : Icons.select_all,
               ),
-              label: Text(_selected.length == _routes.length ? '取消全选' : '全选'),
               style: TextButton.styleFrom(foregroundColor: cs.primary),
             )
           else
@@ -276,12 +275,12 @@ class _RouteHubPageState extends State<RouteHubPage> {
               tooltip: '刷新',
             ),
           if (_selecting)
-            TextButton.icon(
+            IconButton(
               onPressed: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('批量删除'),
+                    title: const Text('删除'),
                     content: Text('确定删除已选中的 ${_selected.length} 条线路吗？'),
                     actions: [
                       TextButton(
@@ -289,12 +288,9 @@ class _RouteHubPageState extends State<RouteHubPage> {
                         child: const Text('取消'),
                       ),
                       TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
                         child: const Text('删除'),
-                      ),
+                        onPressed: () => Navigator.pop(ctx, true),
+                      )
                     ],
                   ),
                 );
@@ -312,7 +308,6 @@ class _RouteHubPageState extends State<RouteHubPage> {
                 }
               },
               icon: const Icon(Icons.delete_outline),
-              label: const Text('删除'),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
             ),
         ],
@@ -499,7 +494,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
                           r.name,
@@ -653,7 +648,7 @@ class _RoutePageState extends State<RoutePage> {
         title: const Text('设置里程'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               '${s.name} → ${_stations[idx + 1].name}',
@@ -734,7 +729,7 @@ class _RoutePageState extends State<RoutePage> {
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
                 child: Container(
@@ -922,7 +917,7 @@ class _RoutePageState extends State<RoutePage> {
 
   Widget _buildStationsSection(bool isDark, ColorScheme cs) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -1207,7 +1202,7 @@ class _RoutePageState extends State<RoutePage> {
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
@@ -1711,7 +1706,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
