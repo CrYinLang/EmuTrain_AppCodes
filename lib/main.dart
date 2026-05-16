@@ -24,14 +24,15 @@ import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '260510';
-  static const String version = '1.2.2.0';
-  static const String build = '1220';
+  static const String lastUpdate = '260516';
+  static const String version = '1.2.2.5';
+  static const String build = '1225';
 
   static String defaultStationBuild = '20260509';
   static String defaultTrainBuild = '20260509';
   static String defaultCoachTrainBuild = '20260509';
   static String defaultLocoBuild = '20260509';
+  static String defaultLinesBuild = '20260509';
 
   // ---------- stationBuild ----------
   static String _stationBuild = defaultStationBuild;
@@ -112,6 +113,27 @@ class Vars {
     await prefs.setString('locoBuild', value);
     _locoBuild = value;
     _isLocoBuildInitialized = true;
+  }
+
+  // ---------- LinesBuild ----------
+  static String _LinesBuild = defaultLinesBuild;
+  static bool _isLinesBuildInitialized = false;
+
+  static String get LinesBuild => _LinesBuild;
+
+  static Future<void> initLinesBuild() async {
+    if (_isLinesBuildInitialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    _LinesBuild =
+        prefs.getString('LinesBuild') ?? defaultLinesBuild;
+    _isLinesBuildInitialized = true;
+  }
+
+  static Future<void> setLinesBuild(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('LinesBuild', value);
+    _LinesBuild = value;
+    _isLinesBuildInitialized = true;
   }
 
   static Map<String, dynamic>? _cachedVersionInfo;

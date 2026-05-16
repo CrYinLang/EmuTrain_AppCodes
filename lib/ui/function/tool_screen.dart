@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '../../functions.dart';
+import 'route.dart';
 import '../about_page.dart';
 import 'gallery_page.dart';
 import 'gps.dart';
@@ -29,6 +30,22 @@ class ToolScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const StationScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.line_axis, size: 32),
+                title: const Text('线路制造处'),
+                subtitle: const Text('编辑线路，新建线路'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RouteHubPage(),
                     ),
                   );
                 },

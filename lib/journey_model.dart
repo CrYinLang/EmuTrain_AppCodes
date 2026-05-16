@@ -156,7 +156,7 @@ class Journey {
       'stations': stations.map((s) => s.toMap()).toList(),
       'isStation': isStation,
       'seatType': seatType,
-      'seatInfo': seatInfo, // 保存座位信息文本
+      'seatInfo': seatInfo,
     };
   }
 
