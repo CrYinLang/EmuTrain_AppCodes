@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../functions.dart';
+import '../../station_selector.dart';
+import 'route_models.dart';
 import 'route_edit_page.dart';
 import 'route_map_page.dart';
-import 'route_models.dart';
 
 class RouteHubPage extends StatefulWidget {
   const RouteHubPage({super.key});
@@ -23,6 +24,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
   bool _loading = true;
   final Set<String> _selected = {};
   late TextEditingController _pageController;
+
 
   bool get _selecting => _selected.isNotEmpty;
 
@@ -47,8 +49,44 @@ class _RouteHubPageState extends State<RouteHubPage> {
 
   Future<void> _reload() async {
     setState(() => _loading = true);
+
+    // ① 加载所有线路
     final all = await RouteStorage.loadAll();
+
+    // ② 加载站点字典（只做一次）
+    final stationList = await loadStations();
+    final telecodeNameMap = {
+      for (final s in stationList)
+        (s['telecode'] as String? ?? '').trim():
+        (s['name'] as String? ?? '').replaceAll('站', '').trim(),
+    };
+
+    // ③ 只补「起终点」
+    for (final r in all) {
+      if (r.stations.isEmpty) continue;
+
+      final first = r.stations.first;
+      final last = r.stations.last;
+
+      if (first.name.isEmpty && first.telecode.isNotEmpty) {
+        final newName = telecodeNameMap[first.telecode] ?? '';
+        if (newName.isNotEmpty) {
+          // ✅ 正确：用 copyWith 创建新对象
+          r.stations[0] = first.copyWith(name: newName);
+        }
+      }
+
+      if (last.name.isEmpty && last.telecode.isNotEmpty) {
+        final newName = telecodeNameMap[last.telecode] ?? '';
+        if (newName.isNotEmpty) {
+          // ✅ 正确：用 copyWith 创建新对象
+          r.stations[r.stations.length - 1] = last.copyWith(name: newName);
+        }
+      }
+    }
+
     if (!mounted) return;
+
     setState(() {
       _pager.resetAndLoad(all);
       _selected.retainWhere((id) => all.any((r) => r.id == id));
@@ -57,14 +95,15 @@ class _RouteHubPageState extends State<RouteHubPage> {
     });
   }
 
+
   // ── 导出 / 导入 ─────────────────────────────────────────────
 
   Future<void> _exportSelected() async {
-    final sel = _pager.allItems.where((r) => _selected.contains(r.id)).toList();
+    final sel =
+        _pager.allItems.where((r) => _selected.contains(r.id)).toList();
     if (sel.isEmpty) return;
-    final jsonStr = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(sel.map((r) => r.toJson()).toList());
+    final jsonStr = const JsonEncoder.withIndent('  ')
+        .convert(sel.map((r) => r.toJson()).toList());
     await Clipboard.setData(ClipboardData(text: jsonStr));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -80,7 +119,8 @@ class _RouteHubPageState extends State<RouteHubPage> {
               content: SingleChildScrollView(
                 child: SelectableText(
                   jsonStr,
-                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                  style:
+                      const TextStyle(fontSize: 11, fontFamily: 'monospace'),
                 ),
               ),
               actions: [
@@ -112,13 +152,11 @@ class _RouteHubPageState extends State<RouteHubPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('导入'),
-          ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('导入')),
         ],
       ),
     );
@@ -129,13 +167,13 @@ class _RouteHubPageState extends State<RouteHubPage> {
       final raw = json.decode(ctrl.text.trim());
       if (raw is! List) throw const FormatException('顶层必须是 JSON 数组');
       imported = raw
-          .map((e) => RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map((e) =>
+              RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('JSON 解析失败：$e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('JSON 解析失败：$e')));
       return;
     }
 
@@ -154,24 +192,26 @@ class _RouteHubPageState extends State<RouteHubPage> {
             content: Text('已存在线路「${r.name}」，是否覆盖？'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('跳过'),
-              ),
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('跳过')),
               ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('覆盖'),
-              ),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('覆盖')),
             ],
           ),
         );
         if (overwrite == true) {
+
           final merged = RouteModel(
             id: conflict.id,
             name: r.name,
+            author: r.author,
+            icon: r.icon,
             createdAt: conflict.createdAt,
             updatedAt: DateTime.now(),
             stations: r.stations,
           );
+
           await RouteStorage.save(merged);
           updated++;
         } else {
@@ -184,9 +224,9 @@ class _RouteHubPageState extends State<RouteHubPage> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('导入完成：新增 $added，覆盖 $updated，跳过 $skipped')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('导入完成：新增 $added，覆盖 $updated，跳过 $skipped'),
+    ));
     _reload();
   }
 
@@ -203,15 +243,17 @@ class _RouteHubPageState extends State<RouteHubPage> {
   }
 
   void _toggleSelect(String id) => setState(() {
-    _selected.contains(id) ? _selected.remove(id) : _selected.add(id);
-  });
+        _selected.contains(id) ? _selected.remove(id) : _selected.add(id);
+      });
 
   void _clearSelect() => setState(() => _selected.clear());
 
   // ── 分页 ────────────────────────────────────────────────────
 
   void _goToPage(int page) {
-    if (page == _pager.currentPage || page < 1 || page > _pager.totalPages) {
+    if (page == _pager.currentPage ||
+        page < 1 ||
+        page > _pager.totalPages) {
       _pageController.text = _pager.currentPage.toString();
       return;
     }
@@ -231,9 +273,8 @@ class _RouteHubPageState extends State<RouteHubPage> {
         content: Text('删除线路「${r.name}」？此操作不可撤销。'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -257,9 +298,8 @@ class _RouteHubPageState extends State<RouteHubPage> {
         content: Text('确定删除已选中的 ${_selected.length} 条线路吗？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -280,25 +320,23 @@ class _RouteHubPageState extends State<RouteHubPage> {
   // ── 导航 ────────────────────────────────────────────────────
 
   Future<void> _openNew() async {
-    final result = await Navigator.of(
-      context,
-    ).push<RouteModel>(MaterialPageRoute(builder: (_) => const RoutePage()));
+    final result = await Navigator.of(context)
+        .push<RouteModel>(MaterialPageRoute(builder: (_) => const RoutePage()));
     if (result != null) _reload();
   }
 
   Future<void> _openEdit(RouteModel r) async {
     final result = await Navigator.of(context).push<RouteModel>(
-      MaterialPageRoute(builder: (_) => RoutePage(existing: r)),
-    );
+        MaterialPageRoute(builder: (_) => RoutePage(existing: r)));
     if (result != null) _reload();
   }
 
   void _openMap() {
-    final sel = _pager.allItems.where((r) => _selected.contains(r.id)).toList();
+    final sel =
+        _pager.allItems.where((r) => _selected.contains(r.id)).toList();
     if (sel.isEmpty) return;
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => RouteMapPage(routes: sel)));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => RouteMapPage(routes: sel)));
   }
 
   // ── 卡片菜单 ────────────────────────────────────────────────
@@ -313,7 +351,8 @@ class _RouteHubPageState extends State<RouteHubPage> {
         return Container(
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
           ),
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
@@ -330,47 +369,36 @@ class _RouteHubPageState extends State<RouteHubPage> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade400,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
+              Row(children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
                       color: cs.primary.withAlpha(30),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.route, color: cs.primary, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          r.name,
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Icon(Icons.route, color: cs.primary, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(r.name,
                           style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '${r.fromStation} → ${r.toStation}',
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('${r.fromStation} → ${r.toStation}',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurface.withAlpha(150),
-                          ),
-                        ),
-                      ],
-                    ),
+                              fontSize: 12,
+                              color: cs.onSurface.withAlpha(150))),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ]),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
@@ -402,11 +430,8 @@ class _RouteHubPageState extends State<RouteHubPage> {
                     color: Colors.indigo,
                     onTap: () {
                       Navigator.pop(ctx);
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => RouteMapPage(routes: [r]),
-                        ),
-                      );
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => RouteMapPage(routes: [r])));
                     },
                   ),
                   RhMenuChip(
@@ -446,23 +471,24 @@ class _RouteHubPageState extends State<RouteHubPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF111111)
-          : const Color(0xFFF5F5F5),
+      backgroundColor:
+          isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: Text(_selecting ? '已选 ${_selected.length} 条线路' : '线路处'),
+        title:
+            Text(_selecting ? '已选 ${_selected.length} 条线路' : '线路处'),
         backgroundColor: isDark ? Colors.black : Colors.white,
         foregroundColor: cs.onSurface,
         elevation: 0,
         leading: _selecting
-            ? IconButton(icon: const Icon(Icons.close), onPressed: _clearSelect)
+            ? IconButton(
+                icon: const Icon(Icons.close), onPressed: _clearSelect)
             : null,
         actions: [
           if (_selecting) ...[
             IconButton(
-              icon: Icon(
-                _currentPageAllSelected ? Icons.deselect : Icons.select_all,
-              ),
+              icon: Icon(_currentPageAllSelected
+                  ? Icons.deselect
+                  : Icons.select_all),
               tooltip: _currentPageAllSelected ? '取消全选本页' : '全选本页',
               onPressed: _toggleSelectCurrentPage,
             ),
@@ -501,23 +527,23 @@ class _RouteHubPageState extends State<RouteHubPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _pager.totalCount == 0
-          ? _buildEmpty(isDark)
-          : Column(
-              children: [
-                if (_pager.hasMultiplePages)
-                  buildPaginationControls(
-                    context: context,
-                    currentPage: _pager.currentPage,
-                    totalPages: _pager.totalPages,
-                    totalResults: _pager.totalCount,
-                    loadingPage: false,
-                    pageController: _pageController,
-                    onGoToPage: _goToPage,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                Expanded(child: _buildList(isDark, cs)),
-              ],
-            ),
+              ? _buildEmpty(isDark)
+              : Column(
+                  children: [
+                    if (_pager.hasMultiplePages)
+                      buildPaginationControls(
+                        context: context,
+                        currentPage: _pager.currentPage,
+                        totalPages: _pager.totalPages,
+                        totalResults: _pager.totalCount,
+                        loadingPage: false,
+                        pageController: _pageController,
+                        onGoToPage: _goToPage,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    Expanded(child: _buildList(isDark, cs)),
+                  ],
+                ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -547,27 +573,22 @@ class _RouteHubPageState extends State<RouteHubPage> {
   // ── 空态 ────────────────────────────────────────────────────
 
   Widget _buildEmpty(bool isDark) => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.route, size: 64, color: Colors.grey.shade400),
-        const SizedBox(height: 16),
-        Text(
-          '还没有线路',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade500,
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.route, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text('还没有线路',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade500)),
+            const SizedBox(height: 8),
+            Text('点击右下角「+」新建第一条线路',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade400)),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          '点击右下角「+」新建第一条线路',
-          style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
-        ),
-      ],
-    ),
-  );
+      );
 
   // ── 列表 ────────────────────────────────────────────────────
 
@@ -578,7 +599,8 @@ class _RouteHubPageState extends State<RouteHubPage> {
         if (!_selecting)
           Container(
             margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: cs.primary.withAlpha(18),
               borderRadius: BorderRadius.circular(12),
@@ -592,10 +614,9 @@ class _RouteHubPageState extends State<RouteHubPage> {
                   child: Text(
                     '点击卡片可编辑或选中，长按进入多选模式',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: cs.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
+                        fontSize: 12,
+                        color: cs.primary,
+                        fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -621,21 +642,16 @@ class _RouteHubPageState extends State<RouteHubPage> {
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(
-            Icons.delete_outline,
-            color: Colors.white,
-            size: 28,
-          ),
+              color: Colors.red, borderRadius: BorderRadius.circular(14)),
+          child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
         ),
         confirmDismiss: (_) async {
           await _deleteRoute(r);
           return false;
         },
         child: GestureDetector(
-          onTap: () => _selecting ? _toggleSelect(r.id) : _showCardMenu(r),
+          onTap: () =>
+              _selecting ? _toggleSelect(r.id) : _showCardMenu(r),
           onLongPress: () => _toggleSelect(r.id),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -646,18 +662,17 @@ class _RouteHubPageState extends State<RouteHubPage> {
                 color: isSel
                     ? cs.primary
                     : isDark
-                    ? Colors.white.withAlpha(20)
-                    : Colors.transparent,
+                        ? Colors.white.withAlpha(20)
+                        : Colors.transparent,
                 width: isSel ? 2 : 1,
               ),
               boxShadow: isDark
                   ? []
                   : [
                       BoxShadow(
-                        color: Colors.black.withAlpha(15),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
+                          color: Colors.black.withAlpha(15),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2))
                     ],
             ),
             child: Padding(
@@ -674,72 +689,63 @@ class _RouteHubPageState extends State<RouteHubPage> {
                             margin: const EdgeInsets.only(right: 12),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isSel ? cs.primary : Colors.transparent,
+                              color: isSel
+                                  ? cs.primary
+                                  : Colors.transparent,
                               border: Border.all(
-                                color: isSel
-                                    ? cs.primary
-                                    : Colors.grey.shade400,
-                                width: 2,
-                              ),
+                                  color: isSel
+                                      ? cs.primary
+                                      : Colors.grey.shade400,
+                                  width: 2),
                             ),
                             child: isSel
-                                ? const Icon(
-                                    Icons.check,
-                                    size: 14,
-                                    color: Colors.white,
-                                  )
+                                ? const Icon(Icons.check,
+                                    size: 14, color: Colors.white)
                                 : null,
                           )
                         : const SizedBox(key: ValueKey('none')),
                   ),
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: cs.primary.withAlpha(30),
-                      borderRadius: BorderRadius.circular(10),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withAlpha(30),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Image.asset(
+                        'assets/icons/${r.icon}',
+                        width: 28,
+                        height: 28,
+                        errorBuilder: (context, error, stackTrace) => 
+                            Icon(Icons.train, color: cs.primary, size: 24),
+                      ),
                     ),
-                    child: Icon(Icons.route, color: cs.primary, size: 24),
-                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          r.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        Text(r.name,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 3),
                         Text(
                           '${r.fromStation} → ${r.toStation}',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: cs.onSurface.withAlpha(160),
-                          ),
+                              fontSize: 13,
+                              color: cs.onSurface.withAlpha(160)),
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            _infoChip(
-                              Icons.location_on_outlined,
-                              '${r.stations.length} 站',
-                              cs,
-                            ),
-                            if (mileage > 0) ...[
-                              const SizedBox(width: 6),
-                              _infoChip(
-                                Icons.straighten,
-                                '${mileage.toStringAsFixed(0)} km',
-                                cs,
-                              ),
-                            ],
+                        Row(children: [
+                          _infoChip(Icons.location_on_outlined,
+                              '${r.stations.length} 站', cs),
+                          if (mileage > 0) ...[
+                            const SizedBox(width: 6),
+                            _infoChip(Icons.straighten,
+                                '${mileage.toStringAsFixed(0)} km', cs),
                           ],
-                        ),
+                        ]),
                       ],
                     ),
                   ),
@@ -760,14 +766,13 @@ class _RouteHubPageState extends State<RouteHubPage> {
   }
 
   Widget _infoChip(IconData icon, String label, ColorScheme cs) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 12, color: cs.onSurface.withAlpha(120)),
-      const SizedBox(width: 3),
-      Text(
-        label,
-        style: TextStyle(fontSize: 11, color: cs.onSurface.withAlpha(120)),
-      ),
-    ],
-  );
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: cs.onSurface.withAlpha(120)),
+          const SizedBox(width: 3),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, color: cs.onSurface.withAlpha(120))),
+        ],
+      );
 }

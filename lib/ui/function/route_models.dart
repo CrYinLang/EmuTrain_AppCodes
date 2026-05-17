@@ -6,7 +6,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
-
 class PaginatedController<T> {
   final int pageSize;
 
@@ -72,22 +71,31 @@ class RouteStation {
     this.mileageToNext,
   });
 
+  RouteStation copyWith({String? name, String? city}) => RouteStation(
+        name: name ?? this.name,
+        telecode: telecode,
+        city: city ?? this.city,
+        mileageToNext: mileageToNext,
+      );
+
   Map<String, dynamic> toJson() => {
-        'telecode': telecode,
-        if (mileageToNext != null) 'mileageToNext': mileageToNext,
+        'tel': telecode,
+        if (mileageToNext != null) 'mile': mileageToNext,
       };
 
   factory RouteStation.fromJson(Map<String, dynamic> j) => RouteStation(
-        name: j['name'] as String? ?? '',       // 兼容旧格式
-        telecode: j['telecode'] as String? ?? '',
-        city: j['city'] as String? ?? '',       // 兼容旧格式
-        mileageToNext: (j['mileageToNext'] as num?)?.toDouble(),
+        name: j['name'] as String? ?? '',
+        telecode: (j['tel'] ?? j['telecode']) as String? ?? '',
+        city: j['city'] as String? ?? '',
+        mileageToNext: ((j['mile'] ?? j['mileageToNext']) as num?)?.toDouble(),
       );
 }
 
 class RouteModel {
   final String id;
   final String name;
+  final String author;  // 新增：作者
+  final String icon;   // 新增：图标路径
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<RouteStation> stations;
@@ -95,10 +103,38 @@ class RouteModel {
   const RouteModel({
     required this.id,
     required this.name,
+    required this.author,  // 新增
+    required this.icon,   // 新增
     required this.createdAt,
     required this.updatedAt,
     required this.stations,
   });
+
+  RouteModel copyWith({ 
+    String? name,
+    String? author,  // 新增
+    String? icon,    // 新增
+    List<RouteStation>? stations 
+  }) => RouteModel(
+    id: id,
+    name: name ?? this.name,
+    author: author ?? this.author,  // 新增
+    icon: icon ?? this.icon,        // 新增
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    stations: stations ?? this.stations,
+  );
+
+  // 静态方法：创建空对象
+  static RouteModel createEmpty() => RouteModel(
+    id: 'route_${DateTime.now().millisecondsSinceEpoch}',
+    name: '未命名线路',
+    author: '',
+    icon: 'train/cr400bf.png',  // 默认图标
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+    stations: [],
+  );
 
   double get totalMileage {
     double t = 0;
@@ -112,25 +148,30 @@ class RouteModel {
   String get toStation => stations.isNotEmpty ? stations.last.name : '';
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'stations': stations.map((s) => s.toJson()).toList(),
-      };
+    'id': id,
+    'name': name,
+    'author': author,  // 新增
+    'icon': icon,     // 新增
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'stations': stations.map((s) => s.toJson()).toList(),
+  };
 
   factory RouteModel.fromJson(Map<String, dynamic> j) => RouteModel(
-        id: j['id'] as String? ?? '',
-        name: j['name'] as String? ?? '',
-        createdAt: j['createdAt'] != null
-            ? DateTime.tryParse(j['createdAt'] as String) ?? DateTime.now()
-            : DateTime.now(),
-        updatedAt: j['updatedAt'] != null
-            ? DateTime.tryParse(j['updatedAt'] as String) ?? DateTime.now()
-            : DateTime.now(),
-        stations: (j['stations'] as List<dynamic>? ?? [])
-            .map((e) =>
-                RouteStation.fromJson(Map<String, dynamic>.from(e as Map)))
-            .toList(),
-      );
+    id: j['id'] as String? ?? '',
+    name: j['name'] as String? ?? '未命名线路',
+    author: j['author'] as String? ?? '',  // 新增，兼容旧格式
+    icon: j['icon'] as String? ?? 'train/cr400bf.png',  // 新增，兼容旧格式
+    createdAt: j['createdAt'] != null
+      ? DateTime.tryParse(j['createdAt'] as String) ?? DateTime.now()
+      : DateTime.now(),
+    updatedAt: j['updatedAt'] != null
+      ? DateTime.tryParse(j['updatedAt'] as String) ?? DateTime.now()
+      : DateTime.now(),
+    stations: (j['stations'] as List<dynamic>? ?? [])
+      .map((e) => RouteStation.fromJson(Map<String, dynamic>.from(e)))
+      .toList(),
+  );
 }
 
 // ═════════════════════════════════════════════════════════════

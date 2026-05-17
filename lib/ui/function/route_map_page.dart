@@ -1,21 +1,11 @@
 // ui/function/route_map_page.dart
-// ─────────────────────────────────────────────────────────────
-// 多线路叠加走向图
-// ─────────────────────────────────────────────────────────────
+
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 
 import 'route_models.dart';
 import '../../station_selector.dart'; // loadStations()
-
-// ─────────────────────────────────────────────────────────────
-// 线路色盘
-// ─────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────
-// 根据路线 id hash 生成固定色（HSL 均匀散布，饱和度/亮度固定）
-// ─────────────────────────────────────────────────────────────
 
 Color _colorForRouteId(String id) {
   // 用字符串哈希得到 0~1 之间均匀分布的 hue
@@ -29,9 +19,6 @@ Color _colorForRouteId(String id) {
   return HSLColor.fromAHSL(1.0, hue * 360, 0.72, 0.48).toColor();
 }
 
-// ─────────────────────────────────────────────────────────────
-// 内部绘制模型
-// ─────────────────────────────────────────────────────────────
 
 class _PlottedStation {
   final String name;
@@ -84,8 +71,8 @@ class RouteMapPage extends StatefulWidget {
 class _RouteMapPageState extends State<RouteMapPage> {
   List<_PlottedRoute> _plotted = [];
   bool _loading = true;
-  int? _selRouteIdx;
-  int? _selStopIdx;
+  // 命中的站点列表（支持多线路共站）
+  List<({int ri, int si})> _selHits = [];
   final TransformationController _txCtrl = TransformationController();
   double _scale = 1.0;
 
@@ -209,29 +196,38 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final local = MatrixUtils.transformPoint(
         Matrix4.inverted(_txCtrl.value), details.localPosition);
     final hr = 20.0 / _scale;
-    int? br, bs;
-    double md = double.infinity;
+
+    // 收集所有在命中半径内的站点
+    final hits = <({int ri, int si, double d})>[];
     for (int ri = 0; ri < _plotted.length; ri++) {
       if (!_plotted[ri].visible) continue;
       for (int si = 0; si < _plotted[ri].stations.length; si++) {
         final s = _plotted[ri].stations[si];
         if (!s.hasLocation) continue;
-        final d =
-            (local - Offset(s.x * sz.width, s.y * sz.height)).distance;
-        if (d < hr && d < md) {
-          md = d;
-          br = ri;
-          bs = si;
-        }
+        final d = (local - Offset(s.x * sz.width, s.y * sz.height)).distance;
+        if (d < hr) hits.add((ri: ri, si: si, d: d));
       }
     }
+
+    if (hits.isEmpty) {
+      setState(() => _selHits = []);
+      return;
+    }
+
+    // 按距离排序，取最近的那个点，再把所有距离该点坐标够近的一起收集
+    hits.sort((a, b) => a.d.compareTo(b.d));
+    final nearest = _plotted[hits.first.ri].stations[hits.first.si];
+    final grouped = hits.where((h) {
+      final s = _plotted[h.ri].stations[h.si];
+      return (Offset(s.x, s.y) - Offset(nearest.x, nearest.y)).distance <
+          (hr * 1.5) / sz.shortestSide;
+    }).map((h) => (ri: h.ri, si: h.si)).toList();
+
     setState(() {
-      if (br == _selRouteIdx && bs == _selStopIdx) {
-        _selRouteIdx = _selStopIdx = null;
-      } else {
-        _selRouteIdx = br;
-        _selStopIdx = bs;
-      }
+      // 再次点击同一组则取消选中
+      final same = _selHits.length == grouped.length &&
+          _selHits.every((a) => grouped.any((b) => b.ri == a.ri && b.si == a.si));
+      _selHits = same ? [] : grouped;
     });
   }
 
@@ -266,8 +262,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
               children: [
                 _buildLegend(isDark),
                 Expanded(child: _buildMap()),
-                if (_selRouteIdx != null && _selStopIdx != null)
-                  _buildInfoCard(isDark, cs),
+                if (_selHits.isNotEmpty)
+                  _buildInfoCards(isDark, cs),
               ],
             ),
     );
@@ -311,11 +307,24 @@ class _RouteMapPageState extends State<RouteMapPage> {
                                   color: r.color,
                                   shape: BoxShape.circle)),
                           const SizedBox(width: 6),
-                          Text(r.model.name,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: r.color,
-                                  fontWeight: FontWeight.w600)),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(r.model.name,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: r.color,
+                                      fontWeight: FontWeight.w600)),
+                              if (r.stations.length >= 2)
+                                Text(
+                                  '${r.stations.first.name} → ${r.stations.last.name}',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: r.color.withAlpha(170)),
+                                ),
+                            ],
+                          ),
                           const SizedBox(width: 4),
                           Icon(
                             r.visible
@@ -376,8 +385,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
                     size: sz,
                     painter: _RouteMapPainter(
                       routes: _plotted,
-                      selRouteIdx: _selRouteIdx,
-                      selStopIdx: _selStopIdx,
+                      selHits: _selHits,
                       scale: _scale,
                       surfaceColor: surfaceColor,
                     ),
@@ -393,8 +401,59 @@ class _RouteMapPageState extends State<RouteMapPage> {
 
   // ── 站点信息卡片 ─────────────────────────────────────────────
 
-  Widget _buildInfoCard(bool isDark, ColorScheme cs) {
-    final ri = _selRouteIdx!, si = _selStopIdx!;
+  // ── 多线路信息卡片（支持共站） ───────────────────────────────
+
+  Widget _buildInfoCards(bool isDark, ColorScheme cs) {
+    if (_selHits.isEmpty) return const SizedBox();
+    // 站点名取第一个命中的（共站时名字相同）
+    final firstName = () {
+      final h = _selHits.first;
+      if (h.ri < _plotted.length && h.si < _plotted[h.ri].stations.length) {
+        return '${_plotted[h.ri].stations[h.si].name}站';
+      }
+      return '';
+    }();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 共站时显示站点名标题
+        if (_selHits.length > 1 && firstName.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+            child: Row(
+              children: [
+                const Icon(Icons.place, size: 14, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(firstName,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey)),
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withAlpha(40),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.orange.withAlpha(120)),
+                  ),
+                  child: Text('${_selHits.length} 线路经过',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          ),
+        ..._selHits.map((h) => _buildOneCard(h.ri, h.si, isDark, cs)),
+      ],
+    );
+  }
+
+  Widget _buildOneCard(int ri, int si, bool isDark, ColorScheme cs) {
     if (ri >= _plotted.length) return const SizedBox();
     final route = _plotted[ri];
     if (si >= route.stations.length) return const SizedBox();
@@ -402,95 +461,147 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final isFirst = si == 0;
     final isLast = si == route.stations.length - 1;
     final isBoth = isFirst && isLast;
+    final originName = route.stations.isNotEmpty
+        ? '${route.stations.first.name}站'
+        : '';
+    final termName = route.stations.length > 1
+        ? '${route.stations.last.name}站'
+        : '';
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border:
-            Border.all(color: route.color.withAlpha(120), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: route.color.withAlpha(150), width: 1.5),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withAlpha(20),
-              blurRadius: 8,
+              color: Colors.black.withAlpha(18),
+              blurRadius: 6,
               offset: const Offset(0, 2))
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-                color: route.color.withAlpha(30),
-                shape: BoxShape.circle),
-            child: Center(
-              child: Text('${si + 1}',
+          // ── 线路名 + 始发→终点 ──────────────────────────────
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                    color: route.color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+              Text(route.model.name,
                   style: TextStyle(
+                      fontSize: 12,
                       color: route.color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14)),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(children: [
-                  Text('${s.name}站',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 6),
-                  if (isBoth) ...[
-                    _badge('起点', Colors.green),
-                    const SizedBox(width: 4),
-                    _badge('终点', Colors.red),
-                  ] else if (isFirst)
-                    _badge('起点', Colors.green)
-                  else if (isLast)
-                    _badge('终点', Colors.red),
-                ]),
-                const SizedBox(height: 3),
-                Row(children: [
-                  Text(route.model.name,
+                      fontWeight: FontWeight.w600)),
+              if (originName.isNotEmpty && termName.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                      color: Colors.green, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 3),
+                Text(originName,
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.green.shade700)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Icon(Icons.arrow_forward,
+                      size: 10, color: route.color.withAlpha(140)),
+                ),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                      color: Colors.red, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(termName,
                       style: TextStyle(
-                          fontSize: 12,
-                          color: route.color,
-                          fontWeight: FontWeight.w500)),
-                  if (s.city.isNotEmpty) ...[
-                    Text(' · ',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurface.withAlpha(100))),
-                    Text(s.city,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurface.withAlpha(140))),
-                  ],
-                ]),
+                          fontSize: 11, color: Colors.red.shade700),
+                      overflow: TextOverflow.ellipsis),
+                ),
               ],
-            ),
+            ],
           ),
-          if (!isLast && s.mileageToNext != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${s.mileageToNext} km',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: route.color)),
-                Text('至下一站',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: cs.onSurface.withAlpha(120))),
-              ],
-            ),
+          const SizedBox(height: 8),
+          // ── 当前站信息 ────────────────────────────────────────
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                    color: route.color.withAlpha(30),
+                    shape: BoxShape.circle),
+                child: Center(
+                  child: Text('${si + 1}',
+                      style: TextStyle(
+                          color: route.color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(children: [
+                      Flexible(
+                        child: Text('${s.name}站',
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 6),
+                      if (isBoth) ...[
+                        _badge('起点', Colors.green),
+                        const SizedBox(width: 4),
+                        _badge('终点', Colors.red),
+                      ] else if (isFirst)
+                        _badge('起点', Colors.green)
+                      else if (isLast)
+                        _badge('终点', Colors.red),
+                    ]),
+                    if (s.city.isNotEmpty)
+                      Text(s.city,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurface.withAlpha(140))),
+                  ],
+                ),
+              ),
+              if (!isLast && s.mileageToNext != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${s.mileageToNext} km',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: route.color)),
+                    Text('至下一站',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: cs.onSurface.withAlpha(120))),
+                  ],
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -518,15 +629,13 @@ class _RouteMapPageState extends State<RouteMapPage> {
 
 class _RouteMapPainter extends CustomPainter {
   final List<_PlottedRoute> routes;
-  final int? selRouteIdx;
-  final int? selStopIdx;
+  final List<({int ri, int si})> selHits;
   final double scale;
   final Color surfaceColor;
 
   const _RouteMapPainter({
     required this.routes,
-    required this.selRouteIdx,
-    required this.selStopIdx,
+    required this.selHits,
     required this.scale,
     required this.surfaceColor,
   });
@@ -535,18 +644,19 @@ class _RouteMapPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final selRouteIdxs = selHits.map((h) => h.ri).toSet();
     for (int ri = 0; ri < routes.length; ri++) {
       final r = routes[ri];
       if (!r.visible) continue;
-      _drawLine(canvas, size, r, ri == selRouteIdx);
+      _drawLine(canvas, size, r, selRouteIdxs.contains(ri));
     }
     for (int ri = 0; ri < routes.length; ri++) {
       final r = routes[ri];
       if (!r.visible) continue;
       _drawStops(canvas, size, r, ri);
     }
-    if (selRouteIdx != null && selStopIdx != null) {
-      _drawLabel(canvas, size, selRouteIdx!, selStopIdx!);
+    for (final h in selHits) {
+      _drawLabel(canvas, size, h.ri, h.si);
     }
   }
 
@@ -574,7 +684,7 @@ class _RouteMapPainter extends CustomPainter {
     for (int si = 0; si < r.stations.length; si++) {
       final s = r.stations[si];
       if (!s.hasLocation) continue;
-      final isSel = routeIdx == selRouteIdx && si == selStopIdx;
+      final isSel = selHits.any((h) => h.ri == routeIdx && h.si == si);
       final markerR = isSel ? _px(9.0) : baseR;
       final c = Offset(s.x * size.width, s.y * size.height);
       if (isSel) {
@@ -691,7 +801,6 @@ class _RouteMapPainter extends CustomPainter {
   @override
   bool shouldRepaint(_RouteMapPainter old) =>
       old.routes != routes ||
-      old.selRouteIdx != selRouteIdx ||
-      old.selStopIdx != selStopIdx ||
+      old.selHits != selHits ||
       old.scale != scale;
 }
