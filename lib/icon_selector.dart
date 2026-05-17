@@ -1,9 +1,9 @@
 // icon_selector.dart
-import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path/path.dart' as path;
+import 'ui/function/error.dart';
 
 class IconSelectorDialog extends StatefulWidget {
   final String selectedIcon;
@@ -39,10 +39,7 @@ class _IconSelectorDialogState extends State<IconSelectorDialog> {
     try {
       // 从 assets 清单中读取所有图标
       final manifest = await rootBundle.loadString('AssetManifest.json');
-      final Map<String, dynamic> manifestMap = 
-          (await rootBundle.loadString('AssetManifest.json') as String).isNotEmpty
-          ? Map<String, dynamic>.from(json.decode(manifest))
-          : {};
+      final Map<String, dynamic> manifestMap = json.decode(manifest);
 
       // 过滤出 train 和 bureau 图标
       for (final asset in manifestMap.keys) {
@@ -153,7 +150,7 @@ class _IconSelectorDialogState extends State<IconSelectorDialog> {
           child: Container(
             decoration: BoxDecoration(
               color: isSelected 
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
