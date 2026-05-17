@@ -24,7 +24,7 @@ import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '260516';
+  static const String lastUpdate = '260518';
   static const String version = '1.2.2.5';
   static const String build = '1225';
 
