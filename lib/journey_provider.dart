@@ -84,11 +84,13 @@ class JourneyProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      unawaited(logError(
-        from: 'JourneyProvider.addJourney',
-        error: '添加行程失败: ${journey.trainCode} - $e',
-        level: 4,
-      ));
+      unawaited(
+        logError(
+          from: 'JourneyProvider.addJourney',
+          error: '添加行程失败: ${journey.trainCode} - $e',
+          level: 4,
+        ),
+      );
       if (kDebugMode) {
         print('添加行程失败: $e');
       }
@@ -106,11 +108,13 @@ class JourneyProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      unawaited(logError(
-        from: 'JourneyProvider.removeJourney',
-        error: '删除行程失败 id=$id: $e',
-        level: 4,
-      ));
+      unawaited(
+        logError(
+          from: 'JourneyProvider.removeJourney',
+          error: '删除行程失败 id=$id: $e',
+          level: 4,
+        ),
+      );
       if (kDebugMode) {
         print('删除行程失败: $e');
       }
@@ -124,11 +128,13 @@ class JourneyProvider extends ChangeNotifier {
       _saveJourneys();
       notifyListeners();
     } catch (e) {
-      unawaited(logError(
-        from: 'JourneyProvider.clearAll',
-        error: '清空所有行程失败: $e',
-        level: 4,
-      ));
+      unawaited(
+        logError(
+          from: 'JourneyProvider.clearAll',
+          error: '清空所有行程失败: $e',
+          level: 4,
+        ),
+      );
       if (kDebugMode) {
         print('清空行程失败: $e');
       }
@@ -152,11 +158,13 @@ class JourneyProvider extends ChangeNotifier {
       _saveJourneys();
       notifyListeners();
     } catch (e) {
-      unawaited(logError(
-        from: 'JourneyProvider.sortByDateTime',
-        error: '按时间排序行程失败: $e',
-        level: 3,
-      ));
+      unawaited(
+        logError(
+          from: 'JourneyProvider.sortByDateTime',
+          error: '按时间排序行程失败: $e',
+          level: 3,
+        ),
+      );
       if (kDebugMode) {
         print('排序失败: $e');
       }
@@ -195,11 +203,13 @@ class JourneyProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      unawaited(logError(
-        from: 'JourneyProvider.updateJourney',
-        error: '更新行程失败 id=${updatedJourney.id}: $e',
-        level: 4,
-      ));
+      unawaited(
+        logError(
+          from: 'JourneyProvider.updateJourney',
+          error: '更新行程失败 id=${updatedJourney.id}: $e',
+          level: 4,
+        ),
+      );
       if (kDebugMode) {
         print('更新行程失败: $e');
       }

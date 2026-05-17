@@ -23,18 +23,18 @@ class ErrorLog {
   }) : time = time ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
-        'from': from,
-        'message': message,
-        'level': level,
-        'time': time.toIso8601String(),
-      };
+    'from': from,
+    'message': message,
+    'level': level,
+    'time': time.toIso8601String(),
+  };
 
   factory ErrorLog.fromJson(Map<String, dynamic> json) => ErrorLog(
-        from: json['from'] as String,
-        message: json['message'] as String,
-        level: json['level'] as int,
-        time: DateTime.parse(json['time'] as String),
-      );
+    from: json['from'] as String,
+    message: json['message'] as String,
+    level: json['level'] as int,
+    time: DateTime.parse(json['time'] as String),
+  );
 
   static Color colorForLevel(int level, BuildContext context) {
     final baseColors = [
@@ -64,6 +64,7 @@ class ErrorLog {
 /// ====================== 日志存储 ======================
 class ErrorLogStore {
   ErrorLogStore._();
+
   static final instance = ErrorLogStore._();
 
   final List<ErrorLog> logs = [];
@@ -138,9 +139,9 @@ class ErrorLogPage extends StatefulWidget {
   static Future<void> open(BuildContext context) async {
     await ErrorLogStore.instance.loadIfNeeded();
     if (context.mounted) {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const ErrorLogPage(),
-      ));
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ErrorLogPage()));
     }
   }
 
@@ -232,8 +233,14 @@ class _ErrorLogPageState extends State<ErrorLogPage> {
                 child: FilterChip(
                   label: Text(ErrorLog.labelForLevel(i)),
                   selected: _filterLevel == i,
-                  backgroundColor: ErrorLog.colorForLevel(i, context).withValues(alpha: 0.1),
-                  selectedColor: ErrorLog.colorForLevel(i, context).withValues(alpha: 0.3),
+                  backgroundColor: ErrorLog.colorForLevel(
+                    i,
+                    context,
+                  ).withValues(alpha: 0.1),
+                  selectedColor: ErrorLog.colorForLevel(
+                    i,
+                    context,
+                  ).withValues(alpha: 0.3),
                   labelStyle: TextStyle(
                     color: _filterLevel == i
                         ? ErrorLog.colorForLevel(i, context)
@@ -257,7 +264,9 @@ class _ErrorLogPageState extends State<ErrorLogPage> {
       child: Row(
         children: [
           IconButton.outlined(
-            onPressed: _currentPage > 0 ? () => _goToPage(_currentPage - 1) : null,
+            onPressed: _currentPage > 0
+                ? () => _goToPage(_currentPage - 1)
+                : null,
             icon: const Icon(Icons.chevron_left),
           ),
           Expanded(
@@ -290,7 +299,9 @@ class _ErrorLogPageState extends State<ErrorLogPage> {
             const SizedBox(height: 16),
             Text(
               _filterLevel == null ? '暂无错误日志' : '该等级下暂无日志',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.grey),
             ),
           ],
         ),
@@ -346,10 +357,7 @@ class _LogCardState extends State<_LogCard> {
             style: TextStyle(color: levelColor, fontWeight: FontWeight.bold),
           ),
         ),
-        title: Text(
-          widget.log.from,
-          style: theme.textTheme.titleSmall,
-        ),
+        title: Text(widget.log.from, style: theme.textTheme.titleSmall),
         subtitle: Text(
           levelLabel,
           style: TextStyle(color: levelColor, fontWeight: FontWeight.w600),

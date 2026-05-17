@@ -1,8 +1,8 @@
 // lib/functions.dart
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'main.dart';
 import 'ui/function/error.dart';
@@ -14,11 +14,7 @@ Future<bool> readConfig(String key) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(key) ?? false;
   } catch (e, stack) {
-    await logError(
-      from: 'readConfig',
-      error: '读取配置失败 key=$key: $e',
-      level: 3,
-    );
+    await logError(from: 'readConfig', error: '读取配置失败 key=$key: $e', level: 3);
     debugPrint('readConfig error: $e\n$stack');
     return false;
   }
@@ -73,11 +69,7 @@ Future<void> launchSocialLink(BuildContext context, String url) async {
         ),
       );
     } else {
-      await logError(
-        from: 'launchSocialLink',
-        error: '无法打开链接: $url',
-        level: 3,
-      );
+      await logError(from: 'launchSocialLink', error: '无法打开链接: $url', level: 3);
       if (context.mounted) {
         showSnack(context, '无法打开该链接');
       }

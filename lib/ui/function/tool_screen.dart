@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 
 import '../../functions.dart';
-import 'route.dart';
 import '../about_page.dart';
 import 'gallery_page.dart';
 import 'gps.dart';
+import 'route_hub_page.dart';
 import 'station_screen.dart';
 
 class ToolScreen extends StatelessWidget {

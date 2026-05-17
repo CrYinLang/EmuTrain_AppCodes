@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'journey_detail_page.dart';
 import '../journey_model.dart';
 import '../journey_provider.dart';
 import 'journey.dart';
+import 'journey_detail_page.dart';
 
 class TravelScreen extends StatelessWidget {
   const TravelScreen({super.key});

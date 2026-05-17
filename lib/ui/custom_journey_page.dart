@@ -51,27 +51,27 @@ class CustomJourneyPage extends StatefulWidget {
 }
 
 class _CustomJourneyPageState extends State<CustomJourneyPage> {
-  //  基本信息 
+  //  基本信息
   final _trainCodeCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   DateTime _travelDate = DateTime.now().add(const Duration(days: 1));
 
-  //  座位 
+  //  座位
   String _seatType = 'ze_num';
   String _customSeatTypeName = ''; // 自定义座位类型名称
   final _seatInfoCtrl = TextEditingController();
 
-  //  站点 
+  //  站点
   final List<_EditableStation> _stations = [];
   int? _fromIdx; // 上车站下标
   int? _toIdx; // 下车站下标
 
-  //  表单相关 
+  //  表单相关
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
   bool _onboardingShown = false; // 新手引导只弹一次
 
-  //  常量 
+  //  常量
   static const _seatTypes = {
     'ze_num': '二等座',
     'zy_num': '一等座',
@@ -96,8 +96,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     super.dispose();
   }
 
-    // 工具方法
-  
+  // 工具方法
+
   bool get _hasCustomStation => _stations.any((s) => s.isCustom);
 
   void _maybeShowOnboardingHint() {
@@ -145,8 +145,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
   String _dateText(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-    // 日期选择
-  
+  // 日期选择
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -158,8 +158,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     if (picked != null) setState(() => _travelDate = picked);
   }
 
-    // 添加站点
-  
+  // 添加站点
+
   void _showAddStationDialog() {
     showModalBottomSheet(
       context: context,
@@ -268,8 +268,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     });
   }
 
-    // 站点操作菜单
-  
+  // 站点操作菜单
+
   void _showStationMenu(int idx) {
     final s = _stations[idx];
     showModalBottomSheet(
@@ -327,8 +327,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     });
   }
 
-    // 时间编辑
-  
+  // 时间编辑
+
   void _showTimeEditor(int idx) {
     final s = _stations[idx];
     final arrCtrl = TextEditingController(
@@ -497,8 +497,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     }
   }
 
-    // 保存
-  
+  // 保存
+
   void _save() {
     final trainCode = _trainCodeCtrl.text.trim().toUpperCase();
 
@@ -591,8 +591,8 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     return parts.join(' | ');
   }
 
-    // Build
-  
+  // Build
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -685,7 +685,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     );
   }
 
-  //  列车信息 
+  //  列车信息
 
   Widget _buildTrainInfoSection(bool isDark) {
     return Column(
@@ -739,7 +739,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     );
   }
 
-  //  座位 
+  //  座位
 
   void _showCustomSeatNameDialog() {
     final ctrl = TextEditingController(text: _customSeatTypeName);
@@ -860,7 +860,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     );
   }
 
-  //  站点区域 
+  //  站点区域
 
   Widget _buildStationsSection(bool isDark, ColorScheme cs) {
     return Column(
@@ -1170,7 +1170,7 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
     ),
   );
 
-  //  通用卡片 
+  //  通用卡片
 
   Widget _sectionCard({
     required IconData icon,

@@ -32,7 +32,6 @@ class Vars {
   static String defaultTrainBuild = '20260509';
   static String defaultCoachTrainBuild = '20260509';
   static String defaultLocoBuild = '20260509';
-  static String defaultLinesBuild = '20260509';
 
   // ---------- stationBuild ----------
   static String _stationBuild = defaultStationBuild;
@@ -115,25 +114,30 @@ class Vars {
     _isLocoBuildInitialized = true;
   }
 
-  // ---------- LinesBuild ----------
-  static String _LinesBuild = defaultLinesBuild;
-  static bool _isLinesBuildInitialized = false;
+  // ---------- mirrorSource ----------
+  // 可选值: 'Mirror' | 'Gitee' | 'GitHub'
+  static String _mirrorSource = 'Mirror';
+  static bool _isMirrorSourceInitialized = false;
 
-  static String get LinesBuild => _LinesBuild;
+  static const String _mirrorSourceKey = 'mirror_source';
 
-  static Future<void> initLinesBuild() async {
-    if (_isLinesBuildInitialized) return;
+  static String get mirrorSource => _mirrorSource;
+
+  /// 根据当前优先镜像源返回完整的数据文件前缀（含尾部斜杠）
+  static String get mirrorBaseUrl => _mirrorFallbackOrder(_mirrorSource).first;
+
+  static Future<void> initMirrorSource() async {
+    if (_isMirrorSourceInitialized) return;
     final prefs = await SharedPreferences.getInstance();
-    _LinesBuild =
-        prefs.getString('LinesBuild') ?? defaultLinesBuild;
-    _isLinesBuildInitialized = true;
+    _mirrorSource = prefs.getString(_mirrorSourceKey) ?? 'Mirror';
+    _isMirrorSourceInitialized = true;
   }
 
-  static Future<void> setLinesBuild(String value) async {
+  static Future<void> setMirrorSource(String value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('LinesBuild', value);
-    _LinesBuild = value;
-    _isLinesBuildInitialized = true;
+    await prefs.setString(_mirrorSourceKey, value);
+    _mirrorSource = value;
+    _isMirrorSourceInitialized = true;
   }
 
   static Map<String, dynamic>? _cachedVersionInfo;
@@ -156,34 +160,59 @@ class Vars {
   }
 
 static Future<Map<String, dynamic>?> _doFetch() async {
-    try {
-      final response = await http
-          .get(
-            Uri.parse(
-              'https://gitee.com/CrYinLang/EmuTrain/raw/master/version.json',
-            ),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
+    // 按优先级排列的 base URL 列表：优先选用户设置，失败依次回退
+    final ordered = _mirrorFallbackOrder(_mirrorSource);
+    for (final base in ordered) {
+      final url = '${base}version.json';
+      try {
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          return json.decode(response.body);
+        } else {
+          await logError(
+            from: 'Vars._doFetch',
+            error: '版本信息请求失败 ($base)，HTTP ${response.statusCode}',
+            level: 4,
+          );
+        }
+      } catch (e, stack) {
         await logError(
           from: 'Vars._doFetch',
-          error: '版本信息请求失败，HTTP ${response.statusCode}',
+          error: '获取版本信息异常 ($base): $e',
           level: 4,
         );
-        return null;
+        debugPrint('fetchVersion error ($base): $e\n$stack');
       }
-    } catch (e, stack) {
-      await logError(
-        from: 'Vars._doFetch',
-        error: '获取版本信息异常: $e',
-        level: 4,
-      );
-      debugPrint('fetchVersion error: $e\n$stack');
-      return null;
     }
+    return null;
+  }
+
+  /// 返回以 [preferred] 为首的 base URL 回退顺序
+  /// 默认回退顺序（从次选到最终）：Gitee → Mirror → GitHub
+  static List<String> _mirrorFallbackOrder(String preferred) {
+    const gitee  = 'https://raw.giteeusercontent.com/CrYinLang/EmuTrain/raw/master/';
+    const github = 'https://raw.githubusercontent.com/CrYinLang/EmuTrain/refs/heads/main/';
+    const mirror = 'https://gh-proxy.com/https://raw.githubusercontent.com/CrYinLang/EmuTrain/refs/heads/main/';
+
+    final String preferredUrl;
+    switch (preferred) {
+      case 'Gitee':
+        preferredUrl = gitee;
+        break;
+      case 'GitHub':
+        preferredUrl = github;
+        break;
+      case 'Mirror':
+      default:
+        preferredUrl = mirror;
+    }
+
+    final fallbacks = [gitee, mirror, github]
+        .where((u) => u != preferredUrl)
+        .toList();
+    return [preferredUrl, ...fallbacks];
   }
 
   static void clearVersionCache() {
@@ -595,6 +624,7 @@ void main() async {
   await Vars.initTrainBuild();
   await Vars.initCoachTrainBuild();
   await Vars.initLocoBuild();
+  await Vars.initMirrorSource();
   runApp(
     MultiProvider(
       providers: [

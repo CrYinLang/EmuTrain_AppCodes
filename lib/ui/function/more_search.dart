@@ -4,8 +4,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../main.dart';
 import '../../functions.dart';
+import '../../main.dart';
 
 // ==================== 机车 配属段 - 路局图标 映射 ====================
 class LocoDepotMapper {

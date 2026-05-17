@@ -53,7 +53,8 @@ class Journey {
           arrivalTime: s['arriveTime']?.toString() ?? '--:--',
           departureTime: s['departTime']?.toString() ?? '--:--',
           stayTime: int.tryParse(s['stayTime']?.toString() ?? '0') ?? 0,
-          dayDifference: int.tryParse(s['DayDifference']?.toString() ?? '0') ?? 0,
+          dayDifference:
+              int.tryParse(s['DayDifference']?.toString() ?? '0') ?? 0,
           isStart: s['isFirst'] == true,
           isEnd: s['isLast'] == true,
         );
@@ -119,11 +120,13 @@ class Journey {
         seatInfo: seatInfo,
       );
     } catch (e) {
-      unawaited(logError(
-        from: 'Journey.fromMapWithStations',
-        error: '创建行程模型失败 trainCode=${trainInfo["station_train_code"]}: $e',
-        level: 4,
-      ));
+      unawaited(
+        logError(
+          from: 'Journey.fromMapWithStations',
+          error: '创建行程模型失败 trainCode=${trainInfo["station_train_code"]}: $e',
+          level: 4,
+        ),
+      );
       // 返回一个安全的错误对象
       return Journey(
         id: 'error_${DateTime.now().millisecondsSinceEpoch}',
@@ -191,11 +194,13 @@ class Journey {
         seatInfo: map['seatInfo']?.toString() ?? '',
       );
     } catch (e) {
-      unawaited(logError(
-        from: 'Journey.fromStorageMap',
-        error: '从存储恢复行程失败: $e',
-        level: 4,
-      ));
+      unawaited(
+        logError(
+          from: 'Journey.fromStorageMap',
+          error: '从存储恢复行程失败: $e',
+          level: 4,
+        ),
+      );
 
       return Journey(
         id: 'error_${DateTime.now().millisecondsSinceEpoch}',

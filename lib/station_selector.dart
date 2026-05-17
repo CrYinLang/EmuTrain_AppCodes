@@ -1,12 +1,13 @@
 // lib/station_selector.dart
-import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter/services.dart';
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
 // 新增：错误日志记录
-import 'ui/function/error.dart'; 
+import 'ui/function/error.dart';
 
 // ============================================================
 // 热门车站（20个，按知名度排序）
@@ -52,11 +53,7 @@ Future<List<dynamic>> loadStations() async {
     final jsonString = await rootBundle.loadString('assets/stations.json');
     return json.decode(jsonString) as List<dynamic>;
   } catch (e, stack) {
-    await logError(
-      from: 'loadStations',
-      error: '加载车站数据失败: $e',
-      level: 4,
-    );
+    await logError(from: 'loadStations', error: '加载车站数据失败: $e', level: 4);
     debugPrint('loadStations error: $e\n$stack');
     rethrow; // 让调用方可以继续处理
   }
@@ -500,7 +497,9 @@ class _StationSelectorState extends State<StationSelector> {
                       )
                     : null,
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -532,8 +531,8 @@ class _StationSelectorState extends State<StationSelector> {
             child: _loadingStations
                 ? const Center(child: CircularProgressIndicator())
                 : isSearching
-                    ? _buildSearchResults()
-                    : _buildHomeSections(),
+                ? _buildSearchResults()
+                : _buildHomeSections(),
           ),
         ],
       ),

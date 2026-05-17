@@ -87,7 +87,7 @@ class UpdateService {
 
         try {
           final url =
-              'https://gitee.com/CrYinLang/EmuTrain/raw/master/${task.remoteDataPath}.json';
+              '${Vars.mirrorBaseUrl}${task.remoteDataPath}.json';
           final response = await http.get(Uri.parse(url));
 
           if (response.statusCode == 200) {
@@ -489,7 +489,7 @@ class _DataUpdateDialog extends StatelessWidget {
 
                             try {
                               final url =
-                                  'https://gitee.com/CrYinLang/EmuTrain/raw/master/$remoteDataPath.json';
+                                  '${Vars.mirrorBaseUrl}$remoteDataPath.json';
 
                               final response = await http.get(Uri.parse(url));
 

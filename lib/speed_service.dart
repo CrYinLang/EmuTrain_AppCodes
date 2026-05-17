@@ -24,7 +24,9 @@ class TrackPoint {
 
 class SpeedService extends ChangeNotifier {
   static final SpeedService _instance = SpeedService._internal();
+
   factory SpeedService() => _instance;
+
   SpeedService._internal();
 
   double speedKmh = 0.0;
@@ -47,6 +49,7 @@ class SpeedService extends ChangeNotifier {
   DateTime? _trackingStartTime;
 
   bool _usingPollFallback = false;
+
   bool get usingPollFallback => _usingPollFallback;
 
   StreamSubscription<Position>? _positionStream;
@@ -161,28 +164,27 @@ class SpeedService extends ChangeNotifier {
 
     final locationSettings = _buildStreamLocationSettings();
 
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (position) {
-        if (isTracking) _onPosition(position);
-      },
-      onError: (Object e, StackTrace stack) {
-        if (!isTracking) return;
-        logError(
-          from: 'SpeedService._startStream',
-          error: '位置流出错，准备降级: $e',
-          level: 4,
+    _positionStream =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (position) {
+            if (isTracking) _onPosition(position);
+          },
+          onError: (Object e, StackTrace stack) {
+            if (!isTracking) return;
+            logError(
+              from: 'SpeedService._startStream',
+              error: '位置流出错，准备降级: $e',
+              level: 4,
+            );
+            debugInfo = '流定位失败，切换轮询: $e';
+            _usingPollFallback = true;
+            notifyListeners();
+            _positionStream?.cancel();
+            _positionStream = null;
+            _startPolling();
+          },
+          cancelOnError: true,
         );
-        debugInfo = '流定位失败，切换轮询: $e';
-        _usingPollFallback = true;
-        notifyListeners();
-        _positionStream?.cancel();
-        _positionStream = null;
-        _startPolling();
-      },
-      cancelOnError: true,
-    );
   }
 
   // ── 轮询模式 ──────────────────────────────────────────────────
@@ -253,20 +255,22 @@ class SpeedService extends ChangeNotifier {
     avgSpeedKmh = _speedAccumulator / _speedSampleCount;
 
     final modeTag = _usingPollFallback ? '轮询' : '流';
-    debugInfo = '[$modeTag] 更新#$_updateCount | ${speedMs.toStringAsFixed(2)} m/s';
+    debugInfo =
+        '[$modeTag] 更新#$_updateCount | ${speedMs.toStringAsFixed(2)} m/s';
 
     if (currentSpeedKmh > maxSpeedKmh) maxSpeedKmh = currentSpeedKmh;
     statusMsg = '正在测速';
 
-    trackPoints.add(TrackPoint(
-      latitude: position.latitude,
-      longitude: position.longitude,
-      speedKmh: currentSpeedKmh,
-    ));
+    trackPoints.add(
+      TrackPoint(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speedKmh: currentSpeedKmh,
+      ),
+    );
 
     notifyListeners();
   }
-
 
   // ── 构建流模式定位参数 ──────────────────────────────────────
   LocationSettings _buildStreamLocationSettings() {
@@ -328,9 +332,7 @@ class SpeedService extends ChangeNotifier {
           points: List.unmodifiable(trackPoints),
         );
         lastSaveResult = await TrackRecord.save(record);
-        statusMsg = lastSaveResult! 
-            ? '已停止并保存记录' 
-            : '已停止（距离不足100m，未保存）';
+        statusMsg = lastSaveResult! ? '已停止并保存记录' : '已停止（距离不足100m，未保存）';
       } else {
         statusMsg = '已停止';
       }
@@ -348,7 +350,9 @@ class SpeedService extends ChangeNotifier {
 
 class SettingsModel extends ChangeNotifier {
   static final SettingsModel _instance = SettingsModel._internal();
+
   factory SettingsModel() => _instance;
+
   SettingsModel._internal();
 
   bool _forceLocationManager = false;
@@ -356,7 +360,9 @@ class SettingsModel extends ChangeNotifier {
   bool _forcePolling = false;
 
   bool get forceLocationManager => _forceLocationManager;
+
   double get pollIntervalSeconds => _pollIntervalSeconds;
+
   bool get forcePolling => _forcePolling;
 
   Future<void> load() async {
