@@ -1,7 +1,4 @@
 // ui/function/route_models.dart
-// ─────────────────────────────────────────────────────────────
-// 数据模型 · 持久化 · 分页控制器 · 共享小组件
-// ─────────────────────────────────────────────────────────────
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -9,9 +6,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
-// ═════════════════════════════════════════════════════════════
-// 分页控制器
-// ═════════════════════════════════════════════════════════════
 
 class PaginatedController<T> {
   final int pageSize;
@@ -24,18 +18,12 @@ class PaginatedController<T> {
   bool isLoading = false;
 
   List<T> get allItems => _allItems;
-
   List<T> get items => _pagedItems;
-
   int get currentPage => _currentPage;
-
   int get totalPages =>
       _allItems.isEmpty ? 1 : (_allItems.length / pageSize).ceil();
-
   int get totalCount => _allItems.length;
-
   bool get hasMultiplePages => totalPages > 1;
-
   List<T> get currentPageItems => _pagedItems;
 
   void resetAndLoad(List<T> allItems) {
@@ -85,18 +73,16 @@ class RouteStation {
   });
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'telecode': telecode,
-    'city': city,
-    if (mileageToNext != null) 'mileageToNext': mileageToNext,
-  };
+        'telecode': telecode,
+        if (mileageToNext != null) 'mileageToNext': mileageToNext,
+      };
 
   factory RouteStation.fromJson(Map<String, dynamic> j) => RouteStation(
-    name: j['name'] as String? ?? '',
-    telecode: j['telecode'] as String? ?? '',
-    city: j['city'] as String? ?? '',
-    mileageToNext: (j['mileageToNext'] as num?)?.toDouble(),
-  );
+        name: j['name'] as String? ?? '',       // 兼容旧格式
+        telecode: j['telecode'] as String? ?? '',
+        city: j['city'] as String? ?? '',       // 兼容旧格式
+        mileageToNext: (j['mileageToNext'] as num?)?.toDouble(),
+      );
 }
 
 class RouteModel {
@@ -123,30 +109,28 @@ class RouteModel {
   }
 
   String get fromStation => stations.isNotEmpty ? stations.first.name : '';
-
   String get toStation => stations.isNotEmpty ? stations.last.name : '';
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'createdAt': createdAt.toIso8601String(),
-    'updatedAt': updatedAt.toIso8601String(),
-    'stations': stations.map((s) => s.toJson()).toList(),
-  };
+        'id': id,
+        'name': name,
+        'stations': stations.map((s) => s.toJson()).toList(),
+      };
 
   factory RouteModel.fromJson(Map<String, dynamic> j) => RouteModel(
-    id: j['id'] as String? ?? '',
-    name: j['name'] as String? ?? '',
-    createdAt: j['createdAt'] != null
-        ? DateTime.tryParse(j['createdAt'] as String) ?? DateTime.now()
-        : DateTime.now(),
-    updatedAt: j['updatedAt'] != null
-        ? DateTime.tryParse(j['updatedAt'] as String) ?? DateTime.now()
-        : DateTime.now(),
-    stations: (j['stations'] as List<dynamic>? ?? [])
-        .map((e) => RouteStation.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList(),
-  );
+        id: j['id'] as String? ?? '',
+        name: j['name'] as String? ?? '',
+        createdAt: j['createdAt'] != null
+            ? DateTime.tryParse(j['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        updatedAt: j['updatedAt'] != null
+            ? DateTime.tryParse(j['updatedAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        stations: (j['stations'] as List<dynamic>? ?? [])
+            .map((e) =>
+                RouteStation.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+      );
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -166,9 +150,15 @@ class RouteStorage {
       final raw = json.decode(await f.readAsString());
       if (raw is! List) return [];
       final list = raw
-          .map((e) => RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map((e) =>
+              RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
-      list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      list.sort((a, b) {
+        // id 格式: route_<timestamp>，直接比较字符串即可（数字越大越新）
+        final ta = int.tryParse(a.id.replaceFirst('route_', '')) ?? 0;
+        final tb = int.tryParse(b.id.replaceFirst('route_', '')) ?? 0;
+        return tb.compareTo(ta);
+      });
       return list;
     } catch (_) {
       return [];
@@ -255,14 +245,11 @@ class RhMenuChip extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: color,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -319,10 +306,8 @@ class PagerBar extends StatelessWidget {
             if (p == -1) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Text(
-                  '…',
-                  style: TextStyle(color: cs.onSurface.withAlpha(120)),
-                ),
+                child: Text('…',
+                    style: TextStyle(color: cs.onSurface.withAlpha(120))),
               );
             }
             final isActive = p == currentPage;
@@ -343,18 +328,15 @@ class PagerBar extends StatelessWidget {
                         : Border.all(color: cs.onSurface.withAlpha(40)),
                   ),
                   child: Center(
-                    child: Text(
-                      '$p',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isActive
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: isActive
-                            ? cs.onPrimary
-                            : cs.onSurface.withAlpha(180),
-                      ),
-                    ),
+                    child: Text('$p',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              isActive ? FontWeight.bold : FontWeight.normal,
+                          color: isActive
+                              ? cs.onPrimary
+                              : cs.onSurface.withAlpha(180),
+                        )),
                   ),
                 ),
               ),
@@ -362,16 +344,14 @@ class PagerBar extends StatelessWidget {
           }),
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: currentPage < totalPages
-                ? () => onPage(currentPage + 1)
-                : null,
+            onPressed:
+                currentPage < totalPages ? () => onPage(currentPage + 1) : null,
             visualDensity: VisualDensity.compact,
           ),
           const SizedBox(width: 8),
-          Text(
-            '共 $totalCount 条',
-            style: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(140)),
-          ),
+          Text('共 $totalCount 条',
+              style:
+                  TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(140))),
         ],
       ),
     );

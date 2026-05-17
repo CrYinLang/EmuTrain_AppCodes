@@ -6,23 +6,28 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../station_selector.dart'; // loadStations()
 import 'route_models.dart';
+import '../../station_selector.dart'; // loadStations()
 
 // ─────────────────────────────────────────────────────────────
 // 线路色盘
 // ─────────────────────────────────────────────────────────────
 
-const _kRouteColors = [
-  Color(0xFF2196F3),
-  Color(0xFFE91E63),
-  Color(0xFF4CAF50),
-  Color(0xFFFF9800),
-  Color(0xFF9C27B0),
-  Color(0xFF00BCD4),
-  Color(0xFFFF5722),
-  Color(0xFF607D8B),
-];
+// ─────────────────────────────────────────────────────────────
+// 根据路线 id hash 生成固定色（HSL 均匀散布，饱和度/亮度固定）
+// ─────────────────────────────────────────────────────────────
+
+Color _colorForRouteId(String id) {
+  // 用字符串哈希得到 0~1 之间均匀分布的 hue
+  int hash = 0;
+  for (final c in id.codeUnits) {
+    hash = (hash * 31 + c) & 0xFFFFFFFF;
+  }
+  // 黄金比例散布避免相邻色相近
+  const phi = 0.6180339887;
+  final hue = ((hash & 0xFFFF) / 0xFFFF + phi * (hash >> 16)) % 1.0;
+  return HSLColor.fromAHSL(1.0, hue * 360, 0.72, 0.48).toColor();
+}
 
 // ─────────────────────────────────────────────────────────────
 // 内部绘制模型
@@ -70,7 +75,6 @@ class _PlottedRoute {
 
 class RouteMapPage extends StatefulWidget {
   final List<RouteModel> routes;
-
   const RouteMapPage({super.key, required this.routes});
 
   @override
@@ -101,16 +105,19 @@ class _RouteMapPageState extends State<RouteMapPage> {
 
   Future<void> _loadAndPlot() async {
     final allStations = await loadStations();
-    final Map<String, Map<String, dynamic>> nameIdx = {};
+    // 用 telecode 建索引（精确匹配，不再依赖 name）
+    final Map<String, Map<String, dynamic>> tcIdx = {};
     for (final s in allStations) {
-      final name = (s['name'] as String? ?? '').replaceAll('站', '').trim();
+      final tc = (s['telecode'] as String? ?? '').trim();
+      if (tc.isEmpty) continue;
       final loc = (s['location'] as String? ?? '');
       final parts = loc.split(',');
       if (parts.length == 2) {
         final lng = double.tryParse(parts[0]);
         final lat = double.tryParse(parts[1]);
         if (lng != null && lat != null) {
-          nameIdx[name] = {
+          tcIdx[tc] = {
+            'name': (s['name'] as String? ?? '').replaceAll('站', '').trim(),
             'lng': lng,
             'lat': lat,
             'city': s['city'] as String? ?? '',
@@ -120,14 +127,12 @@ class _RouteMapPageState extends State<RouteMapPage> {
     }
 
     final List<_PlottedRoute> raw = [];
-    for (int ri = 0; ri < widget.routes.length; ri++) {
-      final r = widget.routes[ri];
-      final color = _kRouteColors[ri % _kRouteColors.length];
+    for (final r in widget.routes) {
+      final color = _colorForRouteId(r.id);
       final stations = r.stations.map((s) {
-        final clean = s.name.replaceAll('站', '').trim();
-        final info = nameIdx[clean];
+        final info = tcIdx[s.telecode];
         return _PlottedStation(
-          name: clean,
+          name: info?['name'] as String? ?? s.name.replaceAll('站', '').trim(),
           city: info?['city'] as String? ?? s.city,
           mileageToNext: s.mileageToNext,
           hasLocation: info != null,
@@ -202,9 +207,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
 
   void _handleTap(TapUpDetails details, Size sz) {
     final local = MatrixUtils.transformPoint(
-      Matrix4.inverted(_txCtrl.value),
-      details.localPosition,
-    );
+        Matrix4.inverted(_txCtrl.value), details.localPosition);
     final hr = 20.0 / _scale;
     int? br, bs;
     double md = double.infinity;
@@ -213,7 +216,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
       for (int si = 0; si < _plotted[ri].stations.length; si++) {
         final s = _plotted[ri].stations[si];
         if (!s.hasLocation) continue;
-        final d = (local - Offset(s.x * sz.width, s.y * sz.height)).distance;
+        final d =
+            (local - Offset(s.x * sz.width, s.y * sz.height)).distance;
         if (d < hr && d < md) {
           md = d;
           br = ri;
@@ -239,9 +243,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF111111)
-          : const Color(0xFFF5F5F5),
+      backgroundColor:
+          isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('线路走向图'),
         backgroundColor: isDark ? Colors.black : Colors.white,
@@ -273,67 +276,64 @@ class _RouteMapPageState extends State<RouteMapPage> {
   // ── 图例 ─────────────────────────────────────────────────────
 
   Widget _buildLegend(bool isDark) => Container(
-    color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _plotted.map((r) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => r.visible = !r.visible),
-              child: AnimatedOpacity(
-                opacity: r.visible ? 1.0 : 0.4,
-                duration: const Duration(milliseconds: 200),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: r.color.withAlpha(r.visible ? 30 : 15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: r.color.withAlpha(r.visible ? 150 : 60),
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _plotted.map((r) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => r.visible = !r.visible),
+                  child: AnimatedOpacity(
+                    opacity: r.visible ? 1.0 : 0.4,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color:
+                            r.color.withAlpha(r.visible ? 30 : 15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: r.color
+                                .withAlpha(r.visible ? 150 : 60)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                  color: r.color,
+                                  shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          Text(r.model.name,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: r.color,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 4),
+                          Icon(
+                            r.visible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            size: 12,
+                            color: r.color.withAlpha(180),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: r.color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        r.model.name,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: r.color,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        r.visible ? Icons.visibility : Icons.visibility_off,
-                        size: 12,
-                        color: r.color.withAlpha(180),
-                      ),
-                    ],
-                  ),
                 ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    ),
-  );
+              );
+            }).toList(),
+          ),
+        ),
+      );
 
   // ── 地图 ─────────────────────────────────────────────────────
 
@@ -343,50 +343,48 @@ class _RouteMapPageState extends State<RouteMapPage> {
       child: AspectRatio(
         aspectRatio: 1.0,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
+          constraints:
+              const BoxConstraints(maxWidth: 480, maxHeight: 480),
           margin: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: surfaceColor,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(30),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
+                  color: Colors.black.withAlpha(30),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4))
             ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: LayoutBuilder(
-              builder: (ctx, constraints) {
-                final side = constraints.biggest.shortestSide;
-                final sz = Size(side, side);
-                return GestureDetector(
-                  onTapUp: (d) => _handleTap(d, sz),
-                  child: InteractiveViewer(
-                    transformationController: _txCtrl,
-                    minScale: 0.8,
-                    maxScale: 8.0,
-                    boundaryMargin: const EdgeInsets.all(80),
-                    onInteractionUpdate: (_) {
-                      final s = _txCtrl.value.getMaxScaleOnAxis();
-                      if (s != _scale) setState(() => _scale = s);
-                    },
-                    child: CustomPaint(
-                      size: sz,
-                      painter: _RouteMapPainter(
-                        routes: _plotted,
-                        selRouteIdx: _selRouteIdx,
-                        selStopIdx: _selStopIdx,
-                        scale: _scale,
-                        surfaceColor: surfaceColor,
-                      ),
+            child: LayoutBuilder(builder: (ctx, constraints) {
+              final side = constraints.biggest.shortestSide;
+              final sz = Size(side, side);
+              return GestureDetector(
+                onTapUp: (d) => _handleTap(d, sz),
+                child: InteractiveViewer(
+                  transformationController: _txCtrl,
+                  minScale: 0.8,
+                  maxScale: 8.0,
+                  boundaryMargin: const EdgeInsets.all(80),
+                  onInteractionUpdate: (_) {
+                    final s = _txCtrl.value.getMaxScaleOnAxis();
+                    if (s != _scale) setState(() => _scale = s);
+                  },
+                  child: CustomPaint(
+                    size: sz,
+                    painter: _RouteMapPainter(
+                      routes: _plotted,
+                      selRouteIdx: _selRouteIdx,
+                      selStopIdx: _selStopIdx,
+                      scale: _scale,
+                      surfaceColor: surfaceColor,
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            }),
           ),
         ),
       ),
@@ -411,13 +409,13 @@ class _RouteMapPageState extends State<RouteMapPage> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: route.color.withAlpha(120), width: 1.5),
+        border:
+            Border.all(color: route.color.withAlpha(120), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(20),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withAlpha(20),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
         ],
       ),
       child: Row(
@@ -426,18 +424,14 @@ class _RouteMapPageState extends State<RouteMapPage> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: route.color.withAlpha(30),
-              shape: BoxShape.circle,
-            ),
+                color: route.color.withAlpha(30),
+                shape: BoxShape.circle),
             child: Center(
-              child: Text(
-                '${si + 1}',
-                style: TextStyle(
-                  color: route.color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
+              child: Text('${si + 1}',
+                  style: TextStyle(
+                      color: route.color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14)),
             ),
           ),
           const SizedBox(width: 12),
@@ -446,55 +440,38 @@ class _RouteMapPageState extends State<RouteMapPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      '${s.name}站',
+                Row(children: [
+                  Text('${s.name}站',
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    if (isBoth) ...[
-                      _badge('起点', Colors.green),
-                      const SizedBox(width: 4),
-                      _badge('终点', Colors.red),
-                    ] else if (isFirst)
-                      _badge('起点', Colors.green)
-                    else if (isLast)
-                      _badge('终点', Colors.red),
-                  ],
-                ),
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 6),
+                  if (isBoth) ...[
+                    _badge('起点', Colors.green),
+                    const SizedBox(width: 4),
+                    _badge('终点', Colors.red),
+                  ] else if (isFirst)
+                    _badge('起点', Colors.green)
+                  else if (isLast)
+                    _badge('终点', Colors.red),
+                ]),
                 const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text(
-                      route.model.name,
+                Row(children: [
+                  Text(route.model.name,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: route.color,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (s.city.isNotEmpty) ...[
-                      Text(
-                        ' · ',
-                        style: TextStyle(
                           fontSize: 12,
-                          color: cs.onSurface.withAlpha(100),
-                        ),
-                      ),
-                      Text(
-                        s.city,
+                          color: route.color,
+                          fontWeight: FontWeight.w500)),
+                  if (s.city.isNotEmpty) ...[
+                    Text(' · ',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurface.withAlpha(140),
-                        ),
-                      ),
-                    ],
+                            fontSize: 12,
+                            color: cs.onSurface.withAlpha(100))),
+                    Text(s.city,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurface.withAlpha(140))),
                   ],
-                ),
+                ]),
               ],
             ),
           ),
@@ -503,21 +480,15 @@ class _RouteMapPageState extends State<RouteMapPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '${s.mileageToNext} km',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: route.color,
-                  ),
-                ),
-                Text(
-                  '至下一站',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: cs.onSurface.withAlpha(120),
-                  ),
-                ),
+                Text('${s.mileageToNext} km',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: route.color)),
+                Text('至下一站',
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: cs.onSurface.withAlpha(120))),
               ],
             ),
         ],
@@ -526,17 +497,19 @@ class _RouteMapPageState extends State<RouteMapPage> {
   }
 
   Widget _badge(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-    decoration: BoxDecoration(
-      color: color.withAlpha(40),
-      borderRadius: BorderRadius.circular(4),
-      border: Border.all(color: color.withAlpha(120)),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
-    ),
-  );
+        padding:
+            const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: color.withAlpha(40),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withAlpha(120)),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.bold)),
+      );
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -577,7 +550,8 @@ class _RouteMapPainter extends CustomPainter {
     }
   }
 
-  void _drawLine(Canvas canvas, Size size, _PlottedRoute r, bool isSelected) {
+  void _drawLine(
+      Canvas canvas, Size size, _PlottedRoute r, bool isSelected) {
     final valid = r.stations.where((s) => s.hasLocation).toList();
     if (valid.length < 2) return;
     final paint = Paint()
@@ -594,7 +568,8 @@ class _RouteMapPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  void _drawStops(Canvas canvas, Size size, _PlottedRoute r, int routeIdx) {
+  void _drawStops(
+      Canvas canvas, Size size, _PlottedRoute r, int routeIdx) {
     final baseR = _px(6.0);
     for (int si = 0; si < r.stations.length; si++) {
       final s = r.stations[si];
@@ -604,29 +579,24 @@ class _RouteMapPainter extends CustomPainter {
       final c = Offset(s.x * size.width, s.y * size.height);
       if (isSel) {
         canvas.drawCircle(
-          c,
-          markerR + _px(4),
-          Paint()..color = r.color.withAlpha(50),
-        );
+            c, markerR + _px(4), Paint()..color = r.color.withAlpha(50));
       }
       canvas.drawCircle(c, markerR, Paint()..color = r.color);
       canvas.drawCircle(
-        c,
-        markerR,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = _px(2.0),
-      );
+          c,
+          markerR,
+          Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = _px(2.0));
       final tp = TextPainter(
         text: TextSpan(
           text: '${si + 1}',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: _px(6.5),
-            fontWeight: FontWeight.bold,
-            height: 1.0,
-          ),
+              color: Colors.white,
+              fontSize: _px(6.5),
+              fontWeight: FontWeight.bold,
+              height: 1.0),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -642,15 +612,18 @@ class _RouteMapPainter extends CustomPainter {
     if (!s.hasLocation) return;
 
     final cx = s.x * size.width, cy = s.y * size.height;
-    final sub = r.model.name + (s.city.isNotEmpty ? ' · ${s.city}' : '');
-    final mileStr = (si < r.stations.length - 1 && s.mileageToNext != null)
-        ? '至下站 ${s.mileageToNext} km'
-        : null;
+    final sub =
+        r.model.name + (s.city.isNotEmpty ? ' · ${s.city}' : '');
+    final mileStr =
+        (si < r.stations.length - 1 && s.mileageToNext != null)
+            ? '至下站 ${s.mileageToNext} km'
+            : null;
 
     final fs = _px(11.0), fsS = _px(9.5);
     final nameTp = _tp('${s.name}站', fs, Colors.black87, bold: true);
     final subTp = _tp(sub, fsS, r.color);
-    final mileTp = mileStr != null ? _tp(mileStr, fsS, Colors.black54) : null;
+    final mileTp =
+        mileStr != null ? _tp(mileStr, fsS, Colors.black54) : null;
 
     final padH = _px(8.0), padV = _px(5.0), gap = _px(3.0);
     double cw = max(nameTp.width, subTp.width);
@@ -658,7 +631,9 @@ class _RouteMapPainter extends CustomPainter {
     double ch = nameTp.height + gap + subTp.height;
     if (mileTp != null) ch += gap + mileTp.height;
 
-    final lw = cw + padH * 2, lh = ch + padV * 2, mg = _px(10.0);
+    final lw = cw + padH * 2,
+        lh = ch + padV * 2,
+        mg = _px(10.0);
     final candidates = [
       Offset(cx + mg, cy - lh / 2),
       Offset(cx - lw - mg, cy - lh / 2),
@@ -675,26 +650,18 @@ class _RouteMapPainter extends CustomPainter {
         break;
       }
     }
-    pos = Offset(
-      pos.dx.clamp(0.0, size.width - lw),
-      pos.dy.clamp(0.0, size.height - lh),
-    );
+    pos = Offset(pos.dx.clamp(0.0, size.width - lw),
+        pos.dy.clamp(0.0, size.height - lh));
 
-    final rr = RRect.fromLTRBR(
-      pos.dx,
-      pos.dy,
-      pos.dx + lw,
-      pos.dy + lh,
-      Radius.circular(_px(6)),
-    );
+    final rr = RRect.fromLTRBR(pos.dx, pos.dy, pos.dx + lw, pos.dy + lh,
+        Radius.circular(_px(6)));
     canvas.drawRRect(rr, Paint()..color = Colors.white.withAlpha(240));
     canvas.drawRRect(
-      rr,
-      Paint()
-        ..color = r.color.withAlpha(180)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = _px(1.2),
-    );
+        rr,
+        Paint()
+          ..color = r.color.withAlpha(180)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _px(1.2));
 
     double tx = pos.dx + padH, ty = pos.dy + padV;
     nameTp.paint(canvas, Offset(tx, ty));
@@ -706,21 +673,16 @@ class _RouteMapPainter extends CustomPainter {
     }
   }
 
-  TextPainter _tp(
-    String text,
-    double fontSize,
-    Color color, {
-    bool bold = false,
-  }) {
+  TextPainter _tp(String text, double fontSize, Color color,
+      {bool bold = false}) {
     return TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
-          fontSize: fontSize,
-          color: color,
-          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-          height: 1.2,
-        ),
+            fontSize: fontSize,
+            color: color,
+            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            height: 1.2),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
