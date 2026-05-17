@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
+import 'functions.dart';
 import 'main.dart';
 import 'ui/function/error.dart';
-import 'functions.dart';
 
 class UpdateService {
   static Future<Map<String, dynamic>?> checkForUpdate({
@@ -29,9 +29,12 @@ class UpdateService {
     }
   }
 
-  static Future<({List<String> updated, List<String> failed})?> silentUpdateAllData() async {
+  static Future<({List<String> updated, List<String> failed})?>
+  silentUpdateAllData() async {
     try {
-      final versionInfo = await UpdateService.checkForUpdate(forceRefresh: true);
+      final versionInfo = await UpdateService.checkForUpdate(
+        forceRefresh: true,
+      );
       if (versionInfo == null || versionInfo.containsKey('error')) {
         await logError(
           from: 'UpdateService.silentUpdateAllData',
@@ -82,12 +85,12 @@ class UpdateService {
       for (final task in tasks) {
         final currentBuild = int.tryParse(task.currentBuildStr) ?? 0;
         final remoteBuild =
-            int.tryParse(versionInfo[task.remoteBuildKey]?.toString() ?? '') ?? 0;
+            int.tryParse(versionInfo[task.remoteBuildKey]?.toString() ?? '') ??
+            0;
         if (remoteBuild <= currentBuild) continue;
 
         try {
-          final url =
-              '${Vars.mirrorBaseUrl}${task.remoteDataPath}.json';
+          final url = '${Vars.mirrorBaseUrl}${task.remoteDataPath}.json';
           final response = await http.get(Uri.parse(url));
 
           if (response.statusCode == 200) {

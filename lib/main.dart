@@ -10,13 +10,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'journey_provider.dart';
 import 'functions.dart';
+import 'journey_provider.dart';
 import 'speed_service.dart';
-import 'ui/function/gallery_page.dart';
 import 'ui/emu_search_page.dart';
-import 'ui/function/more_search.dart';
 import 'ui/function/error.dart';
+import 'ui/function/gallery_page.dart';
+import 'ui/function/more_search.dart';
 import 'ui/function/settings.dart';
 import 'ui/function/tool_screen.dart';
 import 'ui/travel_screen.dart';
@@ -159,7 +159,7 @@ class Vars {
     return _pendingFetch;
   }
 
-static Future<Map<String, dynamic>?> _doFetch() async {
+  static Future<Map<String, dynamic>?> _doFetch() async {
     // 按优先级排列的 base URL 列表：优先选用户设置，失败依次回退
     final ordered = _mirrorFallbackOrder(_mirrorSource);
     for (final base in ordered) {
@@ -192,9 +192,12 @@ static Future<Map<String, dynamic>?> _doFetch() async {
   /// 返回以 [preferred] 为首的 base URL 回退顺序
   /// 默认回退顺序（从次选到最终）：Gitee → Mirror → GitHub
   static List<String> _mirrorFallbackOrder(String preferred) {
-    const gitee  = 'https://raw.giteeusercontent.com/CrYinLang/EmuTrain/raw/master/';
-    const github = 'https://raw.githubusercontent.com/CrYinLang/EmuTrain/refs/heads/main/';
-    const mirror = 'https://gh-proxy.com/https://raw.githubusercontent.com/CrYinLang/EmuTrain/refs/heads/main/';
+    const gitee =
+        'https://raw.giteeusercontent.com/CrYinLang/EmuTrain/raw/master/';
+    const github =
+        'https://raw.githubusercontent.com/CrYinLang/EmuTrain/refs/heads/main/';
+    const mirror =
+        'https://gh-proxy.com/https://raw.githubusercontent.com/CrYinLang/EmuTrain/refs/heads/main/';
 
     final String preferredUrl;
     switch (preferred) {
@@ -209,9 +212,11 @@ static Future<Map<String, dynamic>?> _doFetch() async {
         preferredUrl = mirror;
     }
 
-    final fallbacks = [gitee, mirror, github]
-        .where((u) => u != preferredUrl)
-        .toList();
+    final fallbacks = [
+      gitee,
+      mirror,
+      github,
+    ].where((u) => u != preferredUrl).toList();
     return [preferredUrl, ...fallbacks];
   }
 
@@ -493,7 +498,7 @@ class AppSettings extends ChangeNotifier {
   }
 
   // ==================== 初始化 ====================
-// ==================== 初始化 ====================
+  // ==================== 初始化 ====================
   Future<void> loadSettings() async {
     _isLoading = true;
     notifyListeners();
@@ -517,18 +522,24 @@ class AppSettings extends ChangeNotifier {
 
       // 数据源 - 车次查询
       final dataSourceIndex = prefs.getInt('dataSource') ?? 0;
-      _dataSource = TrainDataSource.values[
-          dataSourceIndex.clamp(0, TrainDataSource.values.length - 1)];
+      _dataSource = TrainDataSource
+          .values[dataSourceIndex.clamp(0, TrainDataSource.values.length - 1)];
 
       // 数据源 - 车号/交路查询
       final dataEmuSourceIndex = prefs.getInt('dataEmuSource') ?? 0;
-      _dataEmuSource = TrainEmuDataSource.values[
-          dataEmuSourceIndex.clamp(0, TrainEmuDataSource.values.length - 1)];
+      _dataEmuSource =
+          TrainEmuDataSource.values[dataEmuSourceIndex.clamp(
+            0,
+            TrainEmuDataSource.values.length - 1,
+          )];
 
       // 数据源 - 车站查询
       final dataStationSourceIndex = prefs.getInt('dataStationSource') ?? 0;
-      _dataStationSource = TrainStationDataSource.values[
-          dataStationSourceIndex.clamp(0, TrainStationDataSource.values.length - 1)];
+      _dataStationSource =
+          TrainStationDataSource.values[dataStationSourceIndex.clamp(
+            0,
+            TrainStationDataSource.values.length - 1,
+          )];
 
       debugPrint('AppSettings: 设置加载完成');
     } catch (e, stack) {
@@ -538,7 +549,7 @@ class AppSettings extends ChangeNotifier {
         level: 4,
       );
       debugPrint('loadSettings 异常: $e\n$stack');
-      
+
       // 发生错误时使用默认值
       _setDefaultValues();
     } finally {

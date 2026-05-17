@@ -17,12 +17,18 @@ class PaginatedController<T> {
   bool isLoading = false;
 
   List<T> get allItems => _allItems;
+
   List<T> get items => _pagedItems;
+
   int get currentPage => _currentPage;
+
   int get totalPages =>
       _allItems.isEmpty ? 1 : (_allItems.length / pageSize).ceil();
+
   int get totalCount => _allItems.length;
+
   bool get hasMultiplePages => totalPages > 1;
+
   List<T> get currentPageItems => _pagedItems;
 
   void resetAndLoad(List<T> allItems) {
@@ -72,30 +78,30 @@ class RouteStation {
   });
 
   RouteStation copyWith({String? name, String? city}) => RouteStation(
-        name: name ?? this.name,
-        telecode: telecode,
-        city: city ?? this.city,
-        mileageToNext: mileageToNext,
-      );
+    name: name ?? this.name,
+    telecode: telecode,
+    city: city ?? this.city,
+    mileageToNext: mileageToNext,
+  );
 
   Map<String, dynamic> toJson() => {
-        'tel': telecode,
-        if (mileageToNext != null) 'mile': mileageToNext,
-      };
+    'tel': telecode,
+    if (mileageToNext != null) 'mile': mileageToNext,
+  };
 
   factory RouteStation.fromJson(Map<String, dynamic> j) => RouteStation(
-        name: j['name'] as String? ?? '',
-        telecode: (j['tel'] ?? j['telecode']) as String? ?? '',
-        city: j['city'] as String? ?? '',
-        mileageToNext: ((j['mile'] ?? j['mileageToNext']) as num?)?.toDouble(),
-      );
+    name: j['name'] as String? ?? '',
+    telecode: (j['tel'] ?? j['telecode']) as String? ?? '',
+    city: j['city'] as String? ?? '',
+    mileageToNext: ((j['mile'] ?? j['mileageToNext']) as num?)?.toDouble(),
+  );
 }
 
 class RouteModel {
   final String id;
   final String name;
-  final String author;  // 新增：作者
-  final String icon;   // 新增：图标路径
+  final String author; // 新增：作者
+  final String icon; // 新增：图标路径
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<RouteStation> stations;
@@ -103,23 +109,25 @@ class RouteModel {
   const RouteModel({
     required this.id,
     required this.name,
-    required this.author,  // 新增
-    required this.icon,   // 新增
+    required this.author, // 新增
+    required this.icon, // 新增
     required this.createdAt,
     required this.updatedAt,
     required this.stations,
   });
 
-  RouteModel copyWith({ 
+  RouteModel copyWith({
     String? name,
-    String? author,  // 新增
-    String? icon,    // 新增
-    List<RouteStation>? stations 
+    String? author, // 新增
+    String? icon, // 新增
+    List<RouteStation>? stations,
   }) => RouteModel(
     id: id,
     name: name ?? this.name,
-    author: author ?? this.author,  // 新增
-    icon: icon ?? this.icon,        // 新增
+    author: author ?? this.author,
+    // 新增
+    icon: icon ?? this.icon,
+    // 新增
     createdAt: createdAt,
     updatedAt: updatedAt,
     stations: stations ?? this.stations,
@@ -130,7 +138,8 @@ class RouteModel {
     id: 'route_${DateTime.now().millisecondsSinceEpoch}',
     name: '未命名线路',
     author: '',
-    icon: 'train/cr400bf.png',  // 默认图标
+    icon: 'train/cr400bf.png',
+    // 默认图标
     createdAt: DateTime.now(),
     updatedAt: DateTime.now(),
     stations: [],
@@ -145,13 +154,14 @@ class RouteModel {
   }
 
   String get fromStation => stations.isNotEmpty ? stations.first.name : '';
+
   String get toStation => stations.isNotEmpty ? stations.last.name : '';
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
-    'author': author,  // 新增
-    'icon': icon,     // 新增
+    'author': author, // 新增
+    'icon': icon, // 新增
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
     'stations': stations.map((s) => s.toJson()).toList(),
@@ -160,17 +170,19 @@ class RouteModel {
   factory RouteModel.fromJson(Map<String, dynamic> j) => RouteModel(
     id: j['id'] as String? ?? '',
     name: j['name'] as String? ?? '未命名线路',
-    author: j['author'] as String? ?? '',  // 新增，兼容旧格式
-    icon: j['icon'] as String? ?? 'train/cr400bf.png',  // 新增，兼容旧格式
+    author: j['author'] as String? ?? '',
+    // 新增，兼容旧格式
+    icon: j['icon'] as String? ?? 'train/cr400bf.png',
+    // 新增，兼容旧格式
     createdAt: j['createdAt'] != null
-      ? DateTime.tryParse(j['createdAt'] as String) ?? DateTime.now()
-      : DateTime.now(),
+        ? DateTime.tryParse(j['createdAt'] as String) ?? DateTime.now()
+        : DateTime.now(),
     updatedAt: j['updatedAt'] != null
-      ? DateTime.tryParse(j['updatedAt'] as String) ?? DateTime.now()
-      : DateTime.now(),
+        ? DateTime.tryParse(j['updatedAt'] as String) ?? DateTime.now()
+        : DateTime.now(),
     stations: (j['stations'] as List<dynamic>? ?? [])
-      .map((e) => RouteStation.fromJson(Map<String, dynamic>.from(e)))
-      .toList(),
+        .map((e) => RouteStation.fromJson(Map<String, dynamic>.from(e)))
+        .toList(),
   );
 }
 
@@ -191,8 +203,7 @@ class RouteStorage {
       final raw = json.decode(await f.readAsString());
       if (raw is! List) return [];
       final list = raw
-          .map((e) =>
-              RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map((e) => RouteModel.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
       list.sort((a, b) {
         // id 格式: route_<timestamp>，直接比较字符串即可（数字越大越新）
@@ -286,11 +297,14 @@ class RhMenuChip extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: color,
-                    fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -347,8 +361,10 @@ class PagerBar extends StatelessWidget {
             if (p == -1) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Text('…',
-                    style: TextStyle(color: cs.onSurface.withAlpha(120))),
+                child: Text(
+                  '…',
+                  style: TextStyle(color: cs.onSurface.withAlpha(120)),
+                ),
               );
             }
             final isActive = p == currentPage;
@@ -369,15 +385,18 @@ class PagerBar extends StatelessWidget {
                         : Border.all(color: cs.onSurface.withAlpha(40)),
                   ),
                   child: Center(
-                    child: Text('$p',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight:
-                              isActive ? FontWeight.bold : FontWeight.normal,
-                          color: isActive
-                              ? cs.onPrimary
-                              : cs.onSurface.withAlpha(180),
-                        )),
+                    child: Text(
+                      '$p',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isActive
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isActive
+                            ? cs.onPrimary
+                            : cs.onSurface.withAlpha(180),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -385,14 +404,16 @@ class PagerBar extends StatelessWidget {
           }),
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed:
-                currentPage < totalPages ? () => onPage(currentPage + 1) : null,
+            onPressed: currentPage < totalPages
+                ? () => onPage(currentPage + 1)
+                : null,
             visualDensity: VisualDensity.compact,
           ),
           const SizedBox(width: 8),
-          Text('共 $totalCount 条',
-              style:
-                  TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(140))),
+          Text(
+            '共 $totalCount 条',
+            style: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(140)),
+          ),
         ],
       ),
     );
