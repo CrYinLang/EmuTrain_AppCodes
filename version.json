@@ -1,16 +1,15 @@
 {
-  "LastUpdate": "260515",
-  "Version": "1.2.2.0",
-  "Build": "1225",
+  "LastUpdate": "260522",
+  "Version": "1.2.2.5",
+  "Build": "1220",
 
   "minVersion": "1212",
   "message": "",
 
   "StationBuild": "20260516",
-  "TrainBuild": "20260516",
-  "CoachTrainBuild": "20260516",
-  "LocoBuild": "20260516",
-  "LinesBuild": "20260516",
+  "TrainBuild": "20260523",
+  "CoachTrainBuild": "20260523",
+  "LocoBuild": "20260523",
 
   "github": "https://gh-proxy.com/https://github.com/CrYinLang/EmuTrain/releases/download/1.2.2.0/app-release.apk",
   "gitee": "https://gitee.com/CrYinLang/EmuTrain/releases/download/1.2.2.0/app-release.apk",

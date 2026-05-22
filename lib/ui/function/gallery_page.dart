@@ -363,7 +363,7 @@ class _GalleryPageState extends State<GalleryPage> {
         number: '0204',
         title: 'CRH380AM-0204',
         infoItems: {
-          '代管路局': '济南铁路局',
+          '代管路局': '广州铁路局',
           '生产厂家': '南车青岛四方',
           '备注': '和谐号更高速度综合检测列车',
           '类型': '检测-上线',
@@ -396,7 +396,7 @@ class _GalleryPageState extends State<GalleryPage> {
         number: '0501',
         title: 'CRH5J-0501',
         infoItems: {
-          '代管路局': '北京铁路局',
+          '代管路局': '兰州铁路局',
           '生产厂家': '长春轨道客车',
           '备注': '和谐号250级别 0号高速综合检测列车',
           '类型': '检测-上线',

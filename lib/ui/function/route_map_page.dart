@@ -76,6 +76,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
   List<({int ri, int si})> _selHits = [];
   final TransformationController _txCtrl = TransformationController();
   double _scale = 1.0;
+  double _maxScale = 8.0;
+  int _totalHits = 0; // 截断前的总命中数
 
   @override
   void initState() {
@@ -173,6 +175,9 @@ class _RouteMapPageState extends State<RouteMapPage> {
       adjLng = adjLat * ar;
     }
 
+    // 不管线路分布多远，都允许大幅放大查看细节
+    _maxScale = 30.0;
+
     final cx = (minLng + maxLng) / 2, cy = (minLat + maxLat) / 2;
     final fMinLng = cx - adjLng * 0.6, fMaxLng = cx + adjLng * 0.6;
     final fMinLat = cy - adjLat * 0.6, fMaxLat = cy + adjLat * 0.6;
@@ -213,7 +218,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
     }
 
     if (hits.isEmpty) {
-      setState(() => _selHits = []);
+      setState(() {
+        _selHits = [];
+        _totalHits = 0;
+      });
       return;
     }
 
@@ -227,16 +235,35 @@ class _RouteMapPageState extends State<RouteMapPage> {
               (hr * 1.5) / sz.shortestSide;
         })
         .map((h) => (ri: h.ri, si: h.si))
-        .toList();
+        .toList()
+      ..sort((a, b) {
+        // 按到最近站点的距离排序，保证最近的优先
+        final da = (Offset(_plotted[a.ri].stations[a.si].x,
+                    _plotted[a.ri].stations[a.si].y) -
+                Offset(nearest.x, nearest.y))
+            .distance;
+        final db = (Offset(_plotted[b.ri].stations[b.si].x,
+                    _plotted[b.ri].stations[b.si].y) -
+                Offset(nearest.x, nearest.y))
+            .distance;
+        return da.compareTo(db);
+      });
+
+    // 最多显示 10 个站点，防止缩放很小时命中过多导致卡顿
+    const maxHits = 10;
+    _totalHits = grouped.length;
+    final limited = grouped.length > maxHits
+        ? grouped.sublist(0, maxHits)
+        : grouped;
 
     setState(() {
       // 再次点击同一组则取消选中
       final same =
-          _selHits.length == grouped.length &&
+          _selHits.length == limited.length &&
           _selHits.every(
-            (a) => grouped.any((b) => b.ri == a.ri && b.si == a.si),
+            (a) => limited.any((b) => b.ri == a.ri && b.si == a.si),
           );
-      _selHits = same ? [] : grouped;
+      _selHits = same ? [] : limited;
     });
   }
 
@@ -389,7 +416,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
                   child: InteractiveViewer(
                     transformationController: _txCtrl,
                     minScale: 0.8,
-                    maxScale: 8.0,
+                    maxScale: _maxScale,
                     boundaryMargin: const EdgeInsets.all(80),
                     onInteractionUpdate: (_) {
                       final s = _txCtrl.value.getMaxScaleOnAxis();
@@ -432,8 +459,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 共站时显示站点名标题
-        if (_selHits.length > 1 && firstName.isNotEmpty)
+        // 共站或截断时显示站点名标题
+        if ((_selHits.length > 1 || _totalHits > _selHits.length) && firstName.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
             child: Row(
@@ -460,7 +487,9 @@ class _RouteMapPageState extends State<RouteMapPage> {
                     border: Border.all(color: Colors.orange.withAlpha(120)),
                   ),
                   child: Text(
-                    '${_selHits.length} 线路经过',
+                    _totalHits > _selHits.length
+                        ? '${_selHits.length}/$_totalHits 线路经过（已截断）'
+                        : '${_selHits.length} 线路经过',
                     style: const TextStyle(
                       fontSize: 11,
                       color: Colors.orange,
