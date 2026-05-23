@@ -1,13 +1,37 @@
 // ui/function/route_edit_page.dart
-// ─────────────────────────────────────────────────────────────
-// 新建 / 编辑线路页面 — 站点数量无限制 + 作者 + 图标
-// ─────────────────────────────────────────────────────────────
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../icon_selector.dart';
 import '../../station_selector.dart';
 import 'route_models.dart';
+
+
+/// 一条解析出的站点记录（仅含名称和累计里程）
+class _ParsedStation {
+  final String name;
+  final double mileage;
+  const _ParsedStation(this.name, this.mileage);
+}
+
+/// 解析路路通「经由」文本，返回站点列表（跳过名字含"所"的站）
+List<_ParsedStation> _parseLutong(String text) {
+  final result = <_ParsedStation>[];
+  for (final rawLine in text.trim().split('\n')) {
+    final line = rawLine.trim();
+    if (line.isEmpty) continue;
+    // 匹配：站名 任意内容 里程km
+    final m = RegExp(r'^(.+?)\s+\S+\s+([\d.]+)km').firstMatch(line);
+    if (m == null) continue;
+    final name = m.group(1)!.trim();
+    if (name.contains('所')) continue; // 跳过动车所等
+    final mileage = double.tryParse(m.group(2)!);
+    if (mileage == null) continue;
+    result.add(_ParsedStation(name, mileage));
+  }
+  return result;
+}
 
 class RoutePage extends StatefulWidget {
   final RouteModel? existing;
@@ -83,18 +107,15 @@ class _RoutePageState extends State<RoutePage> {
 
   // ── 图标选择 ────────────────────────────────────────────────
   Future<void> _selectIcon() async {
-    final selected = await showDialog<String>(
+    await showDialog<void>(
       context: context,
-      builder: (context) => IconSelectorDialog(
+      builder: (dialogCtx) => IconSelectorDialog(
         selectedIcon: _icon,
         onIconSelected: (icon) {
-          Navigator.pop(context, icon);
+          if (mounted) setState(() => _icon = icon);
         },
       ),
     );
-    if (selected != null) {
-      setState(() => _icon = selected);
-    }
   }
 
   // ── 添加车站 ────────────────────────────────────────────────
@@ -283,6 +304,105 @@ class _RoutePageState extends State<RoutePage> {
     );
   }
 
+  // ── 路路通导入 ────────────────────────────────────────────────
+
+  void _showImportDialog() {
+    final textCtrl = TextEditingController();
+    final offsetCtrl = TextEditingController(text: '0');
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _LutongImportDialog(
+        textCtrl: textCtrl,
+        offsetCtrl: offsetCtrl,
+        onImport: (text, offset) => _importFromLutong(text, offset),
+      ),
+    );
+  }
+
+  Future<void> _importFromLutong(String text, double offsetKm) async {
+    final parsed = _parseLutong(text);
+    if (parsed.isEmpty) {
+      _showSnack('未解析到有效站点，请检查格式');
+      return;
+    }
+
+    // 构建站名索引
+    final allStations = await loadStations();
+    final Map<String, Map<String, dynamic>> nameIdx = {};
+    for (final s in allStations) {
+      final raw = (s['name'] as String? ?? '').trim();
+      final key = raw.replaceAll('站', '');
+      if (key.isNotEmpty) nameIdx[key] = Map<String, dynamic>.from(s as Map);
+    }
+
+    // ── 第一遍：只保留能匹配到 telecode 的站，跳过未收录的 ──
+    // 同时把被跳过站的里程"穿透"到下一个有效站的前驱
+    //
+    // 做法：先把 parsed 列表中每个站是否"有效"标出来，
+    // 然后对有效站 i，它的 mileageToNext = 下一个有效站的里程 - 自己的里程。
+    // 这样中间跳过几站都不影响，累计里程自动合并到上一个有效站头上。
+
+    final List<_ParsedStation> valid = [];
+    final List<String> notFoundNames = [];
+    int skipped = 0;
+
+    for (final p in parsed) {
+      if (nameIdx.containsKey(p.name)) {
+        if (_stations.any((s) => s.name == p.name)) {
+          // 已在线路中，计入重复但仍保留其里程节点供后续差值使用
+          skipped++;
+          valid.add(p); // 保留里程节点，但下面添加时会跳过
+        } else {
+          valid.add(p);
+        }
+      } else {
+        notFoundNames.add(p.name);
+        // 未收录：不加入 valid，其里程被前后有效站的差值自动覆盖
+      }
+    }
+
+    int added = 0;
+    for (int i = 0; i < valid.length; i++) {
+      final p = valid[i];
+      final info = nameIdx[p.name]!;
+      final name = p.name;
+
+      // 已在线路中的跳过添加，但保留在 valid 里是为了让里程差值正确
+      if (_stations.any((s) => s.name == name)) continue;
+
+      final telecode = (info['telecode'] as String? ?? '').trim();
+      final city = (info['city'] as String? ?? '');
+
+      // mileageToNext = 下一个有效站里程 - 当前里程（跨越所有被跳过的中间站）
+      double? mileageToNext;
+      if (i < valid.length - 1) {
+        final raw = valid[i + 1].mileage - p.mileage + offsetKm;
+        mileageToNext = double.parse(raw.toStringAsFixed(1));
+        offsetKm = 0; // 补偿只加一次（加在第一个区间上）
+      }
+
+      setState(() {
+        _stations.add(
+          EditableRouteStation(
+            name: name,
+            telecode: telecode,
+            city: city,
+            mileageToNext: mileageToNext,
+          ),
+        );
+      });
+      added++;
+    }
+
+    final buf = StringBuffer('导入完成：新增 $added 站');
+    if (skipped > 0) buf.write('，跳过重复 $skipped 站');
+    if (notFoundNames.isNotEmpty) {
+      buf.write('，略过未收录 ${notFoundNames.length} 站（${notFoundNames.join('、')}）');
+    }
+    _showSnack(buf.toString());
+  }
+
   // ── 保存 ────────────────────────────────────────────────────
 
   Future<void> _save() async {
@@ -379,13 +499,19 @@ class _RoutePageState extends State<RoutePage> {
                 ),
               ),
             )
-          else
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.more_horiz),
+              tooltip: '更多操作',
+              onPressed: _showImportDialog,
+            ),
             TextButton.icon(
               onPressed: _save,
               icon: const Icon(Icons.check),
               label: const Text('保存'),
               style: TextButton.styleFrom(foregroundColor: cs.primary),
             ),
+          ],
         ],
       ),
       body: ListView(
@@ -421,12 +547,15 @@ class _RoutePageState extends State<RoutePage> {
                               color: cs.primary.withValues(alpha: 0.3),
                             ),
                           ),
-                          child: Image.asset(
-                            'assets/icon/$_icon',
-                            width: 30,
-                            height: 30,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Icon(Icons.train, color: cs.primary, size: 24),
+                          child: Center(
+                            child: Image.asset(
+                              'assets/icon/$_icon',
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(Icons.train, color: cs.primary, size: 24),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -779,6 +908,205 @@ class _RoutePageState extends State<RoutePage> {
           const SizedBox(height: 14),
           child,
         ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// 路路通导入对话框（独立 StatefulWidget，避免污染主页状态）
+// ──────────────────────────────────────────────────────────────
+
+class _LutongImportDialog extends StatefulWidget {
+  final TextEditingController textCtrl;
+  final TextEditingController offsetCtrl;
+  final void Function(String text, double offsetKm) onImport;
+
+  const _LutongImportDialog({
+    required this.textCtrl,
+    required this.offsetCtrl,
+    required this.onImport,
+  });
+
+  @override
+  State<_LutongImportDialog> createState() => _LutongImportDialogState();
+}
+
+class _LutongImportDialogState extends State<_LutongImportDialog> {
+  String _preview = '';
+
+  void _updatePreview() {
+    final parsed = _parseLutong(widget.textCtrl.text);
+    setState(() {
+      _preview = parsed.isEmpty
+          ? '（暂无可识别站点）'
+          : parsed.map((p) => '${p.name}  ${p.mileage}km').join('\n');
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.textCtrl.addListener(_updatePreview);
+  }
+
+  @override
+  void dispose() {
+    widget.textCtrl.removeListener(_updatePreview);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── 标题 ──
+            Row(
+              children: [
+                Icon(Icons.import_contacts, color: cs.primary),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    '从路路通导入线路',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+
+            // ── 使用说明 ──
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.primary.withAlpha(15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.primary.withAlpha(40)),
+              ),
+              child: const Text(
+                '操作步骤：\n'
+                '1. 打开路路通 → 找到对应线路的车次并进入\n'
+                '2. 点击「经由」→「纠错」\n'
+                '3. 找到线路分界站，仅复制该线路范围内的站点\n'
+                '   例如：南广/南昆交接处，复制到南宁站为止\n'
+                '4. 将复制的内容粘贴到下方输入框',
+                style: TextStyle(fontSize: 12, height: 1.6),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── 粘贴区 ──
+            const Text(
+              '粘贴路路通经由信息',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: widget.textCtrl,
+              maxLines: 8,
+              minLines: 5,
+              decoration: InputDecoration(
+                hintText: '例如：\nD3822 正确的经由信息为:\n茂名 深湛江湛段 0km\n电白 深湛江湛段 24km\n…',
+                hintStyle: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(90)),
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.all(10),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+
+            // ── 里程补偿 ──
+            const Text(
+              '里程补偿（可选）',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '若路路通数据的起点里程不为 0，可在此填入偏移量（km），'
+              '系统将从该数值开始计算区间距离。填 0 表示不补偿。',
+              style: TextStyle(fontSize: 11, color: cs.onSurface.withAlpha(150)),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: widget.offsetCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                LengthLimitingTextInputFormatter(8),
+              ],
+              decoration: const InputDecoration(
+                labelText: '里程补偿值',
+                hintText: '如 0 或 35.5',
+                border: OutlineInputBorder(),
+                suffixText: 'km',
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── 预览 ──
+            if (_preview.isNotEmpty) ...[
+              const Text(
+                '解析预览',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 140),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withAlpha(80),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: cs.outline.withAlpha(60)),
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    _preview,
+                    style: const TextStyle(fontSize: 12, height: 1.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // ── 按钮 ──
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    final text = widget.textCtrl.text.trim();
+                    if (text.isEmpty) return;
+                    final offset =
+                        double.tryParse(widget.offsetCtrl.text.trim()) ?? 0.0;
+                    Navigator.pop(context);
+                    widget.onImport(text, offset.clamp(0, double.infinity));
+                  },
+                  icon: const Icon(Icons.download_done, size: 18),
+                  label: const Text('导入站点'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

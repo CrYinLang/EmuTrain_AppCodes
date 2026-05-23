@@ -76,6 +76,11 @@ class _RouteMapPageState extends State<RouteMapPage> {
   List<({int ri, int si})> _selHits = [];
   final TransformationController _txCtrl = TransformationController();
   double _scale = 1.0;
+  double _maxScale = 12.0; // 动态最大缩放，根据最短线路计算
+
+  // 底部面板控制器
+  final DraggableScrollableController _draggableCtrl =
+  DraggableScrollableController();
 
   @override
   void initState() {
@@ -86,6 +91,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
   @override
   void dispose() {
     _txCtrl.dispose();
+    _draggableCtrl.dispose();
     super.dispose();
   }
 
@@ -132,10 +138,33 @@ class _RouteMapPageState extends State<RouteMapPage> {
     }
 
     _normalizeAll(raw);
+    final maxScale = _computeMaxScale(raw);
     setState(() {
       _plotted = raw;
       _loading = false;
+      _maxScale = maxScale;
     });
+  }
+
+  /// 以最短线路的跨度为基准，确保放大后该线路能铺满整个视口
+  double _computeMaxScale(List<_PlottedRoute> routes) {
+    double minSpan = double.infinity;
+    for (final r in routes) {
+      final valid = r.stations.where((s) => s.hasLocation).toList();
+      if (valid.length < 2) continue;
+      double minX = double.infinity, maxX = -double.infinity;
+      double minY = double.infinity, maxY = -double.infinity;
+      for (final s in valid) {
+        minX = min(minX, s.x); maxX = max(maxX, s.x);
+        minY = min(minY, s.y); maxY = max(maxY, s.y);
+      }
+      final span = max(maxX - minX, maxY - minY);
+      if (span > 0.01) minSpan = min(minSpan, span);
+    }
+    if (minSpan == double.infinity || minSpan <= 0) return 12.0;
+    // 放大到最短线路铺满视口，再多给 1.5 倍余量
+    final scale = (1.0 / minSpan) * 1.5;
+    return scale.clamp(8.0, 40.0);
   }
 
   void _normalizeAll(List<_PlottedRoute> routes) {
@@ -222,10 +251,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final nearest = _plotted[hits.first.ri].stations[hits.first.si];
     final grouped = hits
         .where((h) {
-          final s = _plotted[h.ri].stations[h.si];
-          return (Offset(s.x, s.y) - Offset(nearest.x, nearest.y)).distance <
-              (hr * 1.5) / sz.shortestSide;
-        })
+      final s = _plotted[h.ri].stations[h.si];
+      return (Offset(s.x, s.y) - Offset(nearest.x, nearest.y)).distance <
+          (hr * 1.5) / sz.shortestSide;
+    })
         .map((h) => (ri: h.ri, si: h.si))
         .toList();
 
@@ -233,10 +262,11 @@ class _RouteMapPageState extends State<RouteMapPage> {
       // 再次点击同一组则取消选中
       final same =
           _selHits.length == grouped.length &&
-          _selHits.every(
-            (a) => grouped.any((b) => b.ri == a.ri && b.si == a.si),
-          );
-      _selHits = same ? [] : grouped;
+              _selHits.every(
+                    (a) => grouped.any((b) => b.ri == a.ri && b.si == a.si),
+              );
+      // 最多展示 5 条
+      _selHits = same ? [] : grouped.take(5).toList();
     });
   }
 
@@ -259,22 +289,40 @@ class _RouteMapPageState extends State<RouteMapPage> {
       ),
       body: _loading
           ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('正在加载坐标数据…'),
-                ],
-              ),
-            )
-          : Column(
-              children: [
-                _buildLegend(isDark),
-                Expanded(child: _buildMap()),
-                if (_selHits.isNotEmpty) _buildInfoCards(isDark, cs),
-              ],
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在加载坐标数据…'),
+          ],
+        ),
+      )
+          : Stack(
+        children: [
+          // ── 固定布局：图例 + 地图 ──────────────────────────
+          Column(
+            children: [
+              _buildLegend(isDark),
+              Expanded(child: _buildMap()),
+              // 底部留出空间防止面板遮挡时最小占位
+              const SizedBox(height: 0),
+            ],
+          ),
+          // ── 可拖动底部面板 ─────────────────────────────────
+          if (_selHits.isNotEmpty)
+            DraggableScrollableSheet(
+              controller: _draggableCtrl,
+              initialChildSize: 0.32,
+              minChildSize: 0.10,
+              maxChildSize: 0.70,
+              snap: true,
+              snapSizes: const [0.10, 0.32, 0.70],
+              builder: (ctx, scrollCtrl) =>
+                  _buildDraggablePanel(isDark, cs, scrollCtrl),
             ),
+        ],
+      ),
     );
   }
 
@@ -357,60 +405,134 @@ class _RouteMapPageState extends State<RouteMapPage> {
     ),
   );
 
-  // ── 地图 ─────────────────────────────────────────────────────
+  // ── 地图（全页铺满） ─────────────────────────────────────────
 
   Widget _buildMap() {
     final surfaceColor = Theme.of(context).colorScheme.surface;
-    return Center(
-      child: AspectRatio(
-        aspectRatio: 1.0,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
-          margin: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: surfaceColor,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(30),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: LayoutBuilder(
-              builder: (ctx, constraints) {
-                final side = constraints.biggest.shortestSide;
-                final sz = Size(side, side);
-                return GestureDetector(
-                  onTapUp: (d) => _handleTap(d, sz),
-                  child: InteractiveViewer(
-                    transformationController: _txCtrl,
-                    minScale: 0.8,
-                    maxScale: 8.0,
-                    boundaryMargin: const EdgeInsets.all(80),
-                    onInteractionUpdate: (_) {
-                      final s = _txCtrl.value.getMaxScaleOnAxis();
-                      if (s != _scale) setState(() => _scale = s);
-                    },
-                    child: CustomPaint(
-                      size: sz,
-                      painter: _RouteMapPainter(
-                        routes: _plotted,
-                        selHits: _selHits,
-                        scale: _scale,
-                        surfaceColor: surfaceColor,
-                      ),
-                    ),
-                  ),
-                );
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final sz = constraints.biggest;
+        return Stack(
+          children: [
+            // 背景色
+            Positioned.fill(child: ColoredBox(color: surfaceColor)),
+            // 交互式地图层
+            InteractiveViewer(
+              transformationController: _txCtrl,
+              minScale: 0.5,
+              maxScale: _maxScale,
+              boundaryMargin: const EdgeInsets.all(100),
+              onInteractionUpdate: (_) {
+                final s = _txCtrl.value.getMaxScaleOnAxis();
+                // Always rebuild so label overlay repositions during pan/zoom
+                setState(() => _scale = s);
               },
+              child: GestureDetector(
+                onTapUp: (d) => _handleTap(d, sz),
+                child: CustomPaint(
+                  size: sz,
+                  painter: _RouteMapPainter(
+                    routes: _plotted,
+                    selHits: _selHits,
+                    scale: _scale,
+                    surfaceColor: surfaceColor,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
+            // Flutter Widget label 叠加层（不模糊，永远清晰）
+            if (_selHits.isNotEmpty)
+              IgnorePointer(
+                child: SizedBox.expand(
+                  child: CustomMultiChildLayout(
+                    delegate: _LabelLayoutDelegate(
+                      hits: _selHits,
+                      routes: _plotted,
+                      transform: _txCtrl.value,
+                      canvasSize: sz,
+                    ),
+                    children: _selHits.asMap().entries.map((e) {
+                      final idx = e.key;
+                      final h = e.value;
+                      if (h.ri >= _plotted.length) {
+                        return LayoutId(id: idx, child: const SizedBox());
+                      }
+                      final route = _plotted[h.ri];
+                      if (h.si >= route.stations.length) {
+                        return LayoutId(id: idx, child: const SizedBox());
+                      }
+                      final s = route.stations[h.si];
+                      final mileStr =
+                      (h.si < route.stations.length - 1 &&
+                          s.mileageToNext != null)
+                          ? '至下站 ${s.mileageToNext} km'
+                          : null;
+                      return LayoutId(
+                        id: idx,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(245),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: route.color.withAlpha(200),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(40),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${s.name}站',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                  height: 1.2,
+                                ),
+                              ),
+                              Text(
+                                route.model.name +
+                                    (s.city.isNotEmpty
+                                        ? ' · ${s.city}'
+                                        : ''),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: route.color,
+                                  height: 1.2,
+                                ),
+                              ),
+                              if (mileStr != null)
+                                Text(
+                                  mileStr,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.black54,
+                                    height: 1.2,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -473,6 +595,134 @@ class _RouteMapPageState extends State<RouteMapPage> {
           ),
         ..._selHits.map((h) => _buildOneCard(h.ri, h.si, isDark, cs)),
       ],
+    );
+  }
+
+  // ── 可拖动底部面板 ───────────────────────────────────────────
+
+  Widget _buildDraggablePanel(
+      bool isDark,
+      ColorScheme cs,
+      ScrollController scrollCtrl,
+      ) {
+    final bgColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+
+    // 站点名（共站时取第一个）
+    final firstName = () {
+      final h = _selHits.first;
+      if (h.ri < _plotted.length && h.si < _plotted[h.ri].stations.length) {
+        return '${_plotted[h.ri].stations[h.si].name}站';
+      }
+      return '';
+    }();
+
+    // 实际命中总数（未裁切前）
+    final totalHits = _selHits.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(50),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: ListView(
+        controller: scrollCtrl,
+        padding: EdgeInsets.zero,
+        children: [
+          // ── 拖动把手 ─────────────────────────────────────────
+          GestureDetector(
+            onTap: () {
+              // 点击把手区域切换展开/收起
+              final cur = _draggableCtrl.size;
+              _draggableCtrl.animateTo(
+                cur < 0.20 ? 0.32 : 0.10,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+              );
+            },
+            child: Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.only(top: 10, bottom: 6),
+              child: Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withAlpha(80),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // ── 标题行 ────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.place, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    firstName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (totalHits > 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withAlpha(40),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.orange.withAlpha(120)),
+                    ),
+                    child: Text(
+                      '$totalHits 线路经过',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                // 关闭按钮
+                GestureDetector(
+                  onTap: () => setState(() => _selHits = []),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withAlpha(20),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: cs.onSurface.withAlpha(160),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // ── 卡片列表（最多 5 条）────────────────────────────
+          ..._selHits.map((h) => _buildOneCard(h.ri, h.si, isDark, cs)),
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 
@@ -620,7 +870,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
                         ] else if (isFirst)
                           _badge('起点', Colors.green)
                         else if (isLast)
-                          _badge('终点', Colors.red),
+                            _badge('终点', Colors.red),
                       ],
                     ),
                     if (s.city.isNotEmpty)
@@ -709,9 +959,7 @@ class _RouteMapPainter extends CustomPainter {
       if (!r.visible) continue;
       _drawStops(canvas, size, r, ri);
     }
-    for (final h in selHits) {
-      _drawLabel(canvas, size, h.ri, h.si);
-    }
+    // labels are now rendered as Flutter Widgets (see _LabelLayoutDelegate)
   }
 
   void _drawLine(Canvas canvas, Size size, _PlottedRoute r, bool isSelected) {
@@ -771,84 +1019,13 @@ class _RouteMapPainter extends CustomPainter {
     }
   }
 
-  void _drawLabel(Canvas canvas, Size size, int ri, int si) {
-    if (ri >= routes.length) return;
-    final r = routes[ri];
-    if (si >= r.stations.length) return;
-    final s = r.stations[si];
-    if (!s.hasLocation) return;
-
-    final cx = s.x * size.width, cy = s.y * size.height;
-    final sub = r.model.name + (s.city.isNotEmpty ? ' · ${s.city}' : '');
-    final mileStr = (si < r.stations.length - 1 && s.mileageToNext != null)
-        ? '至下站 ${s.mileageToNext} km'
-        : null;
-
-    final fs = _px(11.0), fsS = _px(9.5);
-    final nameTp = _tp('${s.name}站', fs, Colors.black87, bold: true);
-    final subTp = _tp(sub, fsS, r.color);
-    final mileTp = mileStr != null ? _tp(mileStr, fsS, Colors.black54) : null;
-
-    final padH = _px(8.0), padV = _px(5.0), gap = _px(3.0);
-    double cw = max(nameTp.width, subTp.width);
-    if (mileTp != null) cw = max(cw, mileTp.width);
-    double ch = nameTp.height + gap + subTp.height;
-    if (mileTp != null) ch += gap + mileTp.height;
-
-    final lw = cw + padH * 2, lh = ch + padV * 2, mg = _px(10.0);
-    final candidates = [
-      Offset(cx + mg, cy - lh / 2),
-      Offset(cx - lw - mg, cy - lh / 2),
-      Offset(cx - lw / 2, cy - lh - mg),
-      Offset(cx - lw / 2, cy + mg),
-    ];
-    Offset pos = candidates.first;
-    for (final p in candidates) {
-      if (p.dx >= 0 &&
-          p.dx + lw <= size.width &&
-          p.dy >= 0 &&
-          p.dy + lh <= size.height) {
-        pos = p;
-        break;
-      }
-    }
-    pos = Offset(
-      pos.dx.clamp(0.0, size.width - lw),
-      pos.dy.clamp(0.0, size.height - lh),
-    );
-
-    final rr = RRect.fromLTRBR(
-      pos.dx,
-      pos.dy,
-      pos.dx + lw,
-      pos.dy + lh,
-      Radius.circular(_px(6)),
-    );
-    canvas.drawRRect(rr, Paint()..color = Colors.white.withAlpha(240));
-    canvas.drawRRect(
-      rr,
-      Paint()
-        ..color = r.color.withAlpha(180)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = _px(1.2),
-    );
-
-    double tx = pos.dx + padH, ty = pos.dy + padV;
-    nameTp.paint(canvas, Offset(tx, ty));
-    ty += nameTp.height + gap;
-    subTp.paint(canvas, Offset(tx, ty));
-    if (mileTp != null) {
-      ty += subTp.height + gap;
-      mileTp.paint(canvas, Offset(tx, ty));
-    }
-  }
 
   TextPainter _tp(
-    String text,
-    double fontSize,
-    Color color, {
-    bool bold = false,
-  }) {
+      String text,
+      double fontSize,
+      Color color, {
+        bool bold = false,
+      }) {
     return TextPainter(
       text: TextSpan(
         text: text,
@@ -866,4 +1043,66 @@ class _RouteMapPainter extends CustomPainter {
   @override
   bool shouldRepaint(_RouteMapPainter old) =>
       old.routes != routes || old.selHits != selHits || old.scale != scale;
+}
+
+// ═════════════════════════════════════════════════════════════
+// Label overlay layout delegate
+// ═════════════════════════════════════════════════════════════
+
+class _LabelLayoutDelegate extends MultiChildLayoutDelegate {
+  final List<({int ri, int si})> hits;
+  final List<_PlottedRoute> routes;
+  final Matrix4 transform;
+  final Size canvasSize;
+
+  _LabelLayoutDelegate({
+    required this.hits,
+    required this.routes,
+    required this.transform,
+    required this.canvasSize,
+  });
+
+  @override
+  void performLayout(Size size) {
+    for (int idx = 0; idx < hits.length; idx++) {
+      if (!hasChild(idx)) continue;
+      final h = hits[idx];
+      if (h.ri >= routes.length) {
+        layoutChild(idx, const BoxConstraints.tightFor(width: 0, height: 0));
+        positionChild(idx, Offset.zero);
+        continue;
+      }
+      final route = routes[h.ri];
+      if (h.si >= route.stations.length) {
+        layoutChild(idx, const BoxConstraints.tightFor(width: 0, height: 0));
+        positionChild(idx, Offset.zero);
+        continue;
+      }
+      final s = route.stations[h.si];
+
+      // 把归一化坐标映射到 canvas 空间，再用 transform 转换到屏幕空间
+      final canvasPt = Offset(s.x * canvasSize.width, s.y * canvasSize.height);
+      final screenPt = MatrixUtils.transformPoint(transform, canvasPt);
+
+      // label child 尺寸
+      final childSize = layoutChild(idx, BoxConstraints.loose(const Size(220, 120)));
+
+      // 偏好右上，检测边界后调整
+      const mg = 12.0;
+      double dx = screenPt.dx + mg;
+      double dy = screenPt.dy - childSize.height - mg;
+      if (dx + childSize.width > size.width) dx = screenPt.dx - childSize.width - mg;
+      if (dy < 0) dy = screenPt.dy + mg;
+      dx = dx.clamp(4.0, size.width - childSize.width - 4);
+      dy = dy.clamp(4.0, size.height - childSize.height - 4);
+
+      positionChild(idx, Offset(dx, dy));
+    }
+  }
+
+  @override
+  bool shouldRelayout(_LabelLayoutDelegate old) =>
+      old.hits != hits ||
+          old.transform.storage.toString() != transform.storage.toString() ||
+          old.routes != routes;
 }

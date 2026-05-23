@@ -742,12 +742,14 @@ class _RouteHubPageState extends State<RouteHubPage> {
                     ),
                     child: r.icon.isEmpty
                         ? Icon(Icons.route, color: cs.primary, size: 24)
-                        : Image.asset(
-                            'assets/icon/${r.icon}',
-                            width: 28,
-                            height: 28,
-                            errorBuilder: (_, __, ___) =>
-                                Icon(Icons.route, color: cs.primary, size: 24),
+                        : Padding(
+                            padding: const EdgeInsets.all(5.5), // ~75% of 44px
+                            child: Image.asset(
+                              'assets/icon/${r.icon}',
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) =>
+                                  Icon(Icons.route, color: cs.primary, size: 24),
+                            ),
                           ),
                   ),
                   const SizedBox(width: 12),

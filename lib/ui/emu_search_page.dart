@@ -1,4 +1,4 @@
-//home_page.dart
+// emu_search_page.dart
 import 'dart:convert';
 import 'dart:math';
 
@@ -13,7 +13,11 @@ import 'function/error.dart';
 import 'function/more_search.dart';
 import 'journey.dart';
 
-// 搜索结果数据类（统一所有查询类型的结果）
+// ============================================================
+// 数据模型
+// ============================================================
+
+/// 搜索结果数据类（统一所有查询类型的结果）
 class SearchResult {
   final String model;
   final String number;
@@ -31,7 +35,7 @@ class SearchResult {
   final String queryTime;
   final String? trainCodeForJourney;
 
-  SearchResult({
+  const SearchResult({
     required this.model,
     required this.number,
     required this.bureau,
@@ -50,6 +54,453 @@ class SearchResult {
   });
 }
 
+// ============================================================
+// 工具函数（纯函数，无状态依赖）
+// ============================================================
+
+/// 去除非字母数字字符并转大写
+String cleanString(String input) =>
+    input.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+
+/// 提取末四位数字
+String? extractLastFour(String? text) {
+  if (text == null || text.isEmpty) return null;
+  final digits = text.replaceAll(RegExp(r'[^0-9]'), '');
+  return digits.length >= 4 ? digits.substring(digits.length - 4) : null;
+}
+
+/// 计算输入与车组的匹配分数（0.0 ~ 1.0）
+double calculateMatchScore(String input, String trainNumber, String modelCode) {
+  final cleanedInput = cleanString(input);
+  final cleanedTrainNumber = cleanString(trainNumber);
+  final cleanedModelCode = cleanString(modelCode);
+
+  final fullTrainNumber = '$cleanedModelCode$cleanedTrainNumber';
+  if (cleanedInput == fullTrainNumber) return 1.0;
+
+  double numberScore = 0.0;
+  if (cleanedTrainNumber.isNotEmpty) {
+    if (cleanedInput.endsWith(cleanedTrainNumber)) {
+      numberScore = 1.0;
+    } else if (cleanedTrainNumber.length >= 4) {
+      final trainLastFour =
+          cleanedTrainNumber.substring(cleanedTrainNumber.length - 4);
+      if (cleanedInput.contains(trainLastFour)) numberScore = 0.8;
+    }
+  }
+
+  double modelScore = 0.0;
+  if (cleanedInput.startsWith(cleanedModelCode)) {
+    modelScore = 1.0;
+  } else if (cleanedModelCode.startsWith(cleanedInput)) {
+    modelScore = cleanedInput.length / cleanedModelCode.length;
+  } else {
+    int commonPrefix = 0;
+    final minLength = min(cleanedInput.length, cleanedModelCode.length);
+    for (var i = 0;
+        i < minLength && cleanedInput[i] == cleanedModelCode[i];
+        i++) {
+      commonPrefix++;
+    }
+    if (commonPrefix >= 4) {
+      modelScore = commonPrefix / cleanedModelCode.length;
+    } else if (commonPrefix >= 2) {
+      modelScore = commonPrefix / cleanedModelCode.length * 0.6;
+    }
+  }
+
+  double finalScore = 0.0;
+  if (numberScore > 0 && modelScore > 0) {
+    finalScore = numberScore * 0.7 + modelScore * 0.3;
+  } else if (numberScore > 0) {
+    finalScore = numberScore * 0.5;
+  } else if (modelScore > 0) {
+    finalScore = modelScore * 0.4;
+  }
+
+  return finalScore.clamp(0.0, 1.0);
+}
+
+/// 格式化当前时间为 "yyyy-MM-dd HH:mm:ss"
+String nowQueryTime() => DateTime.now().toLocal().toString().substring(0, 19);
+
+/// 格式化当前日期为 "yyyyMMdd"（用于12306 API）
+String formattedToday() {
+  final now = DateTime.now();
+  return '${now.year}'
+      '${now.month.toString().padLeft(2, '0')}'
+      '${now.day.toString().padLeft(2, '0')}';
+}
+
+// ============================================================
+// 数据加载辅助
+// ============================================================
+
+/// 从 trainData 中提取去重排序的路局列表
+List<String> extractBureauNames(List<Map<String, dynamic>> trainData) {
+  return trainData
+      .map((r) => (r['配属路局'] ?? '').toString().trim())
+      .where((b) => b.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+}
+
+/// 从 trainData 中提取去重排序的动车所列表
+List<String> extractDepotNames(List<Map<String, dynamic>> trainData) {
+  return trainData
+      .map((r) => (r['配属动车所'] ?? '').toString().trim())
+      .where((d) => d.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+}
+
+/// 从 trainData 中提取去重排序的车型代号列表
+List<String> extractCarTypes(List<Map<String, dynamic>> trainData) {
+  return trainData
+      .map((r) => (r['type_code'] ?? '').toString().trim())
+      .where((t) => t.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+}
+
+// ============================================================
+// 本地数据查询逻辑
+// ============================================================
+
+/// 根据路局名在 bureauNames 中查找完整名称
+String getBureauFullName(String bureauCode, List<String> bureauNames) {
+  for (final fullName in bureauNames) {
+    if (fullName.contains(bureauCode) || bureauCode.contains(fullName)) {
+      return fullName;
+    }
+  }
+  return bureauCode;
+}
+
+/// 路局过滤（返回排序后的记录列表）
+List<Map<String, dynamic>> filterByBureau(
+  List<Map<String, dynamic>> trainData,
+  List<String> bureauNames,
+  String bureauInput,
+) {
+  final pattern = bureauInput.trim().toLowerCase();
+  final matched = trainData.where((record) {
+    final bureau = (record['配属路局'] ?? '').toString().trim();
+    if (bureau.isEmpty) return false;
+    final fullName = getBureauFullName(bureau, bureauNames);
+    return bureau.toLowerCase().contains(pattern) ||
+        fullName.toLowerCase().contains(pattern);
+  }).toList();
+
+  matched.sort((a, b) {
+    final modelA = a['type_code'] ?? '';
+    final modelB = b['type_code'] ?? '';
+    if (modelA != modelB) return modelA.compareTo(modelB);
+    return (a['车组号'] ?? '').compareTo(b['车组号'] ?? '');
+  });
+
+  return matched;
+}
+
+/// 车型过滤（精确匹配，返回排序后的记录列表）
+List<Map<String, dynamic>> filterByCarType(
+  List<Map<String, dynamic>> trainData,
+  String carTypeInput,
+) {
+  final pattern = carTypeInput.trim().toUpperCase();
+  final matched = trainData
+      .where(
+        (record) =>
+            (record['type_code'] ?? '').toString().trim().toUpperCase() ==
+            pattern,
+      )
+      .toList();
+
+  matched.sort((a, b) => (a['车组号'] ?? '').compareTo(b['车组号'] ?? ''));
+  return matched;
+}
+
+/// 动车所过滤（返回排序后的记录列表）
+List<Map<String, dynamic>> filterByDepot(
+  List<Map<String, dynamic>> trainData,
+  String depotInput,
+) {
+  final pattern = depotInput.trim().toLowerCase();
+  final matched = trainData.where((record) {
+    final depot = (record['配属动车所'] ?? '').toString().trim();
+    return depot.isNotEmpty && depot.toLowerCase().contains(pattern);
+  }).toList();
+
+  matched.sort((a, b) {
+    final modelA = a['type_code'] ?? '';
+    final modelB = b['type_code'] ?? '';
+    if (modelA != modelB) return modelA.compareTo(modelB);
+    return (a['车组号'] ?? '').compareTo(b['车组号'] ?? '');
+  });
+
+  return matched;
+}
+
+/// 车号本地模糊匹配 + 评分，返回最优记录列表
+/// 返回 null 表示无结果（调用方负责设置 errorMsg）
+List<Map<String, dynamic>>? scoreAndSelectTrainId(
+  List<Map<String, dynamic>> trainData,
+  String input,
+) {
+  final cleanedInput = cleanString(input);
+  final inputDigits = cleanedInput.replaceAll(RegExp(r'[^0-9]'), '');
+  final hasFourDigits = inputDigits.length >= 4;
+
+  // 粗筛
+  List<Map<String, dynamic>> matches = trainData.where((record) {
+    final trainNum = cleanString(record['车组号'] ?? '');
+    return trainNum.contains(cleanedInput) || cleanedInput.contains(trainNum);
+  }).toList();
+
+  if (matches.isEmpty) return [];
+
+  // 精确评分 + 末四位过滤
+  final scored = <Map<String, dynamic>, double>{};
+  for (final record in matches) {
+    final model = record['type_code'] ?? '';
+    final number = record['车组号'] ?? '';
+    final score = calculateMatchScore(input, number, model);
+
+    if (hasFourDigits) {
+      final inputLastFour = inputDigits.substring(inputDigits.length - 4);
+      final recordLastFour = extractLastFour(number);
+      if (recordLastFour != inputLastFour) continue;
+    }
+    scored[record] = score;
+  }
+
+  if (scored.isEmpty) return null; // 区分"有粗筛无精筛"与"完全无匹配"
+
+  final sortedEntries = scored.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  final topScore = sortedEntries.first.value;
+
+  if (topScore >= 0.9) {
+    return sortedEntries
+        .where((e) => e.value >= topScore - 0.05)
+        .map((e) => e.key)
+        .toList();
+  } else {
+    return sortedEntries.take(5).map((e) => e.key).toList();
+  }
+}
+
+// ============================================================
+// 网络请求层
+// ============================================================
+
+const _defaultHeaders = {'User-Agent': 'Mozilla/5.0'};
+
+/// 查询始发终到站（12306 搜索接口）
+Future<String?> fetchStationInfo(String trainCode) async {
+  try {
+    final date = formattedToday();
+    final url =
+        'https://search.12306.cn/search/v1/train/search?keyword=$trainCode&date=$date';
+    final response = await http
+        .get(Uri.parse(url), headers: _defaultHeaders)
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) return null;
+
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    if (data['status'] != true || data['data'] == null) return null;
+
+    for (final train in data['data'] as List) {
+      final code = train['station_train_code']?.toString().trim() ?? '';
+      final from = train['from_station']?.toString().trim() ?? '';
+      final to = train['to_station']?.toString().trim() ?? '';
+      if (code == trainCode && from.isNotEmpty && to.isNotEmpty) {
+        return '$from ~ $to';
+      }
+    }
+    return null;
+  } catch (e) {
+    logError(from: 'EmuSearchPage.fetchStationInfo', error: e.toString(), level: 2);
+    return null;
+  }
+}
+
+/// 通过车次查询 emu_no（rail.re 数据源）
+Future<http.Response?> fetchTrainByRailRe(String fullCode) => http.get(
+      Uri.parse('https://api.rail.re/train/${fullCode.toUpperCase()}'),
+      headers: _defaultHeaders,
+    );
+
+/// 通过车次查询 emu_no（railGo 数据源）
+Future<http.Response?> fetchTrainByRailGo(String fullCode) => http.get(
+      Uri.parse(
+        'https://emu.data.railgo.zenglingkun.cn/train/${fullCode.toUpperCase()}',
+      ),
+      headers: _defaultHeaders,
+    );
+
+/// 通过车次查询 emu_no（12306 数据源），返回已格式化为 rail.re 格式的 Response
+Future<http.Response?> fetchTrainBy12306(String fullCode) async {
+  final url =
+      'https://mobile.12306.cn/wxxcx/openplatform-inner/miniprogram/wifiapps/appFrontEnd/v2/lounge/open-smooth-common/trainStyleBatch/getCarDetail'
+      '?carCode=&trainCode=${fullCode.toUpperCase()}&runningDay=0&reqType=form';
+  final resp = await http.get(Uri.parse(url), headers: _defaultHeaders);
+  if (resp.statusCode != 200) return null;
+
+  final data = json.decode(resp.body) as Map<String, dynamic>;
+  if (data['content'] == null ||
+      data['content'] is! Map ||
+      data['content']['data'] == null) {
+    return null;
+  }
+
+  final carCode = data['content']['data']['carCode'] as String?;
+  if (carCode == null || carCode.isEmpty) return null;
+
+  final synthetic =
+      '[{"DateTime":"${DateTime.now()}","emu_no":"$carCode","train_no":"${fullCode.toUpperCase()}"}]';
+  return http.Response(synthetic, 200);
+}
+
+/// 查询车组当前担当交路（moeFactory 数据源）
+Future<String?> fetchRouteByMoeFactory(String emuNo) async {
+  try {
+    final resp = await http
+        .post(
+          Uri.parse('https://rail.moefactory.com/api/emuSerialNumber/query'),
+          headers: {
+            ..._defaultHeaders,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: {'keyword': emuNo},
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (resp.statusCode != 200 || resp.body.isEmpty) return null;
+
+    final body = json.decode(resp.body) as Map<String, dynamic>;
+    if (body['code'] != 200) return null;
+
+    final data = body['data'] as List? ?? [];
+    if (data.isEmpty) return null;
+
+    final item = data[0];
+    final trainNo = item['trainNumber']?.toString().trim() ?? '';
+    final date = item['date']?.toString().trim() ?? '';
+    return trainNo.isNotEmpty ? '正在担当: $date\n本务车次: $trainNo' : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 查询车组当前担当交路（railGo 数据源）
+Future<String?> fetchRouteByRailGo(String emuNo) async {
+  try {
+    final resp = await http
+        .get(
+          Uri.parse('https://emu.data.railgo.zenglingkun.cn/emu/$emuNo'),
+          headers: _defaultHeaders,
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (resp.statusCode != 200 ||
+        resp.body.isEmpty ||
+        resp.body == '[]') return null;
+
+    final emuData = json.decode(resp.body) as List;
+    if (emuData.isEmpty) return null;
+
+    final item = emuData[0];
+    final trainNo = item['train_no']?.toString().trim() ?? '';
+    final date = item['date']?.toString() ?? '';
+    return trainNo.isNotEmpty ? '正在担当: $date\n本务车次: $trainNo' : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 查询车组当前担当交路（rail.re 数据源）
+Future<String?> fetchRouteByRailRe(String emuNo) async {
+  try {
+    final resp = await http
+        .get(
+          Uri.parse('https://api.rail.re/emu/$emuNo'),
+          headers: _defaultHeaders,
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (resp.statusCode != 200 ||
+        resp.body.isEmpty ||
+        resp.body == '[]') return null;
+
+    final emuData = json.decode(resp.body) as List;
+    if (emuData.isEmpty) return null;
+
+    final item = emuData[0];
+    final trainNo = item['train_no']?.toString().trim() ?? '';
+    final date = item['date']?.toString() ?? '';
+    return trainNo.isNotEmpty ? '正在担当: $date\n本务车次: $trainNo' : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 按 AppSettings 选择对应数据源查询交路
+Future<String?> fetchRouteInfo(String emuNo, AppSettings settings) {
+  if (settings.dataEmuSource == TrainEmuDataSource.moeFactory) {
+    return fetchRouteByMoeFactory(emuNo);
+  } else if (settings.dataEmuSource == TrainEmuDataSource.railGo) {
+    return fetchRouteByRailGo(emuNo);
+  } else {
+    return fetchRouteByRailRe(emuNo);
+  }
+}
+
+// ============================================================
+// 分页状态封装
+// ============================================================
+
+class PaginationState {
+  List<Map<String, dynamic>> allRecords;
+  int currentPage;
+  final int pageSize;
+  int totalResults;
+  String? currentSearchLabel;
+  bool loadingPage;
+
+  PaginationState({this.pageSize = 7})
+      : allRecords = [],
+        currentPage = 1,
+        totalResults = 0,
+        loadingPage = false;
+
+  int get totalPages => (totalResults / pageSize).ceil();
+
+  void reset() {
+    allRecords = [];
+    currentPage = 1;
+    totalResults = 0;
+    currentSearchLabel = null;
+    loadingPage = false;
+  }
+
+  /// 返回当前页的记录切片
+  List<Map<String, dynamic>> pageRecords(int page) {
+    final start = (page - 1) * pageSize;
+    final end = min(page * pageSize, allRecords.length);
+    if (start >= allRecords.length) return [];
+    return allRecords.sublist(start, end);
+  }
+}
+
+// ============================================================
+// Widget
+// ============================================================
+
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
 
@@ -58,332 +509,95 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
+  // --- 基础状态 ---
   String prefix = 'G';
   final TextEditingController controller = TextEditingController();
+  late final TextEditingController _pageController;
   String searchType = 'trainCode';
   bool showRoutes = false;
   bool isLoading = false;
   String errorMsg = '';
   DateTime? lastSearchTime;
 
-  // 本地数据
+  // --- 数据 ---
   List<Map<String, dynamic>> trainData = [];
-
   List<String> _bureauNames = [];
   List<String> _depotNames = [];
-
   final List<SearchResult> _searchResults = [];
 
-  List<Map<String, dynamic>> _allBureauRecords = [];
-  int _currentPage = 1;
-  final int _pageSize = 7;
-  int _totalResults = 0;
+  // --- 分页 ---
+  final _pagination = PaginationState();
 
-  int get _totalPages => (_totalResults / _pageSize).ceil();
-  String? _currentBureauSearch;
-  bool _loadingPage = false;
-
-  late TextEditingController _pageController;
+  // ---- 快捷访问分页字段（对外保持原有风格）----
+  int get _currentPage => _pagination.currentPage;
+  int get _totalPages => _pagination.totalPages;
+  int get _totalResults => _pagination.totalResults;
+  bool get _loadingPage => _pagination.loadingPage;
+  String? get _currentBureauSearch => _pagination.currentSearchLabel;
 
   @override
   void initState() {
     super.initState();
-    _loadConfig();
     _pageController = TextEditingController(text: '1');
+    _loadConfig();
   }
 
   @override
   void dispose() {
+    controller.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
+  // ============================================================
+  // 数据初始化
+  // ============================================================
+
   Future<void> _loadConfig() async {
     try {
-      final loadedData = await DataFileHelper.loadTrains();
-      if (mounted) {
-        final bureauSet =
-            loadedData
-                .map((r) => (r['配属路局'] ?? '').toString().trim())
-                .where((b) => b.isNotEmpty)
-                .toSet()
-                .toList()
-              ..sort();
-        final depotSet =
-            loadedData
-                .map((r) => (r['配属动车所'] ?? '').toString().trim())
-                .where((d) => d.isNotEmpty)
-                .toSet()
-                .toList()
-              ..sort();
-        setState(() {
-          trainData = loadedData;
-          _bureauNames = bureauSet;
-          _depotNames = depotSet;
-        });
-      }
+      final loaded = await DataFileHelper.loadTrains();
+      if (!mounted) return;
+      setState(() {
+        trainData = loaded;
+        _bureauNames = extractBureauNames(loaded);
+        _depotNames = extractDepotNames(loaded);
+      });
     } catch (e) {
-      logError(
-        from: 'EmuSearchPage._loadConfig',
-        error: e.toString(),
-        level: 4,
-      );
-      if (mounted) {
-        setState(() {
-          errorMsg = '加载数据失败: $e';
-        });
-      }
+      logError(from: 'EmuSearchPage._loadConfig', error: e.toString(), level: 4);
+      if (mounted) setState(() => errorMsg = '加载数据失败: $e');
     }
   }
 
-  // ==================== 工具函数 ====================
-  String cleanString(String input) {
-    return input.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
-  }
+  // ============================================================
+  // 辅助方法（依赖 state）
+  // ============================================================
 
-  String? extractLastFour(String? text) {
-    if (text == null || text.isEmpty) return null;
-    final digits = text.replaceAll(RegExp(r'[^0-9]'), '');
-    return digits.length >= 4 ? digits.substring(digits.length - 4) : null;
-  }
+  String _getBureauFullName(String bureauCode) =>
+      getBureauFullName(bureauCode, _bureauNames);
 
-  double calculateMatchScore(
-    String input,
-    String trainNumber,
-    String modelCode,
-  ) {
-    final cleanedInput = cleanString(input);
-    final cleanedTrainNumber = cleanString(trainNumber);
-    final cleanedModelCode = cleanString(modelCode);
+  List<String> _getAllCarTypes() => extractCarTypes(trainData);
 
-    final fullTrainNumber = '$cleanedModelCode$cleanedTrainNumber';
-    if (cleanedInput == fullTrainNumber) return 1.0;
-
-    double numberScore = 0.0;
-    if (cleanedTrainNumber.isNotEmpty) {
-      if (cleanedInput.endsWith(cleanedTrainNumber)) {
-        numberScore = 1.0;
-      } else if (cleanedTrainNumber.length >= 4) {
-        String trainLastFour = cleanedTrainNumber.substring(
-          cleanedTrainNumber.length - 4,
-        );
-        if (cleanedInput.contains(trainLastFour)) {
-          numberScore = 0.8;
-        }
-      }
-    }
-
-    double modelScore = 0.0;
-    if (cleanedInput.startsWith(cleanedModelCode)) {
-      modelScore = 1.0;
-    } else if (cleanedModelCode.startsWith(cleanedInput)) {
-      modelScore = cleanedInput.length / cleanedModelCode.length;
-    } else {
-      int commonPrefix = 0;
-      int minLength = min(cleanedInput.length, cleanedModelCode.length);
-      int i = 0;
-      while (i < minLength && cleanedInput[i] == cleanedModelCode[i]) {
-        commonPrefix++;
-        i++;
-      }
-      if (commonPrefix >= 4) {
-        modelScore = commonPrefix / cleanedModelCode.length;
-      } else if (commonPrefix >= 2) {
-        modelScore = commonPrefix / cleanedModelCode.length * 0.6;
-      }
-    }
-
-    double finalScore = 0.0;
-    if (numberScore > 0 && modelScore > 0) {
-      finalScore = numberScore * 0.7 + modelScore * 0.3;
-    } else if (numberScore > 0) {
-      finalScore = numberScore * 0.5;
-    } else if (modelScore > 0) {
-      finalScore = modelScore * 0.4;
-    }
-
-    return finalScore.clamp(0.0, 1.0);
-  }
-
-  String _getBureauFullName(String bureauCode) {
-    for (final fullName in _bureauNames) {
-      if (fullName.contains(bureauCode) || bureauCode.contains(fullName)) {
-        return fullName;
-      }
-    }
-    return bureauCode;
-  }
-
-  List<String> _getAllCarTypes() {
-    final types = trainData
-        .map((r) => (r['type_code'] ?? '').toString().trim())
-        .where((t) => t.isNotEmpty)
-        .toSet()
-        .toList();
-    types.sort();
-    return types;
-  }
-
-  /// 从文件加载的路局名中提取用于快捷 Chip 的显示列表（直接返回全名）
-  List<String> _getCommonBureauCodes() {
-    return List<String>.from(_bureauNames);
-  }
-
-  void _handleBureauChipTap(String bureauName) {
-    controller.text = bureauName;
-    _performSearch();
-  }
+  List<String> _getCommonBureauCodes() => List<String>.from(_bureauNames);
 
   void _resetPagination() {
-    _currentPage = 1;
-    _totalResults = 0;
-    _currentBureauSearch = null;
-    _allBureauRecords = [];
-    _loadingPage = false;
+    _pagination.reset();
     _pageController.text = '1';
   }
 
-  // ==================== 路局查询 ====================
-  Future<void> _searchByBureau(String bureauInput) async {
-    if (bureauInput.isEmpty) return;
-
-    setState(() {
-      isLoading = true;
-      errorMsg = '';
-      _searchResults.clear();
-      _resetPagination();
-    });
-
-    final bureauPattern = bureauInput.trim().toLowerCase();
-    final List<Map<String, dynamic>> matchedRecords = [];
-
-    for (var record in trainData) {
-      final bureau = (record['配属路局'] ?? '').toString().trim();
-      if (bureau.isNotEmpty) {
-        final bureauFullName = _getBureauFullName(bureau);
-        if (bureau.toLowerCase().contains(bureauPattern) ||
-            bureauFullName.toLowerCase().contains(bureauPattern)) {
-          matchedRecords.add(record);
-        }
-      }
-    }
-
-    if (matchedRecords.isEmpty) {
-      setState(() {
-        isLoading = false;
-        errorMsg = '未找到匹配的路局';
-      });
-      return;
-    }
-
-    matchedRecords.sort((a, b) {
-      final modelA = a['type_code'] ?? '';
-      final modelB = b['type_code'] ?? '';
-      if (modelA != modelB) return modelA.compareTo(modelB);
-      return (a['车组号'] ?? '').compareTo(b['车组号'] ?? '');
-    });
-
-    _allBureauRecords = matchedRecords;
-    _totalResults = matchedRecords.length;
-    _currentBureauSearch = bureauInput;
-
-    _loadBureauPage(1);
-  }
-
-  // ==================== 车型查询 ====================
-  Future<void> _searchByCarType(String carTypeInput) async {
-    if (carTypeInput.isEmpty) return;
-
-    setState(() {
-      isLoading = true;
-      errorMsg = '';
-      _searchResults.clear();
-      _resetPagination();
-    });
-
-    final pattern = carTypeInput.trim().toUpperCase();
-    final List<Map<String, dynamic>> matchedRecords = [];
-
-    for (var record in trainData) {
-      final typeCode = (record['type_code'] ?? '')
-          .toString()
-          .trim()
-          .toUpperCase();
-      if (typeCode == pattern) {
-        matchedRecords.add(record);
-      }
-    }
-
-    if (matchedRecords.isEmpty) {
-      setState(() {
-        isLoading = false;
-        errorMsg = '未找到车型 "$carTypeInput"，请检查输入是否正确';
-      });
-      return;
-    }
-
-    matchedRecords.sort((a, b) => (a['车组号'] ?? '').compareTo(b['车组号'] ?? ''));
-
-    _allBureauRecords = matchedRecords;
-    _totalResults = matchedRecords.length;
-    _currentBureauSearch = carTypeInput.trim().toUpperCase();
-
-    _loadBureauPage(1);
-  }
-
-  // ==================== 动车所查询 ====================
-  Future<void> _searchByDepot(String depotInput) async {
-    if (depotInput.isEmpty) return;
-
-    setState(() {
-      isLoading = true;
-      errorMsg = '';
-      _searchResults.clear();
-      _resetPagination();
-    });
-
-    final pattern = depotInput.trim().toLowerCase();
-    final List<Map<String, dynamic>> matchedRecords = [];
-
-    for (var record in trainData) {
-      final depot = (record['配属动车所'] ?? '').toString().trim();
-      if (depot.isNotEmpty && depot.toLowerCase().contains(pattern)) {
-        matchedRecords.add(record);
-      }
-    }
-
-    if (matchedRecords.isEmpty) {
-      setState(() {
-        isLoading = false;
-        errorMsg = '未找到配属于"$depotInput"的车辆';
-      });
-      return;
-    }
-
-    matchedRecords.sort((a, b) {
-      final modelA = a['type_code'] ?? '';
-      final modelB = b['type_code'] ?? '';
-      if (modelA != modelB) return modelA.compareTo(modelB);
-      return (a['车组号'] ?? '').compareTo(b['车组号'] ?? '');
-    });
-
-    _allBureauRecords = matchedRecords;
-    _totalResults = matchedRecords.length;
-    _currentBureauSearch = depotInput.trim();
-
-    _loadBureauPage(1);
-  }
+  // ============================================================
+  // 分页加载
+  // ============================================================
 
   void _loadBureauPage(int page) {
-    if (_allBureauRecords.isEmpty || page < 1 || page > _totalPages) return;
+    if (_pagination.allRecords.isEmpty ||
+        page < 1 ||
+        page > _totalPages) return;
 
-    setState(() => _loadingPage = true);
+    setState(() => _pagination.loadingPage = true);
 
-    final start = (page - 1) * _pageSize;
-    final end = min(page * _pageSize, _allBureauRecords.length);
-    final pageRecords = _allBureauRecords.sublist(start, end);
+    final pageRecords = _pagination.pageRecords(page);
+    final queryTime = nowQueryTime();
 
-    final queryTime = DateTime.now().toLocal().toString().substring(0, 19);
     final newResults = pageRecords.map((record) {
       final bureau = (record['配属路局'] ?? '').toString().trim();
       return SearchResult(
@@ -394,19 +608,17 @@ class _SearchPageState extends State<SearchPage> {
         depot: record['配属动车所']?.toString(),
         manufacturer: record['生产厂家']?.toString(),
         remarks: record['备注']?.toString(),
-        routeInfo: null,
-        score: null,
-        rank: null,
         queryTime: queryTime,
       );
     }).toList();
 
     setState(() {
-      _searchResults.clear();
-      _searchResults.addAll(newResults);
-      _currentPage = page;
+      _searchResults
+        ..clear()
+        ..addAll(newResults);
+      _pagination.currentPage = page;
+      _pagination.loadingPage = false;
       _pageController.text = page.toString();
-      _loadingPage = false;
       isLoading = false;
     });
   }
@@ -422,58 +634,295 @@ class _SearchPageState extends State<SearchPage> {
     _loadBureauPage(page);
   }
 
-  // =================== 获取始发终到站 ==================
+  // ============================================================
+  // 搜索分支
+  // ============================================================
 
-  Future<String?> _getStationInfo(String code) async {
+  Future<void> _searchByBureau(String input) async {
+    if (input.isEmpty) return;
+    _beginSearch();
+
+    final matched = filterByBureau(trainData, _bureauNames, input);
+    if (matched.isEmpty) {
+      setState(() {
+        isLoading = false;
+        errorMsg = '未找到匹配的路局';
+      });
+      return;
+    }
+
+    _pagination
+      ..allRecords = matched
+      ..totalResults = matched.length
+      ..currentSearchLabel = input;
+
+    _loadBureauPage(1);
+  }
+
+  Future<void> _searchByCarType(String input) async {
+    if (input.isEmpty) return;
+    _beginSearch();
+
+    final matched = filterByCarType(trainData, input);
+    if (matched.isEmpty) {
+      setState(() {
+        isLoading = false;
+        errorMsg = '未找到车型 "$input"，请检查输入是否正确';
+      });
+      return;
+    }
+
+    _pagination
+      ..allRecords = matched
+      ..totalResults = matched.length
+      ..currentSearchLabel = input.trim().toUpperCase();
+
+    _loadBureauPage(1);
+  }
+
+  Future<void> _searchByDepot(String input) async {
+    if (input.isEmpty) return;
+    _beginSearch();
+
+    final matched = filterByDepot(trainData, input);
+    if (matched.isEmpty) {
+      setState(() {
+        isLoading = false;
+        errorMsg = '未找到配属于"$input"的车辆';
+      });
+      return;
+    }
+
+    _pagination
+      ..allRecords = matched
+      ..totalResults = matched.length
+      ..currentSearchLabel = input.trim();
+
+    _loadBureauPage(1);
+  }
+
+  Future<void> _searchByTrainCode(
+    String input,
+    AppSettings settings,
+    String queryTime,
+  ) async {
+    if (!RegExp(r'^[1-9]\d{0,3}$').hasMatch(input)) {
+      setState(() => errorMsg = '车次数字格式错误（1-4位数字，不能以0开头）');
+      return;
+    }
+
+    if (input == '9178' || input == '9169') {
+      setState(() => errorMsg = '?你什么意思阿');
+      return;
+    }
+
+    final fullCode = '$prefix$input';
+
+    if (settings.dataSource == TrainDataSource.railGo) {
+      logError(from: 'EmuSearchPage', error: 'RAILGO数据源已停用', level: 3);
+      setState(() => errorMsg = 'RAILGO数据源已停用!请切换数据源!');
+      return;
+    }
+
+    // 拉取 emu_no
+    http.Response? resp;
     try {
-      // 获取当前日期（格式：20260214）
-      final now = DateTime.now();
-      final formattedDate =
-          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+      if (settings.dataSource == TrainDataSource.railRe) {
+        resp = await fetchTrainByRailRe(fullCode);
+      } else if (settings.dataSource == TrainDataSource.railGo) {
+        resp = await fetchTrainByRailGo(fullCode);
+      } else {
+        resp = await fetchTrainBy12306(fullCode);
+        if (resp == null) {
+          setState(() => errorMsg = '车次不存在!\n当前数据源: ${_dataSourceLabel(settings)}');
+          return;
+        }
+      }
+    } catch (e) {
+      logError(
+        from: 'EmuSearchPage._searchByTrainCode[fetch]',
+        error: e.toString(),
+        level: 4,
+      );
+    }
 
-      final apiUrl =
-          'https://search.12306.cn/search/v1/train/search?keyword=$code&date=$formattedDate';
+    if (resp == null) {
+      setState(() =>
+          errorMsg = '请求失败，请检查网络连接或数据源设置\n当前数据源: ${_dataSourceLabel(settings)}');
+      return;
+    }
 
-      final headers = {'User-Agent': 'Mozilla/5.0'};
-      final response = await http
-          .get(Uri.parse(apiUrl), headers: headers)
-          .timeout(Duration(seconds: 10));
+    // 解析响应
+    final List rawData = json.decode(resp.body);
+    if (resp.body.isEmpty || resp.body == '[]' || rawData.isEmpty) {
+      setState(() => errorMsg =
+          '未查询到车次,请尝试:\n1.前往12306查询今日是否运行\n2.切换数据源查询\n当前数据源: ${_dataSourceLabel(settings)}');
+      return;
+    }
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
+    // 日期有效性检查（仅 railRe）
+    if (settings.dataSource == TrainDataSource.railRe) {
+      final error = _checkDateFreshness(rawData, settings);
+      if (error != null) {
+        setState(() => errorMsg = error);
+        return;
+      }
+    }
 
-        if (data['status'] == true && data['data'] != null) {
-          final List<dynamic> trainData = data['data'];
+    // 重联判断
+    final first = rawData[0];
+    final second = rawData.length > 1 ? rawData[1] : null;
+    final sameRun = second != null &&
+        first['date']?.toString() == second['date']?.toString();
 
-          // 遍历所有车次数据
-          for (var train in trainData) {
-            final stationTrainCode =
-                train['station_train_code']?.toString().trim() ?? '';
-            final fromStation = train['from_station']?.toString().trim() ?? '';
-            final toStation = train['to_station']?.toString().trim() ?? '';
+    final emuNos = <String>[];
+    final firstEmu = first['emu_no']?.toString().trim() ?? '';
+    if (firstEmu.isNotEmpty) emuNos.add(firstEmu);
+    if (sameRun) {
+      final secondEmu = second['emu_no']?.toString().trim() ?? '';
+      if (secondEmu.isNotEmpty) emuNos.add(secondEmu);
+    }
+    final uniqueEmuNos = emuNos.toSet().toList();
 
-            // 精确匹配车次
-            if (stationTrainCode == code &&
-                fromStation.isNotEmpty &&
-                toStation.isNotEmpty) {
-              return '$fromStation ~ $toStation';
-            }
-          }
+    if (uniqueEmuNos.isEmpty) {
+      setState(() =>
+          errorMsg = 'API未返回车组号\n当前数据源: ${_dataSourceLabel(settings)}');
+      return;
+    }
+
+    // 查询交路（重联共用第一个）
+    final routeInfo =
+        await fetchRouteInfo(uniqueEmuNos.first, settings) ?? '';
+
+    // 本地匹配 + 构建结果
+    for (final emuNo in uniqueEmuNos) {
+      final cleanedEmuNo = cleanString(emuNo);
+      List<Map<String, dynamic>> exactMatches = trainData
+          .where((r) =>
+              cleanString('${r['type_code']}${r['车组号']}') == cleanedEmuNo)
+          .toList();
+
+      if (exactMatches.isEmpty) {
+        final lastFour = extractLastFour(emuNo);
+        if (lastFour != null) {
+          exactMatches = trainData
+              .where((r) => extractLastFour(r['车组号']) == lastFour)
+              .toList();
         }
       }
 
-      return null;
-    } catch (e) {
-      logError(
-        from: 'EmuSearchPage._getStationInfo',
-        error: e.toString(),
-        level: 2,
-      );
-      return null;
+      for (final record in exactMatches) {
+        final bureau = (record['配属路局'] ?? '').toString().trim();
+        final stationinfo = await fetchStationInfo(fullCode);
+
+        _searchResults.add(SearchResult(
+          model: record['type_code'] ?? '',
+          number: record['车组号'] ?? '',
+          bureau: bureau,
+          bureauFullName: _getBureauFullName(bureau),
+          depot: record['配属动车所']?.toString(),
+          manufacturer: record['生产厂家']?.toString(),
+          stationinfo: stationinfo,
+          remarks: record['备注']?.toString(),
+          routeInfo: routeInfo.isNotEmpty ? routeInfo : null,
+          score: 1.0,
+          isAmbiguousMatch: exactMatches.length > 1,
+          isCoupledTrain: uniqueEmuNos.length > 1,
+          queryTime: queryTime,
+          trainCodeForJourney: fullCode,
+        ));
+      }
     }
   }
 
-  // ==================== 主搜索逻辑 ====================
+  Future<void> _searchByTrainId(
+    String input,
+    AppSettings settings,
+    String queryTime,
+  ) async {
+    final cleanedInput = cleanString(input);
+    if (cleanedInput.length < 4) {
+      setState(() => errorMsg = '请输入至少4位有效字符');
+      return;
+    }
+
+    final inputDigits = cleanedInput.replaceAll(RegExp(r'[^0-9]'), '');
+    final hasFourDigits = inputDigits.length >= 4;
+
+    final bestRecords = scoreAndSelectTrainId(trainData, input);
+    if (bestRecords == null || bestRecords.isEmpty) {
+      setState(() => errorMsg =
+          bestRecords == null
+              ? (hasFourDigits ? '未找到末四位匹配的车组' : '未找到匹配车组')
+              : '本地未找到匹配车组');
+      return;
+    }
+
+    // 并行查交路
+    final Map<String, String?> routeMap = {};
+    if (showRoutes) {
+      await Future.wait(bestRecords.map((record) async {
+        final emuNo =
+            cleanString('${record['type_code']}${record['车组号']}');
+        try {
+          routeMap[emuNo] = await fetchRouteInfo(emuNo, settings);
+        } catch (_) {
+          routeMap[emuNo] = null;
+        }
+      }));
+    }
+
+    // 重新计算分数映射（用于 rank / score 字段）
+    final scoredMap = <Map<String, dynamic>, double>{};
+    for (final record in bestRecords) {
+      scoredMap[record] =
+          calculateMatchScore(input, record['车组号'] ?? '', record['type_code'] ?? '');
+    }
+
+    // 构建结果
+    for (int i = 0; i < bestRecords.length; i++) {
+      final record = bestRecords[i];
+      final bureau = (record['配属路局'] ?? '').toString().trim();
+      final emuNo =
+          cleanString('${record['type_code']}${record['车组号']}');
+
+      String? trainCodeForJourney;
+      if (showRoutes && routeMap[emuNo] != null) {
+        final match =
+            RegExp(r'本务车次:\s*([^\s\n]+)').firstMatch(routeMap[emuNo]!);
+        trainCodeForJourney = match?.group(1)?.trim();
+      }
+
+      _searchResults.add(SearchResult(
+        model: record['type_code'] ?? '',
+        number: record['车组号'] ?? '',
+        bureau: bureau,
+        bureauFullName: _getBureauFullName(bureau),
+        depot: record['配属动车所']?.toString(),
+        manufacturer: record['生产厂家']?.toString(),
+        remarks: record['备注']?.toString(),
+        score: scoredMap[record],
+        rank: i + 1,
+        routeInfo: showRoutes ? routeMap[emuNo] : null,
+        queryTime: queryTime,
+        trainCodeForJourney: trainCodeForJourney,
+      ));
+    }
+  }
+
+  // ============================================================
+  // 主搜索入口
+  // ============================================================
+
+  void _beginSearch() {
+    setState(() {
+      isLoading = true;
+      errorMsg = '';
+      _searchResults.clear();
+      _resetPagination();
+    });
+  }
+
   Future<void> _performSearch() async {
     if (isLoading) return;
 
@@ -483,840 +932,188 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
 
-    bool needCooldown = false;
+    _beginSearch();
 
-    if (searchType == 'trainCode') {
-      needCooldown = true; // 车次查询始终需要
-    } else if (searchType == 'trainId' && showRoutes) {
-      needCooldown = true; // 只有勾选交路才需要
-    }
-
-    setState(() {
-      isLoading = true;
-      errorMsg = '';
-      _searchResults.clear();
-      _resetPagination();
-    });
+    final settings = Provider.of<AppSettings>(context, listen: false);
+    final queryTime = nowQueryTime();
 
     try {
-      final headers = {'User-Agent': 'Mozilla/5.0'};
-      final queryTime = DateTime.now().toLocal().toString().substring(0, 19);
-
-      if (searchType == 'bureau') {
-        await _searchByBureau(input);
-      } else if (searchType == 'carType') {
-        await _searchByCarType(input);
-      } else if (searchType == 'depot') {
-        await _searchByDepot(input);
-      }
-      // ==================== 车次查询 ====================
-      else if (searchType == 'trainCode') {
-        if (!RegExp(r'^[1-9]\d{0,3}$').hasMatch(input)) {
-          setState(() => errorMsg = '车次数字格式错误（1-4位数字，不能以0开头）');
+      switch (searchType) {
+        case 'bureau':
+          await _searchByBureau(input);
+          return; // 分页搜索自行管理 isLoading
+        case 'carType':
+          await _searchByCarType(input);
           return;
-        }
-
-        if (input == '9178' || input == '9169') {
-          setState(() {
-            errorMsg = '?你什么意思阿';
-          });
+        case 'depot':
+          await _searchByDepot(input);
           return;
-        }
-
-        final fullCode = prefix + input;
-
-        final settings = Provider.of<AppSettings>(context, listen: false);
-        http.Response? resp;
-
-        if (settings.dataSource == TrainDataSource.railGo) {
-          () {
-            logError(
-              from: 'EmuSearchPage',
-              error: 'RAILGO数据源已停用，用户需切换数据源',
-              level: 3,
-            );
-            setState(() => errorMsg = 'RAILGO数据源已停用!请切换数据源!');
-          }();
-        }
-
-        if (settings.dataSource == TrainDataSource.railRe) {
-          resp = await http.get(
-            Uri.parse('https://api.rail.re/train/${fullCode.toUpperCase()}'),
-            headers: headers,
-          );
-        } else if (settings.dataSource == TrainDataSource.railGo) {
-          resp = await http.get(
-            Uri.parse(
-              'https://emu.data.railgo.zenglingkun.cn/train/${fullCode.toUpperCase()}',
-            ),
-            headers: headers,
-          );
-        } else {
-          http.Response? resp12306;
-          resp12306 = await http.get(
-            Uri.parse(
-              'https://mobile.12306.cn/wxxcx/openplatform-inner/miniprogram/wifiapps/appFrontEnd/v2/lounge/open-smooth-common/trainStyleBatch/getCarDetail?carCode=&trainCode=${fullCode.toUpperCase()}&runningDay=0&reqType=form',
-            ),
-            headers: headers,
-          );
-          if (resp12306.statusCode == 200) {
-            try {
-              Map<String, dynamic> data = json.decode(resp12306.body);
-
-              if (data['content'] == null) {
-                setState(
-                  () => errorMsg =
-                      '返回数据格式错误\n当前数据源: ${settings.dataSource.toString().split('.').last}',
-                );
-                return;
-              }
-
-              if (data['content'] is! Map || data['content']['data'] == null) {
-                setState(
-                  () => errorMsg =
-                      '车次不存在!\n是城际还是动集?是的话切换数据源\n当前数据源: ${settings.dataSource.toString().split('.').last}',
-                );
-                return;
-              }
-
-              // 最后获取 carCode
-              String? carCode = data['content']['data']['carCode'] as String?;
-
-              if (carCode == null || carCode.isEmpty) {
-                logError(
-                  from: 'EmuSearchPage._performSearch',
-                  error: '车次不存在: $fullCode',
-                  level: 3,
-                );
-                setState(
-                  () => errorMsg =
-                      '车次不存在!\n当前数据源: ${settings.dataSource.toString().split('.').last}',
-                );
-              } else {
-                String responseBody =
-                    '[{"DateTime":"${DateTime.now()}","emu_no":"$carCode","train_no":"${fullCode.toUpperCase()}"}]';
-                resp = http.Response(responseBody, 200);
-              }
-            } catch (e) {
-              logError(
-                from: 'EmuSearchPage._performSearch[parse]',
-                error: e.toString(),
-                level: 4,
-              );
-              setState(
-                () => errorMsg =
-                    '解析返回数据失败: $e\n当前数据源: ${settings.dataSource.toString().split('.').last}',
-              );
-            }
-          }
-        }
-
-        if (resp == null) {
-          setState(
-            () => errorMsg =
-                '请求失败，请检查网络连接或数据源设置\n当前数据源: ${settings.dataSource.toString().split('.').last}',
-          );
-          return;
-        }
-
-        final List data = json.decode(resp.body);
-        if (resp.body.isEmpty || resp.body == '[]' || data.isEmpty) {
-          setState(
-            () => errorMsg =
-                '未查询到车次,请尝试:\n1.前往12306查询今日是否运行\n2.切换数据源查询\n当前数据源: ${settings.dataSource.toString().split('.').last}',
-          );
-          return;
-        }
-
-        final List<dynamic> filteredData = [];
-        for (var i = 0; i < data.length; i++) {
-          final item = data[i];
-          filteredData.add(item);
-        }
-
-        if (filteredData.isEmpty) {
-          setState(
-            () => errorMsg =
-                '没有可用的动车组数据\n当前数据源: ${settings.dataSource.toString().split('.').last}',
-          );
-          return;
-        }
-
-        if (settings.dataSource == TrainDataSource.railRe) {
-          DateTime? latestDate;
-          for (var item in filteredData) {
-            final emuDate = item['date']?.toString().trim() ?? '';
-            if (emuDate.isEmpty) continue;
-
-            DateTime? emuDateOnly;
-            if (emuDate.contains(' ')) {
-              final datePart = emuDate.split(' ')[0];
-              emuDateOnly = DateTime.parse(datePart);
-            } else {
-              emuDateOnly = DateTime.parse(emuDate);
-            }
-
-            if (latestDate == null || emuDateOnly.isAfter(latestDate)) {
-              latestDate = emuDateOnly;
-            }
-          }
-
-          if (latestDate == null) {
-            setState(() {
-              isLoading = false;
-              errorMsg =
-                  '无法解析车次日期\n当前数据源: ${settings.dataSource.toString().split('.').last}';
-            });
-            return;
-          }
-
-          // 3. 检查最新日期是否在2天内
-          final now = DateTime.now();
-          final currentDateOnly = DateTime(now.year, now.month, now.day);
-          final latestDateAtMidnight = DateTime(
-            latestDate.year,
-            latestDate.month,
-            latestDate.day,
-          );
-
-          final difference = latestDateAtMidnight.difference(currentDateOnly);
-          final absDays = difference.inDays.abs();
-
-          if (absDays > 2) {
-            setState(() {
-              isLoading = false;
-              errorMsg = '车次过期! 时间过久可尝试切换数据源';
-            });
-            return;
-          }
-        }
-
-        // 4. 重联判断（使用原始过滤后的数据）
-        final first = filteredData[0];
-        final second = filteredData.length > 1 ? filteredData[1] : null;
-
-        final firstDate = first['date']?.toString();
-        final secondDate = second?['date']?.toString();
-
-        bool sameRun = false;
-        if (second != null &&
-            firstDate != null &&
-            secondDate != null &&
-            firstDate == secondDate) {
-          sameRun = true;
-        }
-
-        // 收集 emu_no（支持重联）
-        final List<String> emuNos = [];
-
-        final firstEmu = first['emu_no']?.toString().trim();
-        if (firstEmu != null && firstEmu.isNotEmpty) {
-          emuNos.add(firstEmu);
-        }
-
-        if (sameRun) {
-          final secondEmu = second?['emu_no']?.toString().trim();
-          if (secondEmu != null && secondEmu.isNotEmpty) {
-            emuNos.add(secondEmu);
-          }
-        }
-
-        final uniqueEmuNos = emuNos.toSet().toList();
-
-        if (uniqueEmuNos.isEmpty) {
-          setState(
-            () => errorMsg =
-                'API未返回车组号\n当前数据源: ${settings.dataSource.toString().split('.').last}',
-          );
-          return;
-        }
-
-        // 查询交路（一次即可，重联共用）
-        String routeInfo = '';
-        final routeEmu = uniqueEmuNos.first;
-        http.Response? emuResp;
-
-        if (settings.dataEmuSource == TrainEmuDataSource.moeFactory) {
-          // ==================== moeFactory 数据源 ====================
-          final postUrl =
-              'https://rail.moefactory.com/api/emuSerialNumber/query';
-
-          // 构建POST请求体
-          final Map<String, String> requestBody = {'keyword': routeEmu};
-
-          // 发送POST请求
-          emuResp = await http
-              .post(Uri.parse(postUrl), body: requestBody)
-              .timeout(Duration(seconds: 10));
-
-          if (emuResp.statusCode == 200 && emuResp.body.isNotEmpty) {
-            final Map<String, dynamic> response = json.decode(emuResp.body);
-
-            // 检查响应code
-            if (response['code'] == 200) {
-              // 获取data数组
-              final List<dynamic> data = response['data'] ?? [];
-
-              if (data.isNotEmpty) {
-                // 取第一条数据
-                final item = data[0];
-                final trainNo = item['trainNumber']?.toString().trim() ?? '';
-                final date = item['date']?.toString().trim() ?? '';
-
-                if (trainNo.isNotEmpty) {
-                  routeInfo = '正在担当: $date\n本务车次: $trainNo';
-                }
-              }
-            }
-          }
-        } else if (settings.dataEmuSource == TrainEmuDataSource.railGo) {
-          if (settings.dataSource == TrainDataSource.railGo) {
-            () {
-              logError(
-                from: 'EmuSearchPage',
-                error: 'RAILGO数据源已停用，用户需切换数据源',
-                level: 3,
-              );
-              setState(() => errorMsg = 'RAILGO数据源已停用!请切换数据源!');
-            }();
-          }
-          // ==================== railGo 数据源 ====================
-          emuResp = await http
-              .get(
-                Uri.parse(
-                  'https://emu.data.railgo.zenglingkun.cn/emu/$routeEmu',
-                ),
-                headers: headers,
-              )
-              .timeout(Duration(seconds: 10));
-
-          if (emuResp.statusCode == 200 &&
-              emuResp.body.isNotEmpty &&
-              emuResp.body != '[]') {
-            final emuData = json.decode(emuResp.body);
-            if (emuData.isNotEmpty) {
-              final item = emuData[0];
-              final trainNo = item['train_no']?.toString().trim() ?? '';
-              final date = item['date']?.toString() ?? '';
-
-              if (trainNo.isNotEmpty) {
-                routeInfo = '正在担当: $date\n本务车次: $trainNo';
-              }
-            }
-          }
-        } else {
-          // ==================== rail.re 数据源 ====================
-          emuResp = await http
-              .get(
-                Uri.parse('https://api.rail.re/emu/$routeEmu'),
-                headers: headers,
-              )
-              .timeout(Duration(seconds: 10));
-
-          if (emuResp.statusCode == 200 &&
-              emuResp.body.isNotEmpty &&
-              emuResp.body != '[]') {
-            final emuData = json.decode(emuResp.body);
-            if (emuData.isNotEmpty) {
-              final item = emuData[0];
-              final trainNo = item['train_no']?.toString().trim() ?? '';
-              final date = item['date']?.toString() ?? '';
-
-              if (trainNo.isNotEmpty) {
-                routeInfo = '正在担当: $date\n本务车次: $trainNo';
-              }
-            }
-          }
-        }
-
-        // 对每一个 emu_no 做本地匹配（重联 = 多次）
-        for (final emuNo in uniqueEmuNos) {
-          final cleanedEmuNo = cleanString(emuNo);
-
-          List<Map<String, dynamic>> exactMatches = trainData
-              .where(
-                (r) =>
-                    cleanString('${r['type_code']}${r['车组号']}') == cleanedEmuNo,
-              )
-              .toList();
-
-          if (exactMatches.isEmpty) {
-            final lastFour = extractLastFour(emuNo);
-            if (lastFour != null) {
-              exactMatches = trainData
-                  .where((r) => extractLastFour(r['车组号']) == lastFour)
-                  .toList();
-            }
-          }
-
-          if (exactMatches.isEmpty) {
-            continue;
-          }
-
-          for (final record in exactMatches) {
-            final bureau = (record['配属路局'] ?? '').toString().trim();
-
-            final stationinfo = await _getStationInfo(fullCode);
-
-            _searchResults.add(
-              SearchResult(
-                model: record['type_code'] ?? '',
-                number: record['车组号'] ?? '',
-                bureau: bureau,
-                bureauFullName: _getBureauFullName(bureau),
-                depot: record['配属动车所']?.toString(),
-                manufacturer: record['生产厂家']?.toString(),
-                stationinfo: stationinfo,
-                remarks: record['备注']?.toString(),
-                routeInfo: routeInfo.isNotEmpty ? routeInfo : null,
-                score: 1.0,
-                isAmbiguousMatch: exactMatches.length > 1,
-                isCoupledTrain: uniqueEmuNos.length > 1,
-                queryTime: queryTime,
-                trainCodeForJourney: fullCode,
-              ),
-            );
-          }
-        }
-      }
-      // ==================== 车号查询 ====================
-      else if (searchType == 'trainId') {
-        final cleanedInput = cleanString(input);
-        if (cleanedInput.length < 4) {
-          setState(() => errorMsg = '请输入至少4位有效字符');
-          return;
-        }
-
-        final inputDigits = cleanedInput.replaceAll(RegExp(r'[^0-9]'), '');
-        final hasFourDigits = inputDigits.length >= 4;
-
-        // ================= 本地匹配 =================
-        List<Map<String, dynamic>> matches = trainData.where((record) {
-          final trainNum = cleanString(record['车组号'] ?? '');
-          return trainNum.contains(cleanedInput) ||
-              cleanedInput.contains(trainNum);
-        }).toList();
-
-        if (matches.isEmpty) {
-          setState(() => errorMsg = '本地未找到匹配车组');
-          return;
-        }
-
-        // ================= 评分 =================
-        final scored = <Map<String, dynamic>, double>{};
-        for (var record in matches) {
-          final model = record['type_code'] ?? '';
-          final number = record['车组号'] ?? '';
-          final score = calculateMatchScore(input, number, model);
-
-          if (hasFourDigits) {
-            final inputLastFour = inputDigits.substring(inputDigits.length - 4);
-            final recordLastFour = extractLastFour(number);
-            if (recordLastFour != inputLastFour) continue;
-          }
-
-          scored[record] = score;
-        }
-
-        if (scored.isEmpty) {
-          setState(() => errorMsg = hasFourDigits ? '未找到末四位匹配的车组' : '未找到匹配车组');
-          return;
-        }
-
-        final sortedEntries = scored.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-        final topScore = sortedEntries.first.value;
-
-        List<Map<String, dynamic>> bestRecords;
-        if (topScore >= 0.9) {
-          bestRecords = sortedEntries
-              .where((e) => e.value >= topScore - 0.05)
-              .map((e) => e.key)
-              .toList();
-        } else {
-          bestRecords = sortedEntries.take(5).map((e) => e.key).toList();
-        }
-
-        // ================= 交路查询准备 =================
-        final Map<String, Map<String, dynamic>> emuToRecord = {};
-        for (var record in bestRecords) {
-          final emuNo = cleanString('${record['type_code']}${record['车组号']}');
-          emuToRecord[emuNo] = record;
-        }
-
-        final Map<String, String?> routeMap = {};
-
-        // ================= 并行查交路（仅当 showRoutes） =================
-        if (showRoutes) {
-          final headers = {'User-Agent': 'Mozilla/5.0'};
-
-          await Future.wait(
-            emuToRecord.keys.map((emuNo) async {
-              try {
-                final settings = Provider.of<AppSettings>(
-                  context,
-                  listen: false,
-                );
-                http.Response? resp;
-
-                if (settings.dataEmuSource == TrainEmuDataSource.moeFactory) {
-                  // ==================== moeFactory 数据源 ====================
-                  final postUrl =
-                      'https://rail.moefactory.com/api/emuSerialNumber/query';
-
-                  // 构建POST请求体
-                  final Map<String, String> requestBody = {'keyword': emuNo};
-
-                  // 发送POST请求
-                  resp = await http
-                      .post(
-                        Uri.parse(postUrl),
-                        headers: {
-                          ...headers,
-                          'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: requestBody,
-                      )
-                      .timeout(Duration(seconds: 10));
-
-                  if (resp.statusCode == 200 && resp.body.isNotEmpty) {
-                    final Map<String, dynamic> response = json.decode(
-                      resp.body,
-                    );
-
-                    // 检查响应code
-                    if (response['code'] == 200) {
-                      // 获取data数组
-                      final List<dynamic> data = response['data'] ?? [];
-
-                      if (data.isNotEmpty) {
-                        // 取第一条数据
-                        final item = data[0];
-                        final trainNo =
-                            item['trainNumber']?.toString().trim() ?? '';
-                        final date = item['date']?.toString().trim() ?? '';
-
-                        if (trainNo.isNotEmpty) {
-                          routeMap[emuNo] = '正在担当: $date\n本务车次: $trainNo';
-                          return;
-                        }
-                      }
-                    }
-                  }
-                } else if (settings.dataEmuSource ==
-                    TrainEmuDataSource.railGo) {
-                  if (settings.dataSource == TrainDataSource.railGo) {
-                    () {
-                      logError(
-                        from: 'EmuSearchPage',
-                        error: 'RAILGO数据源已停用，用户需切换数据源',
-                        level: 3,
-                      );
-                      setState(() => errorMsg = 'RAILGO数据源已停用!请切换数据源!');
-                    }();
-                  }
-                  // ==================== railGo 数据源 ====================
-                  resp = await http
-                      .get(
-                        Uri.parse(
-                          'https://emu.data.railgo.zenglingkun.cn/emu/$emuNo',
-                        ),
-                        headers: headers,
-                      )
-                      .timeout(Duration(seconds: 10));
-
-                  if (resp.statusCode == 200 &&
-                      resp.body.isNotEmpty &&
-                      resp.body != '[]') {
-                    final emuData = json.decode(resp.body);
-                    if (emuData.isNotEmpty) {
-                      final item = emuData[0];
-                      final trainNo = item['train_no']?.toString().trim() ?? '';
-                      final date = item['date']?.toString() ?? '';
-
-                      if (trainNo.isNotEmpty) {
-                        routeMap[emuNo] = '正在担当: $date\n本务车次: $trainNo';
-                        return;
-                      }
-                    }
-                  }
-                } else {
-                  // ==================== rail.re 数据源 ====================
-                  resp = await http
-                      .get(
-                        Uri.parse('https://api.rail.re/emu/$emuNo'),
-                        headers: headers,
-                      )
-                      .timeout(Duration(seconds: 10));
-
-                  if (resp.statusCode == 200 &&
-                      resp.body.isNotEmpty &&
-                      resp.body != '[]') {
-                    final emuData = json.decode(resp.body);
-                    if (emuData.isNotEmpty) {
-                      final item = emuData[0];
-                      final trainNo = item['train_no']?.toString().trim() ?? '';
-                      final date = item['date']?.toString() ?? '';
-
-                      if (trainNo.isNotEmpty) {
-                        routeMap[emuNo] = '正在担当: $date\n本务车次: $trainNo';
-                        return;
-                      }
-                    }
-                  }
-                }
-              } catch (_) {}
-
-              routeMap[emuNo] = null;
-            }),
-          );
-        }
-
-        // ================= 构建结果 =================
-        for (int i = 0; i < bestRecords.length; i++) {
-          final record = bestRecords[i];
-          final bureau = (record['配属路局'] ?? '').toString().trim();
-          final emuNo = cleanString('${record['type_code']}${record['车组号']}');
-
-          String? trainCodeForJourney;
-          if (showRoutes && routeMap[emuNo] != null) {
-            final routeStr = routeMap[emuNo]!;
-            final match = RegExp(r'本务车次:\s*([^\s\n]+)').firstMatch(routeStr);
-            if (match != null) {
-              trainCodeForJourney = match.group(1)?.trim();
-            }
-          }
-
-          _searchResults.add(
-            SearchResult(
-              model: record['type_code'] ?? '',
-              number: record['车组号'] ?? '',
-              bureau: bureau,
-              bureauFullName: _getBureauFullName(bureau),
-              depot: record['配属动车所']?.toString(),
-              manufacturer: record['生产厂家']?.toString(),
-              remarks: record['备注']?.toString(),
-              score: scored[record],
-              rank: i + 1,
-              routeInfo: showRoutes ? routeMap[emuNo] : null,
-              queryTime: queryTime,
-              trainCodeForJourney: trainCodeForJourney,
-            ),
-          );
-        }
-      }
-
-      if (needCooldown) {
-        lastSearchTime = DateTime.now();
+        case 'trainCode':
+          await _searchByTrainCode(input, settings, queryTime);
+          lastSearchTime = DateTime.now();
+        case 'trainId':
+          await _searchByTrainId(input, settings, queryTime);
+          if (showRoutes) lastSearchTime = DateTime.now();
       }
     } catch (e) {
       logError(
-        from: 'EmuSearchPage._performSearch',
-        error: e.toString(),
-        level: 4,
-      );
+          from: 'EmuSearchPage._performSearch', error: e.toString(), level: 4);
       setState(() => errorMsg = '查询失败: $e');
     } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  // ==================== UI 组件 ====================
-  Widget _buildTrainIcon(String model, String number) {
-    return TrainIconWidget(model: model, number: number, size: 32);
+  // ============================================================
+  // 私有辅助
+  // ============================================================
+
+  String _dataSourceLabel(AppSettings settings) =>
+      settings.dataSource.toString().split('.').last;
+
+  /// 检查 rail.re 数据日期新鲜度，返回 errorMsg 或 null
+  String? _checkDateFreshness(
+      List<dynamic> data, AppSettings settings) {
+    DateTime? latestDate;
+    for (final item in data) {
+      final emuDate = item['date']?.toString().trim() ?? '';
+      if (emuDate.isEmpty) continue;
+      try {
+        final datePart =
+            emuDate.contains(' ') ? emuDate.split(' ')[0] : emuDate;
+        final parsed = DateTime.parse(datePart);
+        if (latestDate == null || parsed.isAfter(latestDate)) {
+          latestDate = parsed;
+        }
+      } catch (_) {}
+    }
+
+    if (latestDate == null) {
+      return '无法解析车次日期\n当前数据源: ${_dataSourceLabel(settings)}';
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final latestDay =
+        DateTime(latestDate.year, latestDate.month, latestDate.day);
+    if (latestDay.difference(today).inDays.abs() > 2) {
+      return '车次过期! 时间过久可尝试切换数据源';
+    }
+    return null;
   }
 
-  Widget _buildInfoRow(String label, String value) =>
-      buildInfoRow(label, value);
-
-  Widget _buildResultCard(SearchResult result) {
-    final settings = Provider.of<AppSettings>(context, listen: false);
-
-    // 判断是否支持点击跳转到 Journey 页面
-    final bool canNavigateToJourney =
-        result.trainCodeForJourney != null &&
-        result.trainCodeForJourney!.isNotEmpty &&
-        (searchType == 'trainCode' || (searchType == 'trainId' && showRoutes));
-
-    return InkWell(
-      onTap: canNavigateToJourney
-          ? () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => AddJourneyPage(
-                    initialTrainNumber: result.trainCodeForJourney!,
-                    autoSearchAndExpand: true,
-                  ),
-                ),
-              );
-            }
-          : null, // 不支持跳转时点击无反应
-      borderRadius: BorderRadius.circular(12),
-      child: Card(
-        elevation: 4,
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildTrainIcon(result.model, result.number),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${result.model}-${result.number}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (searchType == 'bureau' ||
-                            searchType == 'carType' ||
-                            searchType == 'depot')
-                          Text(
-                            result.bureauFullName,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withAlpha(150),
-                            ),
-                          ),
-                        if (result.isCoupledTrain)
-                          Text(
-                            '可能为重联列车',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(context).colorScheme.primary,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-
-                        if (result.isAmbiguousMatch)
-                          Text(
-                            '存在多个匹配结果，请核对车号',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(context).colorScheme.error,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        if (result.score != null) ...[
-                          const SizedBox(height: 4),
-                          buildScoreBar(
-                            context,
-                            result.score!,
-                            rank: result.rank,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (settings.showBureauIcons)
-                    BureauIconWidget(bureau: result.bureau, size: 32)
-                  else
-                    const SizedBox(width: 32, height: 32),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (result.bureau.isNotEmpty &&
-                      searchType != 'bureau' &&
-                      searchType != 'carType' &&
-                      searchType != 'depot')
-                    _buildInfoRow('配属路局', result.bureauFullName),
-                  if (result.depot != null && result.depot!.isNotEmpty)
-                    _buildInfoRow('配属动车所', result.depot!),
-                  if (result.manufacturer != null &&
-                      result.manufacturer!.isNotEmpty)
-                    _buildInfoRow('生产厂家', result.manufacturer!),
-                  if (result.stationinfo != null)
-                    _buildInfoRow('运行交路', result.stationinfo!),
-                  if (result.remarks != null && result.remarks!.isNotEmpty)
-                    _buildInfoRow('备注', result.remarks!),
-                ],
-              ),
-              if (result.routeInfo != null && result.routeInfo!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withAlpha(20),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: result.routeInfo!
-                        .split('\n')
-                        .map(
-                          (line) => Text(
-                            line,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withAlpha(200),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                '查询时间: ${result.queryTime}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void _handleBureauChipTap(String bureauName) {
+    controller.text = bureauName;
+    _performSearch();
   }
 
-  Widget _buildPaginationControls() => buildPaginationControls(
-    context: context,
-    currentPage: _currentPage,
-    totalPages: _totalPages,
-    totalResults: _totalResults,
-    loadingPage: _loadingPage,
-    pageController: _pageController,
-    onGoToPage: _goToPage,
-  );
-
-  // 查询类型切换
   void _changeSearchType(String newType) {
     if (searchType == newType) return;
-
     setState(() {
       searchType = newType;
       controller.clear();
       _searchResults.clear();
       errorMsg = '';
       _resetPagination();
-
-      // 切换到车号查询时默认关闭交路（减少冷却时间）
-      if (newType == 'trainId') {
-        showRoutes = false;
-      }
+      if (newType == 'trainId') showRoutes = false;
     });
   }
 
-  // 查询类型 Chip 组件
+  // ============================================================
+  // UI 组件
+  // ============================================================
+
+  Widget _buildSearchBar() {
+    return Row(
+      children: [
+        if (searchType == 'trainCode')
+          DropdownButton<String>(
+            value: prefix,
+            items: ['G', 'D', 'C']
+                .map((v) => DropdownMenuItem(
+                      value: v,
+                      child: Text(v, style: const TextStyle(fontSize: 18)),
+                    ))
+                .toList(),
+            onChanged: (v) => setState(() => prefix = v!),
+          ),
+        const SizedBox(width: 12),
+        Expanded(child: _buildTextField()),
+        const SizedBox(width: 12),
+        ElevatedButton(
+          onPressed: isLoading ? null : _performSearch,
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(80, 56),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Text(isLoading ? '查询中...' : '查询'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField() {
+    final labels = {
+      'trainCode': ('输入车次数字（1-4位）', '如: 31'),
+      'trainId': ('输入车号', '如: CR400AF-AZ-2311'),
+      'carType': ('输入车型代号', '如: CRH6F-A'),
+      'bureau': ('输入路局名称', '如: 上局 或 上海铁路局'),
+      'depot': ('输入动车所名称', '如: 上海动车段'),
+    };
+    final (label, hint) = labels[searchType] ?? ('输入查询内容', '');
+
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.text,
+      inputFormatters: searchType == 'trainCode'
+          ? [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(4),
+              TextInputFormatter.withFunction(
+                (old, newV) =>
+                    newV.text.startsWith('0') && newV.text.length > 1
+                        ? old
+                        : newV,
+              ),
+            ]
+          : [],
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+        filled: true,
+      ),
+      onSubmitted: (_) => _performSearch(),
+    );
+  }
+
+  Widget _buildSearchTypeRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildSearchTypeChip(
+            label: '车次查询',
+            icon: Icons.numbers,
+            isSelected: searchType == 'trainCode',
+            onTap: () => _changeSearchType('trainCode'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildSearchTypeChip(
+            label: '车号查询',
+            icon: Icons.confirmation_number,
+            isSelected: searchType == 'trainId',
+            onTap: () => _changeSearchType('trainId'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: _buildMoreMenu()),
+      ],
+    );
+  }
+
   Widget _buildSearchTypeChip({
     required String label,
     required IconData icon,
@@ -1355,7 +1152,8 @@ class _SearchPageState extends State<SearchPage> {
               label,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected
                     ? theme.colorScheme.onPrimary
                     : theme.colorScheme.onSurface,
@@ -1367,17 +1165,14 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // 更多 ▼ 下拉菜单
   Widget _buildMoreMenu() {
     final theme = Theme.of(context);
-    final bool isMoreSelected =
-        searchType == 'carType' ||
-        searchType == 'bureau' ||
-        searchType == 'depot';
+    final isMoreSelected = const {'carType', 'bureau', 'depot'}.contains(searchType);
 
     return PopupMenuButton<String>(
       onSelected: _changeSearchType,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       position: PopupMenuPosition.under,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1410,28 +1205,28 @@ class _SearchPageState extends State<SearchPage> {
           ],
         ),
       ),
-      itemBuilder: (context) => [
+      itemBuilder: (context) => const [
         PopupMenuItem(
           value: 'carType',
           child: ListTile(
-            leading: const Icon(Icons.card_travel_rounded),
-            title: const Text('车型查询'),
+            leading: Icon(Icons.card_travel_rounded),
+            title: Text('车型查询'),
             dense: true,
           ),
         ),
         PopupMenuItem(
           value: 'bureau',
           child: ListTile(
-            leading: const Icon(Icons.business),
-            title: const Text('路局查询'),
+            leading: Icon(Icons.business),
+            title: Text('路局查询'),
             dense: true,
           ),
         ),
         PopupMenuItem(
           value: 'depot',
           child: ListTile(
-            leading: const Icon(Icons.warehouse_outlined),
-            title: const Text('动车所查询'),
+            leading: Icon(Icons.warehouse_outlined),
+            title: Text('动车所查询'),
             dense: true,
           ),
         ),
@@ -1439,41 +1234,383 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  Widget _buildRouteToggleCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          CheckboxListTile(
+            title: const Text('显示交路信息'),
+            subtitle: const Text('启用后将应用3秒冷却时间'),
+            value: showRoutes,
+            onChanged: (v) => setState(() => showRoutes = v!),
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text('不显示交路信息时无冷却时间限制',
+                style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final isPaginated = const {'bureau', 'carType', 'depot'}.contains(searchType);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          Icon(
+            switch (searchType) {
+              'trainCode' => Icons.numbers,
+              'trainId' => Icons.confirmation_number,
+              'carType' => Icons.card_travel_rounded,
+              'bureau' => Icons.business,
+              'depot' => Icons.warehouse_outlined,
+              _ => Icons.train_outlined,
+            },
+            size: 64,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            switch (searchType) {
+              'trainCode' => '请输入车次数字进行查询\n（例如：25）',
+              'trainId' => '请输入车号进行查询',
+              'carType' => '请输入车型进行查询',
+              'bureau' => '请输入路局名称或点击下方简称查询',
+              _ => '请输入动车所名称或点击下方快捷查询',
+            },
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16),
+          ),
+          if (searchType == 'trainCode') _buildTrainCodePrefixChips(),
+          if (searchType == 'carType') _buildQuickChips(
+            title: '所有可查车型:',
+            items: _getAllCarTypes(),
+            onTap: (item) {
+              controller.text = item;
+              _performSearch();
+            },
+          ),
+          if (searchType == 'bureau') _buildQuickChips(
+            title: '支持的路局简称:',
+            items: _getCommonBureauCodes(),
+            onTap: _handleBureauChipTap,
+          ),
+          if (searchType == 'depot') _buildQuickChips(
+            title: '所有动车所:',
+            items: _depotNames,
+            onTap: (item) {
+              controller.text = item;
+              _performSearch();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrainCodePrefixChips() {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: ['G', 'D', 'C']
+              .map((p) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: FilterChip(
+                      label: Text(p),
+                      selected: prefix == p,
+                      onSelected: (s) =>
+                          s ? setState(() => prefix = p) : null,
+                    ),
+                  ))
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickChips({
+    required String title,
+    required List<String> items,
+    required void Function(String) onTap,
+  }) {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        Text(title),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          alignment: WrapAlignment.center,
+          children: items
+              .map((item) => GestureDetector(
+                    onTap: () => onTap(item),
+                    child: Chip(label: Text(item)),
+                  ))
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultCard(SearchResult result) {
+    final settings = Provider.of<AppSettings>(context, listen: false);
+    final isPaginated = const {'bureau', 'carType', 'depot'}.contains(searchType);
+
+    final canNavigateToJourney = result.trainCodeForJourney != null &&
+        result.trainCodeForJourney!.isNotEmpty &&
+        (searchType == 'trainCode' ||
+            (searchType == 'trainId' && showRoutes));
+
+    return InkWell(
+      onTap: canNavigateToJourney
+          ? () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => AddJourneyPage(
+                  initialTrainNumber: result.trainCodeForJourney!,
+                  autoSearchAndExpand: true,
+                ),
+              ))
+          : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Card(
+        elevation: 4,
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildCardHeader(result, settings, isPaginated),
+              const SizedBox(height: 12),
+              _buildCardDetails(result),
+              if (result.routeInfo != null && result.routeInfo!.isNotEmpty)
+                _buildRouteInfoBox(result.routeInfo!),
+              const SizedBox(height: 8),
+              Text(
+                '查询时间: ${result.queryTime}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withAlpha(150),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardHeader(
+    SearchResult result,
+    AppSettings settings,
+    bool isPaginated,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        TrainIconWidget(model: result.model, number: result.number, size: 32),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${result.model}-${result.number}',
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              if (isPaginated)
+                Text(
+                  result.bureauFullName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withAlpha(150),
+                  ),
+                ),
+              if (result.isCoupledTrain)
+                Text(
+                  '可能为重联列车',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.primary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              if (result.isAmbiguousMatch)
+                Text(
+                  '存在多个匹配结果，请核对车号',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.error,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              if (result.score != null) ...[
+                const SizedBox(height: 4),
+                buildScoreBar(context, result.score!, rank: result.rank),
+              ],
+            ],
+          ),
+        ),
+        if (settings.showBureauIcons)
+          BureauIconWidget(bureau: result.bureau, size: 32)
+        else
+          const SizedBox(width: 32, height: 32),
+      ],
+    );
+  }
+
+  Widget _buildCardDetails(SearchResult result) {
+    final isPaginated = const {'bureau', 'carType', 'depot'}.contains(searchType);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (result.bureau.isNotEmpty && !isPaginated)
+          buildInfoRow('配属路局', result.bureauFullName),
+        if (result.depot != null && result.depot!.isNotEmpty)
+          buildInfoRow('配属动车所', result.depot!),
+        if (result.manufacturer != null && result.manufacturer!.isNotEmpty)
+          buildInfoRow('生产厂家', result.manufacturer!),
+        if (result.stationinfo != null)
+          buildInfoRow('运行交路', result.stationinfo!),
+        if (result.remarks != null && result.remarks!.isNotEmpty)
+          buildInfoRow('备注', result.remarks!),
+      ],
+    );
+  }
+
+  Widget _buildRouteInfoBox(String routeInfo) {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color:
+                Theme.of(context).colorScheme.primary.withAlpha(20),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: routeInfo
+                .split('\n')
+                .map((line) => Text(
+                      line,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withAlpha(200),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorSection(AppSettings settings) {
+    return Column(
+      children: [
+        buildErrorCard(
+          context,
+          errorMsg,
+          () => setState(() => errorMsg = ''),
+        ),
+        const SizedBox(height: 12),
+        if (searchType == 'trainCode')
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Tool.buildTrainDataSourceCard(
+                    context: context,
+                    settings: settings,
+                    source: TrainDataSource.railRe,
+                    title: 'Rail.re',
+                    description: '第三方数据源',
+                    icon: Icons.cloud_upload,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Tool.buildTrainDataSourceCard(
+                    context: context,
+                    settings: settings,
+                    source: TrainDataSource.official12306,
+                    title: '12306',
+                    description: '官方数据源',
+                    icon: Icons.train,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPaginationControls() => buildPaginationControls(
+        context: context,
+        currentPage: _currentPage,
+        totalPages: _totalPages,
+        totalResults: _totalResults,
+        loadingPage: _loadingPage,
+        pageController: _pageController,
+        onGoToPage: _goToPage,
+      );
+
+  // ============================================================
+  // build
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<AppSettings>(context);
-    final int displayedCount = _searchResults.length;
-    final int totalCount =
-        (searchType == 'bureau' ||
-            searchType == 'carType' ||
-            searchType == 'depot')
-        ? _totalResults
-        : displayedCount;
+    final isPaginated =
+        const {'bureau', 'carType', 'depot'}.contains(searchType);
+    final displayedCount = _searchResults.length;
+    final totalCount = isPaginated ? _totalResults : displayedCount;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('动车组查询'),
+        title: const Text('动车组查询'),
         centerTitle: true,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               if (value == 'coach') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const CoachSearchPage(),
-                  ),
-                );
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const CoachSearchPage()));
               } else if (value == 'loco') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const LocoSearchPage(),
-                  ),
-                );
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const LocoSearchPage()));
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
+            itemBuilder: (_) => const [
+              PopupMenuItem(
                 value: 'coach',
                 child: ListTile(
                   leading: Icon(Icons.directions_railway),
@@ -1481,7 +1618,7 @@ class _SearchPageState extends State<SearchPage> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'loco',
                 child: ListTile(
                   leading: Icon(Icons.train),
@@ -1498,199 +1635,22 @@ class _SearchPageState extends State<SearchPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                if (searchType == 'trainCode')
-                  DropdownButton<String>(
-                    value: prefix,
-                    items: ['G', 'D', 'C']
-                        .map(
-                          (v) => DropdownMenuItem(
-                            value: v,
-                            child: Text(
-                              v,
-                              style: const TextStyle(fontSize: 18),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setState(() => prefix = v!),
-                  ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    keyboardType: TextInputType.text,
-                    inputFormatters: searchType == 'trainCode'
-                        ? [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(4),
-                            TextInputFormatter.withFunction(
-                              (old, newV) =>
-                                  newV.text.startsWith('0') &&
-                                      newV.text.length > 1
-                                  ? old
-                                  : newV,
-                            ),
-                          ]
-                        : [],
-                    decoration: InputDecoration(
-                      labelText: searchType == 'trainCode'
-                          ? '输入车次数字（1-4位）'
-                          : searchType == 'trainId'
-                          ? '输入车号'
-                          : searchType == 'carType'
-                          ? '输入车型代号'
-                          : searchType == 'bureau'
-                          ? '输入路局名称'
-                          : '输入动车所名称',
-                      hintText: searchType == 'trainCode'
-                          ? '如: 31'
-                          : searchType == 'trainId'
-                          ? '如: CR400AF-AZ-2311'
-                          : searchType == 'carType'
-                          ? '如: CRH6F-A'
-                          : searchType == 'bureau'
-                          ? '如: 上局 或 上海铁路局'
-                          : '如: 上海动车段',
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                    ),
-                    onSubmitted: (_) => _performSearch(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: isLoading ? null : _performSearch,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(80, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(isLoading ? '查询中...' : '查询'),
-                ),
-              ],
-            ),
+            _buildSearchBar(),
             const SizedBox(height: 20),
-
-            // ==================== 新版查询类型选择器 ====================
-            Row(
-              children: [
-                // 车次查询
-                Expanded(
-                  child: _buildSearchTypeChip(
-                    label: '车次查询',
-                    icon: Icons.numbers,
-                    isSelected: searchType == 'trainCode',
-                    onTap: () => _changeSearchType('trainCode'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                // 车号查询
-                Expanded(
-                  child: _buildSearchTypeChip(
-                    label: '车号查询',
-                    icon: Icons.confirmation_number,
-                    isSelected: searchType == 'trainId',
-                    onTap: () => _changeSearchType('trainId'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                // 更多 ▼
-                Expanded(child: _buildMoreMenu()),
-              ],
-            ),
-
+            _buildSearchTypeRow(),
             const SizedBox(height: 20),
-
-            if (searchType == 'trainId')
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    CheckboxListTile(
-                      title: const Text('显示交路信息'),
-                      subtitle: const Text('启用后将应用3秒冷却时间'),
-                      value: showRoutes,
-                      onChanged: (v) => setState(() => showRoutes = v!),
-                      dense: true,
-                      controlAffinity: ListTileControlAffinity.leading,
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Text(
-                        '不显示交路信息时无冷却时间限制',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            const SizedBox(height: 20),
+            if (searchType == 'trainId') _buildRouteToggleCard(),
+            if (searchType == 'trainId') const SizedBox(height: 20),
 
             if (isLoading && _searchResults.isEmpty)
               const Center(child: CircularProgressIndicator()),
 
-            if (errorMsg.isNotEmpty)
-              Column(
-                children: [
-                  buildErrorCard(
-                    context,
-                    errorMsg,
-                    () => setState(() => errorMsg = ''),
-                  ),
-                  const SizedBox(height: 12),
-                  if (searchType == 'trainCode')
-                    IntrinsicHeight(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Tool.buildTrainDataSourceCard(
-                              context: context,
-                              settings: settings,
-                              source: TrainDataSource.railRe,
-                              title: 'Rail.re',
-                              description: '第三方数据源',
-                              icon: Icons.cloud_upload,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Tool.buildTrainDataSourceCard(
-                              context: context,
-                              settings: settings,
-                              source: TrainDataSource.official12306,
-                              title: '12306',
-                              description: '官方数据源',
-                              icon: Icons.train,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
+            if (errorMsg.isNotEmpty) _buildErrorSection(settings),
 
             if (_searchResults.isNotEmpty) ...[
               buildResultCountBar(
                 context,
-                label:
-                    (searchType == 'bureau' ||
-                        searchType == 'carType' ||
-                        searchType == 'depot')
+                label: isPaginated
                     ? '$_currentBureauSearch 共 $totalCount 条（当前 $displayedCount 条）'
                     : '共找到 $totalCount 条结果',
                 onClear: () => setState(() {
@@ -1701,14 +1661,8 @@ class _SearchPageState extends State<SearchPage> {
                 }),
               ),
               const SizedBox(height: 12),
-
-              if (searchType == 'bureau' ||
-                  searchType == 'carType' ||
-                  searchType == 'depot')
-                _buildPaginationControls(),
-
+              if (isPaginated) _buildPaginationControls(),
               for (final result in _searchResults) _buildResultCard(result),
-
               if (_loadingPage)
                 const Center(child: CircularProgressIndicator()),
             ],
@@ -1716,110 +1670,7 @@ class _SearchPageState extends State<SearchPage> {
             const SizedBox(height: 40),
 
             if (!isLoading && errorMsg.isEmpty && _searchResults.isEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Column(
-                  children: [
-                    Icon(switch (searchType) {
-                      'trainCode' => Icons.numbers,
-                      'trainId' => Icons.confirmation_number,
-                      'carType' => Icons.card_travel_rounded,
-                      'bureau' => Icons.business,
-                      'depot' => Icons.warehouse_outlined,
-                      _ => Icons.train_outlined,
-                    }, size: 64),
-                    const SizedBox(height: 16),
-                    Text(
-                      searchType == 'trainCode'
-                          ? '请输入车次数字进行查询\n（例如：25）'
-                          : searchType == 'trainId'
-                          ? '请输入车号进行查询'
-                          : searchType == 'carType'
-                          ? '请输入车型进行查询'
-                          : searchType == 'bureau'
-                          ? '请输入路局名称或点击下方简称查询'
-                          : '请输入动车所名称或点击下方快捷查询',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    if (searchType == 'trainCode') ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: ['G', 'D', 'C']
-                            .map(
-                              (p) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                child: FilterChip(
-                                  label: Text(p),
-                                  selected: prefix == p,
-                                  onSelected: (s) =>
-                                      s ? setState(() => prefix = p) : null,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ],
-                    if (searchType == 'carType') ...[
-                      const SizedBox(height: 20),
-                      const Text('所有可查车型:'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.center,
-                        children: _getAllCarTypes().map((model) {
-                          return GestureDetector(
-                            onTap: () {
-                              controller.text = model;
-                              _performSearch();
-                            },
-                            child: Chip(label: Text(model)),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                    if (searchType == 'bureau') ...[
-                      const SizedBox(height: 20),
-                      const Text('支持的路局简称:'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.center,
-                        children: _getCommonBureauCodes().map((bureauName) {
-                          return GestureDetector(
-                            onTap: () => _handleBureauChipTap(bureauName),
-                            child: Chip(label: Text(bureauName)),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                    if (searchType == 'depot') ...[
-                      const SizedBox(height: 20),
-                      const Text('所有动车所:'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.center,
-                        children: _depotNames.map((depotName) {
-                          return GestureDetector(
-                            onTap: () {
-                              controller.text = depotName;
-                              _performSearch();
-                            },
-                            child: Chip(label: Text(depotName)),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              _buildEmptyState(),
           ],
         ),
       ),
