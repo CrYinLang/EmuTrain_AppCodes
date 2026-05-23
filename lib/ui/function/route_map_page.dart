@@ -69,6 +69,7 @@ class RouteMapPage extends StatefulWidget {
 class _RouteMapPageState extends State<RouteMapPage> {
   List<_PlottedRoute> _plotted = [];
   bool _loading = true;
+  bool _showStationNumbers = true;
 
   // 命中的站点列表（支持多线路共站）
   List<({int ri, int si})> _selHits = [];
@@ -275,7 +276,26 @@ class _RouteMapPageState extends State<RouteMapPage> {
           ? const Color(0xFF111111)
           : const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('线路走向图'),
+        title: Row(
+          children: [
+            const Text('线路走向图'),
+            const Spacer(),
+            IconButton(
+              icon: Icon(
+                _showStationNumbers
+                    ? Icons.confirmation_number
+                    : Icons.confirmation_number_outlined,
+                size: 20,
+              ),
+              tooltip: _showStationNumbers ? '隐藏车站序号' : '显示车站序号',
+              onPressed: () {
+                setState(() {
+                  _showStationNumbers = !_showStationNumbers;
+                });
+              },
+            ),
+          ],
+        ),
         backgroundColor: isDark ? Colors.black : Colors.white,
         foregroundColor: cs.onSurface,
         elevation: 0,
@@ -428,41 +448,38 @@ class _RouteMapPageState extends State<RouteMapPage> {
                 ),
               ),
             ),
-            // ── 站点序号叠加层（Widget 渲染，缩放不模糊）────────
-            IgnorePointer(
-              child: SizedBox.expand(
-                child: CustomMultiChildLayout(
-                  delegate: _NumberOverlayDelegate(
-                    routes: _plotted,
-                    transform: _txCtrl.value,
-                    canvasSize: sz,
-                    scale: _scale,
-                  ),
-                  children: [
-                    for (int ri = 0; ri < _plotted.length; ri++)
-                      if (_plotted[ri].visible)
-                        for (
-                          int si = 0;
-                          si < _plotted[ri].stations.length;
-                          si++
-                        )
-                          if (_plotted[ri].stations[si].hasLocation)
-                            LayoutId(
-                              id: '$ri-$si',
-                              child: Text(
-                                '${si + 1}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  height: 1.0,
+            // ── 站点序号叠加层（Widget 渲染）────────
+            if (_showStationNumbers)
+              IgnorePointer(
+                child: SizedBox.expand(
+                  child: CustomMultiChildLayout(
+                    delegate: _NumberOverlayDelegate(
+                      routes: _plotted,
+                      transform: _txCtrl.value,
+                      canvasSize: sz,
+                      scale: _scale,
+                    ),
+                    children: [
+                      for (int ri = 0; ri < _plotted.length; ri++)
+                        if (_plotted[ri].visible)
+                          for (int si = 0; si < _plotted[ri].stations.length; si++)
+                            if (_plotted[ri].stations[si].hasLocation)
+                              LayoutId(
+                                id: '$ri-$si',
+                                child: Text(
+                                  '${si + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.0,
+                                  ),
                                 ),
                               ),
-                            ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
             // Flutter Widget label 叠加层（不模糊，永远清晰）
             if (_selHits.isNotEmpty)
               IgnorePointer(

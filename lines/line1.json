@@ -1,1186 +1,1684 @@
 [
-  {
-    "id": "route_1779522293234",
-    "name": "广深城际",
-    "author": "CrYinLang",
-    "icon": "train/CRH1A.png",
-    "createdAt": "2026-05-23T15:44:53.234310",
-    "updatedAt": "2026-05-23T16:49:24.883669",
-    "stations": [
-      {
-        "tel": "GZQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "GGQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "SPQ",
-        "mile": 25.0
-      },
-      {
-        "tel": "XWQ",
-        "mile": 32.0
-      },
-      {
-        "tel": "RTQ",
-        "mile": 19.0
-      },
-      {
-        "tel": "DAQ",
-        "mile": 13.0
-      },
-      {
-        "tel": "ZOQ",
-        "mile": 24.0
-      },
-      {
-        "tel": "PHQ",
-        "mile": 12.0
-      },
-      {
-        "tel": "BJQ",
-        "mile": 8.0
-      },
-      {
-        "tel": "SZQ"
-      }
-    ]
-  },
-  {
-    "id": "route_1779036264791",
-    "name": "南昆客专",
-    "author": "CrYinLang",
-    "icon": "train/CR220J.png",
-    "createdAt": "2026-05-18T00:44:35.086324",
-    "updatedAt": "2026-05-23T16:49:25.317539",
-    "stations": [
-      {
-        "tel": "NNZ"
-      },
-      {
-        "tel": "NXZ",
-        "mile": 44.0
-      },
-      {
-        "tel": "IDZ",
-        "mile": 39.0
-      },
-      {
-        "tel": "PGZ",
-        "mile": 25.0
-      },
-      {
-        "tel": "TBZ",
-        "mile": 60.0
-      },
-      {
-        "tel": "TRZ",
-        "mile": 24.0
-      },
-      {
-        "tel": "BIZ",
-        "mile": 31.0
-      },
-      {
-        "tel": "FNM",
-        "mile": 120.0
-      },
-      {
-        "tel": "GXM",
-        "mile": 71.0
-      },
-      {
-        "tel": "ZOM",
-        "mile": 45.0
-      },
-      {
-        "tel": "PZM",
-        "mile": 47.0
-      },
-      {
-        "tel": "MLM",
-        "mile": 111.0
-      },
-      {
-        "tel": "SYM",
-        "mile": 43.0
-      },
-      {
-        "tel": "AOM",
-        "mile": 35.0
-      },
-      {
-        "tel": "KOM",
-        "mile": 14.0
-      }
-    ]
-  },
-  {
-    "id": "route_1779036059134",
-    "name": "南广客专",
-    "author": "CrYinLang",
-    "icon": "train/CRH1A.png",
-    "createdAt": "2026-05-18T00:41:06.608823",
-    "updatedAt": "2026-05-23T16:49:25.469869",
-    "stations": [
-      {
-        "tel": "IZQ"
-      },
-      {
-        "tel": "FOQ",
-        "mile": 33.0
-      },
-      {
-        "tel": "RNQ",
-        "mile": 18.0
-      },
-      {
-        "tel": "FCQ",
-        "mile": 25.0
-      },
-      {
-        "tel": "IXQ",
-        "mile": 62.0
-      },
-      {
-        "tel": "NDQ",
-        "mile": 38.0
-      },
-      {
-        "tel": "YKQ",
-        "mile": 39.0
-      },
-      {
-        "tel": "WBZ",
-        "mile": 31.0
-      },
-      {
-        "tel": "TAZ",
-        "mile": 25.0
-      },
-      {
-        "tel": "PAZ",
-        "mile": 59.0
-      },
-      {
-        "tel": "GAZ",
-        "mile": 35.0
-      },
-      {
-        "tel": "GGZ",
-        "mile": 58.0
-      },
-      {
-        "tel": "UKZ",
-        "mile": 57.0
-      },
-      {
-        "tel": "NFZ",
-        "mile": 83.0
-      },
-      {
-        "tel": "NNZ",
-        "mile": 11.0
-      }
-    ]
-  },
-  {
-    "id": "route_1779035072518",
-    "name": "贵广高铁",
-    "author": "CrYinLang",
-    "icon": "train/CRH380AJ.png",
-    "createdAt": "2026-05-18T00:24:37.644697",
-    "updatedAt": "2026-05-23T16:49:25.627479",
-    "stations": [
-      {
-        "tel": "IZQ"
-      },
-      {
-        "tel": "FOQ",
-        "mile": 33.0
-      },
-      {
-        "tel": "RNQ",
-        "mile": 18.0
-      },
-      {
-        "tel": "FCQ",
-        "mile": 25.0
-      },
-      {
-        "tel": "FBQ",
-        "mile": 49.0
-      },
-      {
-        "tel": "FAQ",
-        "mile": 46.0
-      },
-      {
-        "tel": "HXZ",
-        "mile": 90.0
-      },
-      {
-        "tel": "ZAZ",
-        "mile": 24.0
-      },
-      {
-        "tel": "GCZ",
-        "mile": 60.0
-      },
-      {
-        "tel": "YCZ",
-        "mile": 34.0
-      },
-      {
-        "tel": "GEZ",
-        "mile": 65.0
-      },
-      {
-        "tel": "WTZ",
-        "mile": 19.0
-      },
-      {
-        "tel": "SWZ",
-        "mile": 68.0
-      },
-      {
-        "tel": "KNW",
-        "mile": 52.0
-      },
-      {
-        "tel": "RVW",
-        "mile": 57.0
-      },
-      {
-        "tel": "KKW",
-        "mile": 75.0
-      },
-      {
-        "tel": "KJW",
-        "mile": 26.0
-      },
-      {
-        "tel": "KIW",
-        "mile": 46.0
-      },
-      {
-        "tel": "KFW",
-        "mile": 28.0
-      },
-      {
-        "tel": "FVW",
-        "mile": 24.0
-      },
-      {
-        "tel": "KEW",
-        "mile": 18.0
-      }
-    ]
-  },
-  {
-    "id": "route_1779030653899",
-    "name": "广深港高铁",
-    "author": "CrYinLang",
-    "icon": "train/CRH380AD.png",
-    "createdAt": "2026-05-17T23:11:11.979353",
-    "updatedAt": "2026-05-23T16:49:25.778356",
-    "stations": [
-      {
-        "tel": "IZQ"
-      },
-      {
-        "tel": "QSQ",
-        "mile": 31.0
-      },
-      {
-        "tel": "IUQ",
-        "mile": 19.0
-      },
-      {
-        "tel": "IMQ",
-        "mile": 36.0
-      },
-      {
-        "tel": "IOQ",
-        "mile": 16.0
-      },
-      {
-        "tel": "NZQ",
-        "mile": 9.0
-      },
-      {
-        "tel": "XJA",
-        "mile": 30.0
-      }
-    ]
-  },
-  {
-    "id": "route_1779030553380",
-    "name": "京广高铁",
-    "author": "CrYinLang",
-    "icon": "train/CR400AF-SZE.png",
-    "createdAt": "2026-05-17T23:09:13.380530",
-    "updatedAt": "2026-05-23T16:49:26.061756",
-    "stations": [
-      {
-        "tel": "BXP"
-      },
-      {
-        "tel": "ZAP",
-        "mile": 62.0
-      },
-      {
-        "tel": "GMP",
-        "mile": 21.0
-      },
-      {
-        "tel": "BMP",
-        "mile": 56.0
-      },
-      {
-        "tel": "DOP",
-        "mile": 62.0
-      },
-      {
-        "tel": "ZHP",
-        "mile": 43.0
-      },
-      {
-        "tel": "SJP",
-        "mile": 37.0
-      },
-      {
-        "tel": "GNP",
-        "mile": 51.0
-      },
-      {
-        "tel": "EDP",
-        "mile": 71.0
-      },
-      {
-        "tel": "HPP",
-        "mile": 53.0
-      },
-      {
-        "tel": "ADF",
-        "mile": 60.0
-      },
-      {
-        "tel": "HFF",
-        "mile": 46.0
-      },
-      {
-        "tel": "EGF",
-        "mile": 64.0
-      },
-      {
-        "tel": "ZAF",
-        "mile": 67.0
-      },
-      {
-        "tel": "XVF",
-        "mile": 91.0
-      },
-      {
-        "tel": "LBN",
-        "mile": 64.0
-      },
-      {
-        "tel": "ZLN",
-        "mile": 64.0
-      },
-      {
-        "tel": "MDN",
-        "mile": 68.0
-      },
-      {
-        "tel": "OYN",
-        "mile": 50.0
-      },
-      {
-        "tel": "XJN",
-        "mile": 73.0
-      },
-      {
-        "tel": "WHN",
-        "mile": 126.0
-      },
-      {
-        "tel": "XRN",
-        "mile": 85.0
-      },
-      {
-        "tel": "CIN",
-        "mile": 43.0
-      },
-      {
-        "tel": "YIQ",
-        "mile": 87.0
-      },
-      {
-        "tel": "MQQ",
-        "mile": 70.0
-      },
-      {
-        "tel": "CWQ",
-        "mile": 77.0
-      },
-      {
-        "tel": "ZAQ",
-        "mile": 52.0
-      },
-      {
-        "tel": "HEQ",
-        "mile": 84.0
-      },
-      {
-        "tel": "HVQ",
-        "mile": 41.0
-      },
-      {
-        "tel": "LPQ",
-        "mile": 55.0
-      },
-      {
-        "tel": "ICQ",
-        "mile": 98.0
-      },
-      {
-        "tel": "ILQ",
-        "mile": 106.0
-      },
-      {
-        "tel": "SNQ",
-        "mile": 44.0
-      },
-      {
-        "tel": "IIQ",
-        "mile": 87.0
-      },
-      {
-        "tel": "QBQ",
-        "mile": 57.0
-      },
-      {
-        "tel": "GBQ",
-        "mile": 36.0
-      },
-      {
-        "tel": "IZQ",
-        "mile": 47.0
-      }
-    ]
-  },
-  {
-    "id": "route_1779029747731",
-    "name": "京沪高铁",
-    "author": "CrYinLang",
-    "icon": "train/CR400BF-Z.png",
-    "createdAt": "2026-05-17T22:55:47.731056",
-    "updatedAt": "2026-05-23T16:49:26.354073",
-    "stations": [
-      {
-        "tel": "VNP",
-        "mile": 60.0
-      },
-      {
-        "tel": "LJP",
-        "mile": 62.0
-      },
-      {
-        "tel": "TIP",
-        "mile": 88.0
-      },
-      {
-        "tel": "CBP",
-        "mile": 104.0
-      },
-      {
-        "tel": "DIP",
-        "mile": 92.0
-      },
-      {
-        "tel": "JGK",
-        "mile": 59.0
-      },
-      {
-        "tel": "TMK",
-        "mile": 70.0
-      },
-      {
-        "tel": "QAK",
-        "mile": 56.0
-      },
-      {
-        "tel": "ZEK",
-        "mile": 36.0
-      },
-      {
-        "tel": "UUH",
-        "mile": 65.0
-      },
-      {
-        "tel": "SRH",
-        "mile": 68.0
-      },
-      {
-        "tel": "BMH",
-        "mile": 54.0
-      },
-      {
-        "tel": "EWH",
-        "mile": 62.0
-      },
-      {
-        "tel": "CXH",
-        "mile": 59.0
-      },
-      {
-        "tel": "NKH",
-        "mile": 65.0
-      },
-      {
-        "tel": "ZEH",
-        "mile": 32.0
-      },
-      {
-        "tel": "EXH",
-        "mile": 33.0
-      },
-      {
-        "tel": "ESH",
-        "mile": 57.0
-      },
-      {
-        "tel": "WGH",
-        "mile": 27.0
-      },
-      {
-        "tel": "OHH",
-        "mile": 31.0
-      },
-      {
-        "tel": "KNH",
-        "mile": 50.0
-      },
-      {
-        "tel": "AOH"
-      }
-    ]
-  },
-  {
-    "id": "route_1779003940664",
-    "name": "广佛东环城际",
-    "author": "CrYinLang",
-    "icon": "train/CRH6A.png",
-    "createdAt": "2026-05-17T22:00:58.320195",
-    "updatedAt": "2026-05-23T16:49:26.513233",
-    "stations": [
-      {
-        "tel": "PYA",
-        "mile": 6.0
-      },
-      {
-        "tel": "RHQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "GCQ",
-        "mile": 7.0
-      },
-      {
-        "tel": "PTQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "KEA",
-        "mile": 4.0
-      },
-      {
-        "tel": "CPQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "UGQ",
-        "mile": 7.0
-      },
-      {
-        "tel": "DFQ",
-        "mile": 7.0
-      },
-      {
-        "tel": "MTQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "ZUA",
-        "mile": 5.0
-      },
-      {
-        "tel": "BDA",
-        "mile": 3.0
-      },
-      {
-        "tel": "BNA",
-        "mile": 2.0
-      },
-      {
-        "tel": "BBA",
-        "mile": 7.0
-      },
-      {
-        "tel": "HZA",
-        "mile": 3.0
-      },
-      {
-        "tel": "HCA",
-        "mile": 11.0
-      },
-      {
-        "tel": "HAA"
-      }
-    ]
-  },
-  {
-    "id": "route_1778960768819",
-    "name": "穗深城际",
-    "author": "CrYinLang",
-    "icon": "train/CRH6A.png",
-    "createdAt": "2026-05-17T22:01:08.401086",
-    "updatedAt": "2026-05-23T16:49:26.670239",
-    "stations": [
-      {
-        "tel": "NUQ",
-        "mile": 7.0
-      },
-      {
-        "tel": "ZTA",
-        "mile": 4.0
-      },
-      {
-        "tel": "WNA",
-        "mile": 4.0
-      },
-      {
-        "tel": "WGQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "HMA",
-        "mile": 9.0
-      },
-      {
-        "tel": "DGA",
-        "mile": 5.0
-      },
-      {
-        "tel": "HJA",
-        "mile": 5.0
-      },
-      {
-        "tel": "HBA",
-        "mile": 4.0
-      },
-      {
-        "tel": "HDA",
-        "mile": 7.0
-      },
-      {
-        "tel": "CXA",
-        "mile": 4.0
-      },
-      {
-        "tel": "CAA",
-        "mile": 8.0
-      },
-      {
-        "tel": "SJA",
-        "mile": 5.0
-      },
-      {
-        "tel": "FHA",
-        "mile": 4.0
-      },
-      {
-        "tel": "SBA",
-        "mile": 4.0
-      },
-      {
-        "tel": "SCA"
-      }
-    ]
-  },
-  {
-    "id": "route_1778960400584",
-    "name": "广清城际",
-    "author": "CrYinLang",
-    "icon": "train/CRH6-2.png",
-    "createdAt": "2026-05-17T22:01:08.401101",
-    "updatedAt": "2026-05-23T16:49:26.822089",
-    "stations": [
-      {
-        "tel": "GBA",
-        "mile": 4.0
-      },
-      {
-        "tel": "BHA",
-        "mile": 6.0
-      },
-      {
-        "tel": "JGA",
-        "mile": 7.0
-      },
-      {
-        "tel": "SRA",
-        "mile": 5.0
-      },
-      {
-        "tel": "HAA",
-        "mile": 6.0
-      },
-      {
-        "tel": "LEA",
-        "mile": 5.0
-      },
-      {
-        "tel": "SLA",
-        "mile": 12.0
-      },
-      {
-        "tel": "YZA",
-        "mile": 8.0
-      },
-      {
-        "tel": "LVB",
-        "mile": 6.0
-      },
-      {
-        "tel": "QCA",
-        "mile": 4.0
-      },
-      {
-        "tel": "YHA",
-        "mile": 5.0
-      },
-      {
-        "tel": "ZIA",
-        "mile": 11.0
-      },
-      {
-        "tel": "FEA"
-      }
-    ]
-  },
-  {
-    "id": "route_1778948722210",
-    "name": "广惠城际",
-    "author": "CrYinLang",
-    "icon": "train/CRH6-2.png",
-    "createdAt": "2026-05-17T22:01:08.401112",
-    "updatedAt": "2026-05-23T16:49:27.163368",
-    "stations": [
-      {
-        "tel": "PYA",
-        "mile": 6.0
-      },
-      {
-        "tel": "GCA",
-        "mile": 4.0
-      },
-      {
-        "tel": "DHA",
-        "mile": 9.0
-      },
-      {
-        "tel": "GQA",
-        "mile": 5.0
-      },
-      {
-        "tel": "GLA",
-        "mile": 9.0
-      },
-      {
-        "tel": "MIA",
-        "mile": 6.0
-      },
-      {
-        "tel": "WGQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "RRQ",
-        "mile": 10.0
-      },
-      {
-        "tel": "EGQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "IYQ",
-        "mile": 9.0
-      },
-      {
-        "tel": "LTQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "KUQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "KOQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "FPQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "FQQ",
-        "mile": 7.0
-      },
-      {
-        "tel": "ZRQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "KPQ",
-        "mile": 8.0
-      },
-      {
-        "tel": "KBQ",
-        "mile": 12.0
-      },
-      {
-        "tel": "KKQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "KHQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "KFQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "WDQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "KZQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "NKQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "HUA"
-      }
-    ]
-  },
-  {
-    "id": "route_1778948395680",
-    "name": "广肇城际",
-    "author": "CrYinLang",
-    "icon": "train/CRH6-2.png",
-    "createdAt": "2026-05-17T22:01:08.401131",
-    "updatedAt": "2026-05-23T16:49:27.465427",
-    "stations": [
-      {
-        "tel": "PYA",
-        "mile": 5.0
-      },
-      {
-        "tel": "CVA",
-        "mile": 6.0
-      },
-      {
-        "tel": "BJA",
-        "mile": 5.0
-      },
-      {
-        "tel": "SVA",
-        "mile": 10.0
-      },
-      {
-        "tel": "ZAA",
-        "mile": 11.0
-      },
-      {
-        "tel": "FOQ",
-        "mile": 8.0
-      },
-      {
-        "tel": "KSQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "NSQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "ARQ",
-        "mile": 11.0
-      },
-      {
-        "tel": "NAQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "WWQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "AHQ",
-        "mile": 13.0
-      },
-      {
-        "tel": "UWQ",
-        "mile": 9.0
-      },
-      {
-        "tel": "NVQ",
-        "mile": 11.0
-      },
-      {
-        "tel": "WZQ",
-        "mile": 7.0
-      },
-      {
-        "tel": "ZVQ"
-      }
-    ]
-  },
-  {
-    "id": "route_1778948039021",
-    "name": "广湛高铁",
-    "author": "CrYinLang",
-    "icon": "train/CR400AF-SZE.png",
-    "createdAt": "2026-05-17T22:01:08.401143",
-    "updatedAt": "2026-05-23T16:49:27.622665",
-    "stations": [
-      {
-        "tel": "GBA",
-        "mile": 26.0
-      },
-      {
-        "tel": "FSQ",
-        "mile": 105.0
-      },
-      {
-        "tel": "XPQ",
-        "mile": 61.0
-      },
-      {
-        "tel": "YBQ",
-        "mile": 31.0
-      },
-      {
-        "tel": "YLQ",
-        "mile": 25.0
-      },
-      {
-        "tel": "WMQ",
-        "mile": 32.0
-      },
-      {
-        "tel": "PWQ",
-        "mile": 41.0
-      },
-      {
-        "tel": "MRQ",
-        "mile": 55.0
-      },
-      {
-        "tel": "WAQ",
-        "mile": 56.0
-      },
-      {
-        "tel": "ZMQ"
-      }
-    ]
-  },
-  {
-    "id": "route_1778939745733",
-    "name": "广珠城际",
-    "author": "CrYinLang",
-    "icon": "train/CRH6A.png",
-    "createdAt": "2026-05-17T22:01:08.401152",
-    "updatedAt": "2026-05-23T16:49:27.763678",
-    "stations": [
-      {
-        "tel": "ZHQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "QXQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "MFQ",
-        "mile": 12.0
-      },
-      {
-        "tel": "PDQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "ZIQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "IHQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "NNQ",
-        "mile": 13.0
-      },
-      {
-        "tel": "ZSQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "ZGQ",
-        "mile": 12.0
-      },
-      {
-        "tel": "DRQ",
-        "mile": 7.0
-      },
-      {
-        "tel": "EAQ",
-        "mile": 8.0
-      },
-      {
-        "tel": "NOQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "RUQ",
-        "mile": 9.0
-      },
-      {
-        "tel": "OJQ",
-        "mile": 8.0
-      },
-      {
-        "tel": "ORQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "IBQ",
-        "mile": 6.0
-      },
-      {
-        "tel": "BLQ",
-        "mile": 5.0
-      },
-      {
-        "tel": "IZQ"
-      }
-    ]
-  },
-  {
-    "id": "route_1778939489255",
-    "name": "广珠城际江门线",
-    "author": "CrYinLang",
-    "icon": "bureau/广州铁路局.png",
-    "createdAt": "2026-05-17T22:01:08.401166",
-    "updatedAt": "2026-05-23T16:49:27.938527",
-    "stations": [
-      {
-        "tel": "JOQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "EFQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "UEQ",
-        "mile": 3.0
-      },
-      {
-        "tel": "JWQ",
-        "mile": 7.0
-      },
-      {
-        "tel": "JNQ",
-        "mile": 4.0
-      },
-      {
-        "tel": "GNQ",
-        "mile": 9.0
-      },
-      {
-        "tel": "EAQ"
-      }
-    ]
-  },
-  {
-    "id": "route_1778939318227",
-    "name": "江湛铁路",
-    "author": "CrYinLang",
-    "icon": "train/CRH2A.png",
-    "createdAt": "2026-05-17T22:01:08.401174",
-    "updatedAt": "2026-05-23T16:49:28.099177",
-    "stations": [
-      {
-        "tel": "ZWQ",
-        "mile": 67.0
-      },
-      {
-        "tel": "WAQ",
-        "mile": 25.0
-      },
-      {
-        "tel": "MDQ",
-        "mile": 24.0
-      },
-      {
-        "tel": "NWQ",
-        "mile": 24.0
-      },
-      {
-        "tel": "PWQ",
-        "mile": 33.0
-      },
-      {
-        "tel": "WMQ",
-        "mile": 36.0
-      },
-      {
-        "tel": "WRQ",
-        "mile": 25.0
-      },
-      {
-        "tel": "WLQ",
-        "mile": 38.0
-      },
-      {
-        "tel": "PXQ",
-        "mile": 34.0
-      },
-      {
-        "tel": "PVQ",
-        "mile": 14.0
-      },
-      {
-        "tel": "PUQ",
-        "mile": 22.0
-      },
-      {
-        "tel": "PQQ",
-        "mile": 15.0
-      },
-      {
-        "tel": "JOQ"
-      }
-    ]
-  }
+    {
+        "id": "route_1779522293234",
+        "name": "广深城际",
+        "author": "CrYinLang",
+        "icon": "train/CRH1A.png",
+        "createdAt": "2026-05-23T15:44:53.234310",
+        "updatedAt": "2026-05-23T16:49:24.883669",
+        "stations": [
+            {
+                "tel": "GZQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "GGQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "SPQ",
+                "mile": 25.0
+            },
+            {
+                "tel": "XWQ",
+                "mile": 32.0
+            },
+            {
+                "tel": "RTQ",
+                "mile": 19.0
+            },
+            {
+                "tel": "DAQ",
+                "mile": 13.0
+            },
+            {
+                "tel": "ZOQ",
+                "mile": 24.0
+            },
+            {
+                "tel": "PHQ",
+                "mile": 12.0
+            },
+            {
+                "tel": "BJQ",
+                "mile": 8.0
+            },
+            {
+                "tel": "SZQ"
+            }
+        ]
+    },
+    {
+        "id": "route_1779036264791",
+        "name": "南昆客专",
+        "author": "CrYinLang",
+        "icon": "train/CR220J.png",
+        "createdAt": "2026-05-18T00:44:35.086324",
+        "updatedAt": "2026-05-23T16:49:25.317539",
+        "stations": [
+            {
+                "tel": "NNZ"
+            },
+            {
+                "tel": "NXZ",
+                "mile": 44.0
+            },
+            {
+                "tel": "IDZ",
+                "mile": 39.0
+            },
+            {
+                "tel": "PGZ",
+                "mile": 25.0
+            },
+            {
+                "tel": "TBZ",
+                "mile": 60.0
+            },
+            {
+                "tel": "TRZ",
+                "mile": 24.0
+            },
+            {
+                "tel": "BIZ",
+                "mile": 31.0
+            },
+            {
+                "tel": "FNM",
+                "mile": 120.0
+            },
+            {
+                "tel": "GXM",
+                "mile": 71.0
+            },
+            {
+                "tel": "ZOM",
+                "mile": 45.0
+            },
+            {
+                "tel": "PZM",
+                "mile": 47.0
+            },
+            {
+                "tel": "MLM",
+                "mile": 111.0
+            },
+            {
+                "tel": "SYM",
+                "mile": 43.0
+            },
+            {
+                "tel": "AOM",
+                "mile": 35.0
+            },
+            {
+                "tel": "KOM",
+                "mile": 14.0
+            }
+        ]
+    },
+    {
+        "id": "route_1779036059134",
+        "name": "南广客专",
+        "author": "CrYinLang",
+        "icon": "train/CRH1A.png",
+        "createdAt": "2026-05-18T00:41:06.608823",
+        "updatedAt": "2026-05-23T16:49:25.469869",
+        "stations": [
+            {
+                "tel": "IZQ"
+            },
+            {
+                "tel": "FOQ",
+                "mile": 33.0
+            },
+            {
+                "tel": "RNQ",
+                "mile": 18.0
+            },
+            {
+                "tel": "FCQ",
+                "mile": 25.0
+            },
+            {
+                "tel": "IXQ",
+                "mile": 62.0
+            },
+            {
+                "tel": "NDQ",
+                "mile": 38.0
+            },
+            {
+                "tel": "YKQ",
+                "mile": 39.0
+            },
+            {
+                "tel": "WBZ",
+                "mile": 31.0
+            },
+            {
+                "tel": "TAZ",
+                "mile": 25.0
+            },
+            {
+                "tel": "PAZ",
+                "mile": 59.0
+            },
+            {
+                "tel": "GAZ",
+                "mile": 35.0
+            },
+            {
+                "tel": "GGZ",
+                "mile": 58.0
+            },
+            {
+                "tel": "UKZ",
+                "mile": 57.0
+            },
+            {
+                "tel": "NFZ",
+                "mile": 83.0
+            },
+            {
+                "tel": "NNZ",
+                "mile": 11.0
+            }
+        ]
+    },
+    {
+        "id": "route_1779035072518",
+        "name": "贵广高铁",
+        "author": "CrYinLang",
+        "icon": "train/CRH380AJ.png",
+        "createdAt": "2026-05-18T00:24:37.644697",
+        "updatedAt": "2026-05-23T16:49:25.627479",
+        "stations": [
+            {
+                "tel": "IZQ"
+            },
+            {
+                "tel": "FOQ",
+                "mile": 33.0
+            },
+            {
+                "tel": "RNQ",
+                "mile": 18.0
+            },
+            {
+                "tel": "FCQ",
+                "mile": 25.0
+            },
+            {
+                "tel": "FBQ",
+                "mile": 49.0
+            },
+            {
+                "tel": "FAQ",
+                "mile": 46.0
+            },
+            {
+                "tel": "HXZ",
+                "mile": 90.0
+            },
+            {
+                "tel": "ZAZ",
+                "mile": 24.0
+            },
+            {
+                "tel": "GCZ",
+                "mile": 60.0
+            },
+            {
+                "tel": "YCZ",
+                "mile": 34.0
+            },
+            {
+                "tel": "GEZ",
+                "mile": 65.0
+            },
+            {
+                "tel": "WTZ",
+                "mile": 19.0
+            },
+            {
+                "tel": "SWZ",
+                "mile": 68.0
+            },
+            {
+                "tel": "KNW",
+                "mile": 52.0
+            },
+            {
+                "tel": "RVW",
+                "mile": 57.0
+            },
+            {
+                "tel": "KKW",
+                "mile": 75.0
+            },
+            {
+                "tel": "KJW",
+                "mile": 26.0
+            },
+            {
+                "tel": "KIW",
+                "mile": 46.0
+            },
+            {
+                "tel": "KFW",
+                "mile": 28.0
+            },
+            {
+                "tel": "FVW",
+                "mile": 24.0
+            },
+            {
+                "tel": "KEW",
+                "mile": 18.0
+            }
+        ]
+    },
+    {
+        "id": "route_1779030653899",
+        "name": "广深港高铁",
+        "author": "CrYinLang",
+        "icon": "train/CRH380AD.png",
+        "createdAt": "2026-05-17T23:11:11.979353",
+        "updatedAt": "2026-05-23T16:49:25.778356",
+        "stations": [
+            {
+                "tel": "IZQ"
+            },
+            {
+                "tel": "QSQ",
+                "mile": 31.0
+            },
+            {
+                "tel": "IUQ",
+                "mile": 19.0
+            },
+            {
+                "tel": "IMQ",
+                "mile": 36.0
+            },
+            {
+                "tel": "IOQ",
+                "mile": 16.0
+            },
+            {
+                "tel": "NZQ",
+                "mile": 9.0
+            },
+            {
+                "tel": "XJA",
+                "mile": 30.0
+            }
+        ]
+    },
+    {
+        "id": "route_1779030553380",
+        "name": "京广高铁",
+        "author": "CrYinLang",
+        "icon": "train/CR400AF-SZE.png",
+        "createdAt": "2026-05-17T23:09:13.380530",
+        "updatedAt": "2026-05-23T16:49:26.061756",
+        "stations": [
+            {
+                "tel": "BXP"
+            },
+            {
+                "tel": "ZAP",
+                "mile": 62.0
+            },
+            {
+                "tel": "GMP",
+                "mile": 21.0
+            },
+            {
+                "tel": "BMP",
+                "mile": 56.0
+            },
+            {
+                "tel": "DOP",
+                "mile": 62.0
+            },
+            {
+                "tel": "ZHP",
+                "mile": 43.0
+            },
+            {
+                "tel": "SJP",
+                "mile": 37.0
+            },
+            {
+                "tel": "GNP",
+                "mile": 51.0
+            },
+            {
+                "tel": "EDP",
+                "mile": 71.0
+            },
+            {
+                "tel": "HPP",
+                "mile": 53.0
+            },
+            {
+                "tel": "ADF",
+                "mile": 60.0
+            },
+            {
+                "tel": "HFF",
+                "mile": 46.0
+            },
+            {
+                "tel": "EGF",
+                "mile": 64.0
+            },
+            {
+                "tel": "ZAF",
+                "mile": 67.0
+            },
+            {
+                "tel": "XVF",
+                "mile": 91.0
+            },
+            {
+                "tel": "LBN",
+                "mile": 64.0
+            },
+            {
+                "tel": "ZLN",
+                "mile": 64.0
+            },
+            {
+                "tel": "MDN",
+                "mile": 68.0
+            },
+            {
+                "tel": "OYN",
+                "mile": 50.0
+            },
+            {
+                "tel": "XJN",
+                "mile": 73.0
+            },
+            {
+                "tel": "WHN",
+                "mile": 126.0
+            },
+            {
+                "tel": "XRN",
+                "mile": 85.0
+            },
+            {
+                "tel": "CIN",
+                "mile": 43.0
+            },
+            {
+                "tel": "YIQ",
+                "mile": 87.0
+            },
+            {
+                "tel": "MQQ",
+                "mile": 70.0
+            },
+            {
+                "tel": "CWQ",
+                "mile": 77.0
+            },
+            {
+                "tel": "ZAQ",
+                "mile": 52.0
+            },
+            {
+                "tel": "HEQ",
+                "mile": 84.0
+            },
+            {
+                "tel": "HVQ",
+                "mile": 41.0
+            },
+            {
+                "tel": "LPQ",
+                "mile": 55.0
+            },
+            {
+                "tel": "ICQ",
+                "mile": 98.0
+            },
+            {
+                "tel": "ILQ",
+                "mile": 106.0
+            },
+            {
+                "tel": "SNQ",
+                "mile": 44.0
+            },
+            {
+                "tel": "IIQ",
+                "mile": 87.0
+            },
+            {
+                "tel": "QBQ",
+                "mile": 57.0
+            },
+            {
+                "tel": "GBQ",
+                "mile": 36.0
+            },
+            {
+                "tel": "IZQ",
+                "mile": 47.0
+            }
+        ]
+    },
+    {
+        "id": "route_1779029747731",
+        "name": "京沪高铁",
+        "author": "CrYinLang",
+        "icon": "train/CR400BF-Z.png",
+        "createdAt": "2026-05-17T22:55:47.731056",
+        "updatedAt": "2026-05-23T16:49:26.354073",
+        "stations": [
+            {
+                "tel": "VNP",
+                "mile": 60.0
+            },
+            {
+                "tel": "LJP",
+                "mile": 62.0
+            },
+            {
+                "tel": "TIP",
+                "mile": 88.0
+            },
+            {
+                "tel": "CBP",
+                "mile": 104.0
+            },
+            {
+                "tel": "DIP",
+                "mile": 92.0
+            },
+            {
+                "tel": "JGK",
+                "mile": 59.0
+            },
+            {
+                "tel": "TMK",
+                "mile": 70.0
+            },
+            {
+                "tel": "QAK",
+                "mile": 56.0
+            },
+            {
+                "tel": "ZEK",
+                "mile": 36.0
+            },
+            {
+                "tel": "UUH",
+                "mile": 65.0
+            },
+            {
+                "tel": "SRH",
+                "mile": 68.0
+            },
+            {
+                "tel": "BMH",
+                "mile": 54.0
+            },
+            {
+                "tel": "EWH",
+                "mile": 62.0
+            },
+            {
+                "tel": "CXH",
+                "mile": 59.0
+            },
+            {
+                "tel": "NKH",
+                "mile": 65.0
+            },
+            {
+                "tel": "ZEH",
+                "mile": 32.0
+            },
+            {
+                "tel": "EXH",
+                "mile": 33.0
+            },
+            {
+                "tel": "ESH",
+                "mile": 57.0
+            },
+            {
+                "tel": "WGH",
+                "mile": 27.0
+            },
+            {
+                "tel": "OHH",
+                "mile": 31.0
+            },
+            {
+                "tel": "KNH",
+                "mile": 50.0
+            },
+            {
+                "tel": "AOH"
+            }
+        ]
+    },
+    {
+        "id": "route_1779003940664",
+        "name": "广佛东环城际",
+        "author": "CrYinLang",
+        "icon": "train/CRH6A.png",
+        "createdAt": "2026-05-17T22:00:58.320195",
+        "updatedAt": "2026-05-23T16:49:26.513233",
+        "stations": [
+            {
+                "tel": "PYA",
+                "mile": 6.0
+            },
+            {
+                "tel": "RHQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "GCQ",
+                "mile": 7.0
+            },
+            {
+                "tel": "PTQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "KEA",
+                "mile": 4.0
+            },
+            {
+                "tel": "CPQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "UGQ",
+                "mile": 7.0
+            },
+            {
+                "tel": "DFQ",
+                "mile": 7.0
+            },
+            {
+                "tel": "MTQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "ZUA",
+                "mile": 5.0
+            },
+            {
+                "tel": "BDA",
+                "mile": 3.0
+            },
+            {
+                "tel": "BNA",
+                "mile": 2.0
+            },
+            {
+                "tel": "BBA",
+                "mile": 7.0
+            },
+            {
+                "tel": "HZA",
+                "mile": 3.0
+            },
+            {
+                "tel": "HCA",
+                "mile": 11.0
+            },
+            {
+                "tel": "HAA"
+            }
+        ]
+    },
+    {
+        "id": "route_1778960768819",
+        "name": "穗深城际",
+        "author": "CrYinLang",
+        "icon": "train/CRH6A.png",
+        "createdAt": "2026-05-17T22:01:08.401086",
+        "updatedAt": "2026-05-23T16:49:26.670239",
+        "stations": [
+            {
+                "tel": "NUQ",
+                "mile": 7.0
+            },
+            {
+                "tel": "ZTA",
+                "mile": 4.0
+            },
+            {
+                "tel": "WNA",
+                "mile": 4.0
+            },
+            {
+                "tel": "WGQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "HMA",
+                "mile": 9.0
+            },
+            {
+                "tel": "DGA",
+                "mile": 5.0
+            },
+            {
+                "tel": "HJA",
+                "mile": 5.0
+            },
+            {
+                "tel": "HBA",
+                "mile": 4.0
+            },
+            {
+                "tel": "HDA",
+                "mile": 7.0
+            },
+            {
+                "tel": "CXA",
+                "mile": 4.0
+            },
+            {
+                "tel": "CAA",
+                "mile": 8.0
+            },
+            {
+                "tel": "SJA",
+                "mile": 5.0
+            },
+            {
+                "tel": "FHA",
+                "mile": 4.0
+            },
+            {
+                "tel": "SBA",
+                "mile": 4.0
+            },
+            {
+                "tel": "SCA"
+            }
+        ]
+    },
+    {
+        "id": "route_1778960400584",
+        "name": "广清城际",
+        "author": "CrYinLang",
+        "icon": "train/CRH6-2.png",
+        "createdAt": "2026-05-17T22:01:08.401101",
+        "updatedAt": "2026-05-23T16:49:26.822089",
+        "stations": [
+            {
+                "tel": "GBA",
+                "mile": 4.0
+            },
+            {
+                "tel": "BHA",
+                "mile": 6.0
+            },
+            {
+                "tel": "JGA",
+                "mile": 7.0
+            },
+            {
+                "tel": "SRA",
+                "mile": 5.0
+            },
+            {
+                "tel": "HAA",
+                "mile": 6.0
+            },
+            {
+                "tel": "LEA",
+                "mile": 5.0
+            },
+            {
+                "tel": "SLA",
+                "mile": 12.0
+            },
+            {
+                "tel": "YZA",
+                "mile": 8.0
+            },
+            {
+                "tel": "LVB",
+                "mile": 6.0
+            },
+            {
+                "tel": "QCA",
+                "mile": 4.0
+            },
+            {
+                "tel": "YHA",
+                "mile": 5.0
+            },
+            {
+                "tel": "ZIA",
+                "mile": 11.0
+            },
+            {
+                "tel": "FEA"
+            }
+        ]
+    },
+    {
+        "id": "route_1778948722210",
+        "name": "广惠城际",
+        "author": "CrYinLang",
+        "icon": "train/CRH6-2.png",
+        "createdAt": "2026-05-17T22:01:08.401112",
+        "updatedAt": "2026-05-23T16:49:27.163368",
+        "stations": [
+            {
+                "tel": "PYA",
+                "mile": 6.0
+            },
+            {
+                "tel": "GCA",
+                "mile": 4.0
+            },
+            {
+                "tel": "DHA",
+                "mile": 9.0
+            },
+            {
+                "tel": "GQA",
+                "mile": 5.0
+            },
+            {
+                "tel": "GLA",
+                "mile": 9.0
+            },
+            {
+                "tel": "MIA",
+                "mile": 6.0
+            },
+            {
+                "tel": "WGQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "RRQ",
+                "mile": 10.0
+            },
+            {
+                "tel": "EGQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "IYQ",
+                "mile": 9.0
+            },
+            {
+                "tel": "LTQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "KUQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "KOQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "FPQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "FQQ",
+                "mile": 7.0
+            },
+            {
+                "tel": "ZRQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "KPQ",
+                "mile": 8.0
+            },
+            {
+                "tel": "KBQ",
+                "mile": 12.0
+            },
+            {
+                "tel": "KKQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "KHQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "KFQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "WDQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "KZQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "NKQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "HUA"
+            }
+        ]
+    },
+    {
+        "id": "route_1778948395680",
+        "name": "广肇城际",
+        "author": "CrYinLang",
+        "icon": "train/CRH6-2.png",
+        "createdAt": "2026-05-17T22:01:08.401131",
+        "updatedAt": "2026-05-23T16:49:27.465427",
+        "stations": [
+            {
+                "tel": "PYA",
+                "mile": 5.0
+            },
+            {
+                "tel": "CVA",
+                "mile": 6.0
+            },
+            {
+                "tel": "BJA",
+                "mile": 5.0
+            },
+            {
+                "tel": "SVA",
+                "mile": 10.0
+            },
+            {
+                "tel": "ZAA",
+                "mile": 11.0
+            },
+            {
+                "tel": "FOQ",
+                "mile": 8.0
+            },
+            {
+                "tel": "KSQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "NSQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "ARQ",
+                "mile": 11.0
+            },
+            {
+                "tel": "NAQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "WWQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "AHQ",
+                "mile": 13.0
+            },
+            {
+                "tel": "UWQ",
+                "mile": 9.0
+            },
+            {
+                "tel": "NVQ",
+                "mile": 11.0
+            },
+            {
+                "tel": "WZQ",
+                "mile": 7.0
+            },
+            {
+                "tel": "ZVQ"
+            }
+        ]
+    },
+    {
+        "id": "route_1778948039021",
+        "name": "广湛高铁",
+        "author": "CrYinLang",
+        "icon": "train/CR400AF-SZE.png",
+        "createdAt": "2026-05-17T22:01:08.401143",
+        "updatedAt": "2026-05-23T16:49:27.622665",
+        "stations": [
+            {
+                "tel": "GBA",
+                "mile": 26.0
+            },
+            {
+                "tel": "FSQ",
+                "mile": 105.0
+            },
+            {
+                "tel": "XPQ",
+                "mile": 61.0
+            },
+            {
+                "tel": "YBQ",
+                "mile": 31.0
+            },
+            {
+                "tel": "YLQ",
+                "mile": 25.0
+            },
+            {
+                "tel": "WMQ",
+                "mile": 32.0
+            },
+            {
+                "tel": "PWQ",
+                "mile": 41.0
+            },
+            {
+                "tel": "MRQ",
+                "mile": 55.0
+            },
+            {
+                "tel": "WAQ",
+                "mile": 56.0
+            },
+            {
+                "tel": "ZMQ"
+            }
+        ]
+    },
+    {
+        "id": "route_1778939745733",
+        "name": "广珠城际",
+        "author": "CrYinLang",
+        "icon": "train/CRH6A.png",
+        "createdAt": "2026-05-17T22:01:08.401152",
+        "updatedAt": "2026-05-23T16:49:27.763678",
+        "stations": [
+            {
+                "tel": "ZHQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "QXQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "MFQ",
+                "mile": 12.0
+            },
+            {
+                "tel": "PDQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "ZIQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "IHQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "NNQ",
+                "mile": 13.0
+            },
+            {
+                "tel": "ZSQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "ZGQ",
+                "mile": 12.0
+            },
+            {
+                "tel": "DRQ",
+                "mile": 7.0
+            },
+            {
+                "tel": "EAQ",
+                "mile": 8.0
+            },
+            {
+                "tel": "NOQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "RUQ",
+                "mile": 9.0
+            },
+            {
+                "tel": "OJQ",
+                "mile": 8.0
+            },
+            {
+                "tel": "ORQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "IBQ",
+                "mile": 6.0
+            },
+            {
+                "tel": "BLQ",
+                "mile": 5.0
+            },
+            {
+                "tel": "IZQ"
+            }
+        ]
+    },
+    {
+        "id": "route_1778939489255",
+        "name": "广珠城际江门线",
+        "author": "CrYinLang",
+        "icon": "bureau/广州铁路局.png",
+        "createdAt": "2026-05-17T22:01:08.401166",
+        "updatedAt": "2026-05-23T16:49:27.938527",
+        "stations": [
+            {
+                "tel": "JOQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "EFQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "UEQ",
+                "mile": 3.0
+            },
+            {
+                "tel": "JWQ",
+                "mile": 7.0
+            },
+            {
+                "tel": "JNQ",
+                "mile": 4.0
+            },
+            {
+                "tel": "GNQ",
+                "mile": 9.0
+            },
+            {
+                "tel": "EAQ"
+            }
+        ]
+    },
+    {
+        "id": "route_1778939318227",
+        "name": "江湛铁路",
+        "author": "CrYinLang",
+        "icon": "train/CRH2A.png",
+        "createdAt": "2026-05-17T22:01:08.401174",
+        "updatedAt": "2026-05-23T16:49:28.099177",
+        "stations": [
+            {
+                "tel": "ZWQ",
+                "mile": 67.0
+            },
+            {
+                "tel": "WAQ",
+                "mile": 25.0
+            },
+            {
+                "tel": "MDQ",
+                "mile": 24.0
+            },
+            {
+                "tel": "NWQ",
+                "mile": 24.0
+            },
+            {
+                "tel": "PWQ",
+                "mile": 33.0
+            },
+            {
+                "tel": "WMQ",
+                "mile": 36.0
+            },
+            {
+                "tel": "WRQ",
+                "mile": 25.0
+            },
+            {
+                "tel": "WLQ",
+                "mile": 38.0
+            },
+            {
+                "tel": "PXQ",
+                "mile": 34.0
+            },
+            {
+                "tel": "PVQ",
+                "mile": 14.0
+            },
+            {
+                "tel": "PUQ",
+                "mile": 22.0
+            },
+            {
+                "tel": "PQQ",
+                "mile": 15.0
+            },
+            {
+                "tel": "JOQ"
+            }
+        ]
+    },
+    {
+        "id": "route_1779549903639",
+        "name": "潍烟高铁",
+        "author": "水稻本尊",
+        "icon": "bureau/济南铁路局.png",
+        "createdAt": "2026-05-23T23:25:03.639610",
+        "updatedAt": "2026-05-23T23:26:39.991468",
+        "stations": [
+            {
+                "tel": "CRK",
+                "mile": 0.0
+            },
+            {
+                "tel": "KBK",
+                "mile": 27.69
+            },
+            {
+                "tel": "VPK",
+                "mile": 59.68
+            },
+            {
+                "tel": "VDK",
+                "mile": 110.1
+            },
+            {
+                "tel": "UKK",
+                "mile": 140.44
+            },
+            {
+                "tel": "POK",
+                "mile": 171.76
+            },
+            {
+                "tel": "DCK",
+                "mile": 198.84
+            },
+            {
+                "tel": "FUK",
+                "mile": 224.05
+            },
+            {
+                "tel": "GZK",
+                "mile": 236.45
+            },
+            {
+                "tel": "YLK"
+            }
+        ]
+    },
+    {
+        "id": "route_1779549440938",
+        "name": "中老铁路",
+        "author": "花栗鼠",
+        "icon": "train/CR200J.png",
+        "createdAt": "2026-05-23T23:17:20.938664",
+        "updatedAt": "2026-05-23T23:17:20.938665",
+        "stations": [
+            {
+                "tel": "KOM",
+                "mile": 79.0
+            },
+            {
+                "tel": "AXM",
+                "mile": 22.0
+            },
+            {
+                "tel": "EVM",
+                "mile": 23.0
+            },
+            {
+                "tel": "HDM",
+                "mile": 48.0
+            },
+            {
+                "tel": "AJM",
+                "mile": 48.0
+            },
+            {
+                "tel": "MJM",
+                "mile": 92.0
+            },
+            {
+                "tel": "NEM",
+                "mile": 34.0
+            },
+            {
+                "tel": "PEM",
+                "mile": 76.0
+            },
+            {
+                "tel": "AGM",
+                "mile": 18.0
+            },
+            {
+                "tel": "ENM",
+                "mile": 24.0
+            },
+            {
+                "tel": "GVM",
+                "mile": 88.0
+            },
+            {
+                "tel": "MWM",
+                "mile": 25.0
+            },
+            {
+                "tel": "MHM",
+                "mile": 12.0
+            },
+            {
+                "tel": "VBM",
+                "mile": 12.0
+            },
+            {
+                "tel": "VCM",
+                "mile": 55.0
+            },
+            {
+                "tel": "VFM",
+                "mile": 100.0
+            },
+            {
+                "tel": "VJM",
+                "mile": 116.0
+            },
+            {
+                "tel": "VOM",
+                "mile": 123.0
+            },
+            {
+                "tel": "YTM"
+            }
+        ]
+    },
+    {
+        "id": "route_1779549409830",
+        "name": "京津城际",
+        "author": "CrYinLang",
+        "icon": "bureau/北京铁路局.png",
+        "createdAt": "2026-05-23T23:16:49.830516",
+        "updatedAt": "2026-05-23T23:16:49.830516",
+        "stations": [
+            {
+                "tel": "VNP",
+                "mile": 22.0
+            },
+            {
+                "tel": "YUP",
+                "mile": 62.0
+            },
+            {
+                "tel": "WWP",
+                "mile": 36.0
+            },
+            {
+                "tel": "TJP",
+                "mile": 20.0
+            },
+            {
+                "tel": "JMP",
+                "mile": 20.0
+            },
+            {
+                "tel": "TGP",
+                "mile": 5.0
+            },
+            {
+                "tel": "YKP"
+            }
+        ]
+    },
+    {
+        "id": "route_1779549293474",
+        "name": "大临铁路",
+        "author": "花栗鼠",
+        "icon": "train/CR200JC.png",
+        "createdAt": "2026-05-23T23:14:53.474284",
+        "updatedAt": "2026-05-23T23:14:53.474284",
+        "stations": [
+            {
+                "tel": "DKM",
+                "mile": 43.0
+            },
+            {
+                "tel": "WOM",
+                "mile": 63.0
+            },
+            {
+                "tel": "XNM",
+                "mile": 40.0
+            },
+            {
+                "tel": "AIM",
+                "mile": 55.0
+            },
+            {
+                "tel": "LXM"
+            }
+        ]
+    },
+    {
+        "id": "route_1779528614839",
+        "name": "日兰高铁",
+        "author": "花栗鼠",
+        "icon": "train/CR400AF.png",
+        "createdAt": "2026-05-23T17:30:14.839739",
+        "updatedAt": "2026-05-23T23:12:12.973795",
+        "stations": [
+            {
+                "tel": "RZK",
+                "mile": 12.0
+            },
+            {
+                "tel": "KZK",
+                "mile": 30.0
+            },
+            {
+                "tel": "UPK",
+                "mile": 30.0
+            },
+            {
+                "tel": "VNK",
+                "mile": 40.0
+            },
+            {
+                "tel": "UMK",
+                "mile": 43.0
+            },
+            {
+                "tel": "FBK",
+                "mile": 29.0
+            },
+            {
+                "tel": "MOK",
+                "mile": 38.0
+            },
+            {
+                "tel": "ONK",
+                "mile": 25.0
+            },
+            {
+                "tel": "QQK",
+                "mile": 26.0
+            },
+            {
+                "tel": "MNK",
+                "mile": 13.0
+            },
+            {
+                "tel": "MIK",
+                "mile": 25.0
+            },
+            {
+                "tel": "MXK",
+                "mile": 27.0
+            },
+            {
+                "tel": "MYK",
+                "mile": 59.0
+            },
+            {
+                "tel": "KDK",
+                "mile": 39.0
+            },
+            {
+                "tel": "VOK",
+                "mile": 48.0
+            },
+            {
+                "tel": "LUF"
+            }
+        ]
+    },
+    {
+        "id": "route_1779017952877",
+        "name": "沪昆高铁",
+        "author": "闪闪发光",
+        "icon": "train/CR400BF.png",
+        "createdAt": "2026-05-17T19:39:12.877103",
+        "updatedAt": "2026-05-23T16:57:21.828757",
+        "stations": [
+            {
+                "tel": "AOH",
+                "mile": 31.0
+            },
+            {
+                "tel": "IMH",
+                "mile": 17.0
+            },
+            {
+                "tel": "EGH",
+                "mile": 19.0
+            },
+            {
+                "tel": "EAH",
+                "mile": 17.0
+            },
+            {
+                "tel": "EPH",
+                "mile": 28.0
+            },
+            {
+                "tel": "TCH",
+                "mile": 21.0
+            },
+            {
+                "tel": "EUH",
+                "mile": 11.0
+            },
+            {
+                "tel": "EVH",
+                "mile": 15.0
+            },
+            {
+                "tel": "HGH",
+                "mile": 16.0
+            },
+            {
+                "tel": "XHH",
+                "mile": 50.0
+            },
+            {
+                "tel": "ZDH",
+                "mile": 43.0
+            },
+            {
+                "tel": "YWH",
+                "mile": 52.0
+            },
+            {
+                "tel": "JBH",
+                "mile": 49.0
+            },
+            {
+                "tel": "LMH",
+                "mile": 29.0
+            },
+            {
+                "tel": "QEH",
+                "mile": 30.0
+            },
+            {
+                "tel": "JUH",
+                "mile": 38.0
+            },
+            {
+                "tel": "YGG",
+                "mile": 34.0
+            },
+            {
+                "tel": "SRG",
+                "mile": 60.0
+            },
+            {
+                "tel": "YIG",
+                "mile": 41.0
+            },
+            {
+                "tel": "YKG",
+                "mile": 43.0
+            },
+            {
+                "tel": "FDG",
+                "mile": 39.0
+            },
+            {
+                "tel": "JXG",
+                "mile": 58.0
+            },
+            {
+                "tel": "NXG",
+                "mile": 47.0
+            },
+            {
+                "tel": "GCG",
+                "mile": 80.0
+            },
+            {
+                "tel": "XBG",
+                "mile": 49.0
+            },
+            {
+                "tel": "YEG",
+                "mile": 61.0
+            },
+            {
+                "tel": "PBG",
+                "mile": 29.0
+            },
+            {
+                "tel": "UKQ",
+                "mile": 76.0
+            },
+            {
+                "tel": "CWQ",
+                "mile": 26.0
+            },
+            {
+                "tel": "EDQ",
+                "mile": 40.0
+            },
+            {
+                "tel": "INQ",
+                "mile": 59.0
+            },
+            {
+                "tel": "UOQ",
+                "mile": 52.0
+            },
+            {
+                "tel": "OVQ",
+                "mile": 37.0
+            },
+            {
+                "tel": "EJQ",
+                "mile": 57.0
+            },
+            {
+                "tel": "EMQ",
+                "mile": 61.0
+            },
+            {
+                "tel": "KAQ",
+                "mile": 34.0
+            },
+            {
+                "tel": "ZPQ",
+                "mile": 54.0
+            },
+            {
+                "tel": "EWQ",
+                "mile": 19.0
+            },
+            {
+                "tel": "TNW",
+                "mile": 48.0
+            },
+            {
+                "tel": "QHW",
+                "mile": 92.0
+            },
+            {
+                "tel": "QKW",
+                "mile": 67.0
+            },
+            {
+                "tel": "FMW",
+                "mile": 50.0
+            },
+            {
+                "tel": "KEW",
+                "mile": 10.0
+            },
+            {
+                "tel": "KQW",
+                "mile": 28.0
+            },
+            {
+                "tel": "GAE",
+                "mile": 27.0
+            },
+            {
+                "tel": "PBE",
+                "mile": 46.0
+            },
+            {
+                "tel": "ASE",
+                "mile": 45.0
+            },
+            {
+                "tel": "GLE",
+                "mile": 74.0
+            },
+            {
+                "tel": "PUE",
+                "mile": 31.0
+            },
+            {
+                "tel": "PAE",
+                "mile": 32.0
+            },
+            {
+                "tel": "FBM",
+                "mile": 52.0
+            },
+            {
+                "tel": "QBM",
+                "mile": 76.0
+            },
+            {
+                "tel": "SVM",
+                "mile": 52.0
+            },
+            {
+                "tel": "KOM"
+            }
+        ]
+    }
 ]

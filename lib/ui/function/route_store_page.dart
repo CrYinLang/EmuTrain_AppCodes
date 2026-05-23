@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../main.dart';
+import '../../functions.dart';
 import 'route_models.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -55,6 +56,11 @@ class _RouteStorePageState extends State<RouteStorePage> {
   // 已安装的线路 id 集合（用于显示"已安装"标记）
   Set<String> _installedIds = {};
 
+  bool _loadingPage = false;
+
+  final _pager = PaginatedController<_StoreItem>(pageSize: 25);
+  late TextEditingController _pageController;
+
   // 正在安装的 id 集合
   final Set<String> _installing = {};
 
@@ -64,10 +70,27 @@ class _RouteStorePageState extends State<RouteStorePage> {
   @override
   void initState() {
     super.initState();
+    _pageController = TextEditingController(text: '1');
     _loadIndex();
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   // ── 加载目录 ─────────────────────────────────────────────────
+
+  void _goToPage(int page) {
+    if (page == _pager.currentPage) return;
+    setState(() => _loadingPage = true);
+    setState(() {
+      _pager.loadPage(page);
+      _pageController.text = page.toString();
+      _loadingPage = false;
+    });
+  }
 
   Future<void> _loadIndex() async {
     setState(() {
@@ -92,12 +115,16 @@ class _RouteStorePageState extends State<RouteStorePage> {
       final items = raw
           .map((e) => _StoreItem.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
+
       if (mounted) {
         setState(() {
           _items = items;
+          _pager.resetAndLoad(items);
+          _pageController.text = '1';
           _loadingIndex = false;
         });
       }
+
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -186,36 +213,144 @@ class _RouteStorePageState extends State<RouteStorePage> {
     }
   }
 
-  // ── 批量安装 ─────────────────────────────────────────────────
+// ── 批量安装 ─────────────────────────────────────────────────
 
-  Future<void> _installChecked() async {
-    final toInstall = _items.where((i) => _checked.contains(i.id)).toList();
-    if (toInstall.isEmpty) return;
+Future<void> _installChecked() async {
+  final toInstall = _items.where((i) => _checked.contains(i.id)).toList();
+  if (toInstall.isEmpty) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('批量安装'),
-        content: Text('确认安装选中的 ${toInstall.length} 条线路？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('安装'),
-          ),
-        ],
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('批量安装'),
+      content: Text('确认安装选中的 ${toInstall.length} 条线路？'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('安装'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+
+  // 标记所有选中项为"安装中"
+  setState(() => _installing.addAll(toInstall.map((i) => i.id)));
+
+  // 按 page 分组，每个 page 只请求一次
+  final Map<String, List<_StoreItem>> byPage = {};
+  for (final item in toInstall) {
+    byPage.putIfAbsent(item.page, () => []).add(item);
+  }
+
+  final baseUrl = Vars.mirrorBaseUrl;
+  final existing = await RouteStorage.loadAll();
+  final List<String> errors = [];
+
+  for (final entry in byPage.entries) {
+    final page = entry.key;
+    final pageItems = entry.value;
+
+    // 每个 page 只发一次请求
+    List<Map<String, dynamic>> pageData;
+    try {
+      final url = '${baseUrl}lines/line$page.json';
+      final resp = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 15));
+      if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
+      final raw = json.decode(resp.body);
+      if (raw is! List) throw const FormatException('数据格式错误');
+      pageData = (raw as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      // 整页请求失败，把该页所有 id 标记失败
+      errors.add('第 $page 页加载失败：$e');
+      if (mounted) {
+        setState(() {
+          for (final item in pageItems) {
+            _installing.remove(item.id);
+          }
+        });
+      }
+      continue;
+    }
+
+    // 从页数据中逐条匹配并保存
+    for (final item in pageItems) {
+      try {
+        final found = pageData.firstWhere(
+          (e) => e['id'] == item.id,
+          orElse: () => throw Exception('页面数据中未找到「${item.name}」'),
+        );
+        final model = RouteModel.fromJson(found);
+
+        // 冲突检测
+        final conflict = existing
+            .where((r) => r.name == model.name && r.id != model.id)
+            .firstOrNull;
+
+        if (conflict != null && mounted) {
+          final overwrite = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('同名线路'),
+              content: Text('本地已存在线路「${model.name}」，是否覆盖？'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('覆盖'),
+                ),
+              ],
+            ),
+          );
+          if (overwrite != true) {
+            if (mounted) setState(() => _installing.remove(item.id));
+            continue;
+          }
+        }
+
+        await RouteStorage.save(model);
+        if (mounted) {
+          setState(() {
+            _installedIds.add(item.id);
+            _installing.remove(item.id);
+          });
+        }
+      } catch (e) {
+        errors.add('「${item.name}」安装失败：$e');
+        if (mounted) setState(() => _installing.remove(item.id));
+      }
+    }
+  }
+
+  if (!mounted) return;
+  setState(() => _checked.clear());
+
+  if (errors.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已安装 ${toInstall.length} 条线路'),
+        duration: const Duration(seconds: 2),
       ),
     );
-    if (confirmed != true) return;
-
-    for (final item in toInstall) {
-      await _installItem(item);
-    }
-    setState(() => _checked.clear());
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('部分安装失败：\n${errors.join('\n')}'),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
+}
 
   // ── Build ────────────────────────────────────────────────────
 
@@ -255,26 +390,38 @@ class _RouteStorePageState extends State<RouteStorePage> {
       ),
       body: _loadingIndex
           ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('正在加载线路目录…'),
-                ],
-              ),
-            )
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在加载线路目录…'),
+          ],
+        ),
+      )
           : _indexError != null
           ? _buildError(isDark, cs)
-          : _items.isEmpty
+          : _pager.totalCount == 0
           ? _buildEmpty()
           : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHint(),
-                Expanded(child: _buildList(isDark, cs)),
-              ],
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHint(),
+          Expanded(
+            child: _buildList(isDark, cs),
+          ),
+          if (_pager.hasMultiplePages)
+            buildPaginationControls(
+              context: context,
+              currentPage: _pager.currentPage,
+              totalPages: _pager.totalPages,
+              totalResults: _pager.totalCount,
+              pageController: _pageController,
+              loadingPage: _loadingPage,
+              onGoToPage: _goToPage,
             ),
+        ],
+      ),
     );
   }
 
@@ -332,12 +479,29 @@ class _RouteStorePageState extends State<RouteStorePage> {
   // ── 列表 ─────────────────────────────────────────────────────
 
   Widget _buildHint() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Text(
-        '你知道吗？长按线路可以批量安装',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.primary.withAlpha(18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.primary.withAlpha(50)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.touch_app_outlined, size: 16, color: cs.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '你知道吗，长按线路卡片可以批量选择',
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -345,9 +509,10 @@ class _RouteStorePageState extends State<RouteStorePage> {
   Widget _buildList(bool isDark, ColorScheme cs) {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
-      itemCount: _items.length,
+      itemCount: _pager.currentPageItems.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (ctx, idx) => _buildCard(_items[idx], isDark, cs),
+      itemBuilder: (ctx, idx) =>
+          _buildCard(_pager.currentPageItems[idx], isDark, cs),
     );
   }
 

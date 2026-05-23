@@ -28,10 +28,10 @@ class Vars {
   static const String version = '1.2.2.5';
   static const String build = '1225';
 
-  static String defaultStationBuild = '20260523';
-  static String defaultTrainBuild = '20260523';
-  static String defaultCoachTrainBuild = '20260523';
-  static String defaultLocoBuild = '20260523';
+  static String defaultStationBuild = '202605230';
+  static String defaultTrainBuild = '202605230';
+  static String defaultCoachTrainBuild = '202605230';
+  static String defaultLocoBuild = '202605230';
 
   // ---------- stationBuild ----------
   static String _stationBuild = defaultStationBuild;

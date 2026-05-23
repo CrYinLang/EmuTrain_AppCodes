@@ -581,7 +581,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
         const SizedBox(height: 8),
         Center(
           child: Text(
-            '如果你刚刚安装了线路，关掉页面重新打开\n由于本人实力太拉了做不到自动加载\n\n点击右下角「+」新建第一条线路',
+            '如果你刚刚安装了线路，点右上角刷新\n\n点击右下角「+」新建第一条线路',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
           ),
