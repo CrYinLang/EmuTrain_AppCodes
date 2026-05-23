@@ -17,6 +17,7 @@ import 'route_models.dart';
 class _ParsedStation {
   final String name;
   final double mileage;
+
   const _ParsedStation(this.name, this.mileage);
 }
 
@@ -560,7 +561,11 @@ class _RoutePageState extends State<RoutePage> {
                               height: 36,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) =>
-                                  Icon(Icons.train, color: cs.primary, size: 24),
+                                  Icon(
+                                    Icons.train,
+                                    color: cs.primary,
+                                    size: 24,
+                                  ),
                             ),
                           ),
                         ),
@@ -994,7 +999,10 @@ class _LutongImportDialogState extends State<_LutongImportDialog> {
                   const Expanded(
                     child: Text(
                       '从路路通导入线路',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -1034,7 +1042,10 @@ class _LutongImportDialogState extends State<_LutongImportDialog> {
                       // ── 粘贴区 ──
                       const Text(
                         '粘贴路路通经由信息',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       TextField(
@@ -1042,8 +1053,12 @@ class _LutongImportDialogState extends State<_LutongImportDialog> {
                         maxLines: 8,
                         minLines: 5,
                         decoration: InputDecoration(
-                          hintText: '例如：\nD3822 正确的经由信息为:\n茂名 深湛江湛段 0km\n电白 深湛江湛段 24km\n…',
-                          hintStyle: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(90)),
+                          hintText:
+                              '例如：\nD3822 正确的经由信息为:\n茂名 深湛江湛段 0km\n电白 深湛江湛段 24km\n…',
+                          hintStyle: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurface.withAlpha(90),
+                          ),
                           border: const OutlineInputBorder(),
                           contentPadding: const EdgeInsets.all(10),
                         ),
@@ -1054,18 +1069,26 @@ class _LutongImportDialogState extends State<_LutongImportDialog> {
                       // ── 里程补偿 ──
                       const Text(
                         '里程补偿（可选）',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '若路路通数据的起点里程不为 0，可填入该起点里程值，'
                         '系统会将其从第一段区间中减去。填 0 表示不补偿。',
-                        style: TextStyle(fontSize: 11, color: cs.onSurface.withAlpha(150)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurface.withAlpha(150),
+                        ),
                       ),
                       const SizedBox(height: 6),
                       TextField(
                         controller: widget.offsetCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                           LengthLimitingTextInputFormatter(8),
@@ -1084,7 +1107,10 @@ class _LutongImportDialogState extends State<_LutongImportDialog> {
                       if (_preview.isNotEmpty) ...[
                         const Text(
                           '解析预览',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Container(

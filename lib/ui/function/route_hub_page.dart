@@ -30,7 +30,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
 
   bool get _currentPageAllSelected =>
       _pager.currentPageItems.isNotEmpty &&
-          _pager.currentPageItems.every((r) => _selected.contains(r.id));
+      _pager.currentPageItems.every((r) => _selected.contains(r.id));
 
   // ── 加载 ────────────────────────────────────────────────────
 
@@ -451,9 +451,9 @@ class _RouteHubPageState extends State<RouteHubPage> {
   // ── 商店占位（后期功能）────────────────────────────────────
 
   void _openShop() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RouteStorePage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const RouteStorePage()));
   }
 
   // ── Build ────────────────────────────────────────────────────
@@ -521,21 +521,21 @@ class _RouteHubPageState extends State<RouteHubPage> {
           : _pager.totalCount == 0
           ? _buildEmpty(isDark)
           : Column(
-        children: [
-          if (_pager.hasMultiplePages)
-            buildPaginationControls(
-              context: context,
-              currentPage: _pager.currentPage,
-              totalPages: _pager.totalPages,
-              totalResults: _pager.totalCount,
-              loadingPage: false,
-              pageController: _pageController,
-              onGoToPage: _goToPage,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              children: [
+                if (_pager.hasMultiplePages)
+                  buildPaginationControls(
+                    context: context,
+                    currentPage: _pager.currentPage,
+                    totalPages: _pager.totalPages,
+                    totalResults: _pager.totalCount,
+                    loadingPage: false,
+                    pageController: _pageController,
+                    onGoToPage: _goToPage,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                Expanded(child: _buildList(isDark, cs)),
+              ],
             ),
-          Expanded(child: _buildList(isDark, cs)),
-        ],
-      ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -571,7 +571,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
         Icon(Icons.route, size: 64, color: Colors.grey.shade400),
         const SizedBox(height: 16),
         Text(
-          '还没有线路',
+          '并没有线路',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -579,9 +579,12 @@ class _RouteHubPageState extends State<RouteHubPage> {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          '点击右下角「+」新建第一条线路',
-          style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+        Center(
+          child: Text(
+            '如果你刚刚安装了线路，关掉页面重新打开\n由于本人实力太拉了做不到自动加载\n\n点击右下角「+」新建第一条线路',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+          ),
         ),
       ],
     ),
@@ -671,12 +674,12 @@ class _RouteHubPageState extends State<RouteHubPage> {
               boxShadow: isDark
                   ? []
                   : [
-                BoxShadow(
-                  color: Colors.black.withAlpha(15),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+                      BoxShadow(
+                        color: Colors.black.withAlpha(15),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -686,28 +689,28 @@ class _RouteHubPageState extends State<RouteHubPage> {
                     duration: const Duration(milliseconds: 200),
                     child: _selecting
                         ? Container(
-                      key: const ValueKey('chk'),
-                      width: 24,
-                      height: 24,
-                      margin: const EdgeInsets.only(right: 12),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSel ? cs.primary : Colors.transparent,
-                        border: Border.all(
-                          color: isSel
-                              ? cs.primary
-                              : Colors.grey.shade400,
-                          width: 2,
-                        ),
-                      ),
-                      child: isSel
-                          ? const Icon(
-                        Icons.check,
-                        size: 14,
-                        color: Colors.white,
-                      )
-                          : null,
-                    )
+                            key: const ValueKey('chk'),
+                            width: 24,
+                            height: 24,
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isSel ? cs.primary : Colors.transparent,
+                              border: Border.all(
+                                color: isSel
+                                    ? cs.primary
+                                    : Colors.grey.shade400,
+                                width: 2,
+                              ),
+                            ),
+                            child: isSel
+                                ? const Icon(
+                                    Icons.check,
+                                    size: 14,
+                                    color: Colors.white,
+                                  )
+                                : null,
+                          )
                         : const SizedBox(key: ValueKey('none')),
                   ),
                   Container(
@@ -720,14 +723,17 @@ class _RouteHubPageState extends State<RouteHubPage> {
                     child: r.icon.isEmpty
                         ? Icon(Icons.route, color: cs.primary, size: 24)
                         : Padding(
-                      padding: const EdgeInsets.all(5.5), // ~75% of 44px
-                      child: Image.asset(
-                        'assets/icon/${r.icon}',
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            Icon(Icons.route, color: cs.primary, size: 24),
-                      ),
-                    ),
+                            padding: const EdgeInsets.all(5.5), // ~75% of 44px
+                            child: Image.asset(
+                              'assets/icon/${r.icon}',
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.route,
+                                color: cs.primary,
+                                size: 24,
+                              ),
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

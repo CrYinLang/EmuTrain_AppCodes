@@ -73,7 +73,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
   // 命中的站点列表（支持多线路共站）
   List<({int ri, int si})> _selHits = [];
   final TransformationController _txCtrl = TransformationController();
-  final GlobalKey _paintKey = GlobalKey(); // ← 修复点击偏移
   double _scale = 1.0;
   double _maxScale = 12.0;
 
@@ -221,16 +220,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
   // ── 点击处理 ─────────────────────────────────────────────────
 
   void _handleTap(TapUpDetails details, Size sz) {
-    // 通过 RenderBox 将全局坐标换算为 CustomPaint canvas 本地坐标，
-    // 避免 InteractiveViewer 内部坐标系偏移
-    final renderBox = _paintKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-    final localInCanvas = renderBox.globalToLocal(details.globalPosition);
-
-    final local = MatrixUtils.transformPoint(
-      Matrix4.inverted(_txCtrl.value),
-      localInCanvas,
-    );
+    // details.localPosition 已经是 canvas 坐标系（InteractiveViewer 内的
+    // Transform 在 hit-test 时会将全局坐标逆变换后再传给子 widget），
+    // 不需要也不能再对其应用 Matrix4.inverted(_txCtrl.value)，否则会双重逆变换。
+    final local = details.localPosition;
     final hr = 20.0 / _scale;
 
     final hits = <({int ri, int si, double d})>[];
@@ -261,7 +254,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
         .toList();
 
     setState(() {
-      final same = _selHits.length == grouped.length &&
+      final same =
+          _selHits.length == grouped.length &&
           _selHits.every(
             (a) => grouped.any((b) => b.ri == a.ri && b.si == a.si),
           );
@@ -277,8 +271,9 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
+      backgroundColor: isDark
+          ? const Color(0xFF111111)
+          : const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('线路走向图'),
         backgroundColor: isDark ? Colors.black : Colors.white,
@@ -324,81 +319,81 @@ class _RouteMapPageState extends State<RouteMapPage> {
   // ── 图例 ─────────────────────────────────────────────────────
 
   Widget _buildLegend(bool isDark) => Container(
-        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: _plotted.map((r) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () => setState(() => r.visible = !r.visible),
-                  child: AnimatedOpacity(
-                    opacity: r.visible ? 1.0 : 0.4,
-                    duration: const Duration(milliseconds: 200),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: r.color.withAlpha(r.visible ? 30 : 15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: r.color.withAlpha(r.visible ? 150 : 60),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: r.color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                r.model.name,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: r.color,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              if (r.stations.length >= 2)
-                                Text(
-                                  '${r.stations.first.name} → ${r.stations.last.name}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: r.color.withAlpha(170),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            r.visible ? Icons.visibility : Icons.visibility_off,
-                            size: 12,
-                            color: r.color.withAlpha(180),
-                          ),
-                        ],
-                      ),
+    color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _plotted.map((r) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => setState(() => r.visible = !r.visible),
+              child: AnimatedOpacity(
+                opacity: r.visible ? 1.0 : 0.4,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: r.color.withAlpha(r.visible ? 30 : 15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: r.color.withAlpha(r.visible ? 150 : 60),
                     ),
                   ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: r.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            r.model.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: r.color,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (r.stations.length >= 2)
+                            Text(
+                              '${r.stations.first.name} → ${r.stations.last.name}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: r.color.withAlpha(170),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        r.visible ? Icons.visibility : Icons.visibility_off,
+                        size: 12,
+                        color: r.color.withAlpha(180),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            }).toList(),
-          ),
-        ),
-      );
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    ),
+  );
 
   // ── 地图（全页铺满） ─────────────────────────────────────────
 
@@ -423,7 +418,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
               child: GestureDetector(
                 onTapUp: (d) => _handleTap(d, sz),
                 child: CustomPaint(
-                  key: _paintKey, // ← 修复点击偏移
                   size: sz,
                   painter: _RouteMapPainter(
                     routes: _plotted,
@@ -447,9 +441,11 @@ class _RouteMapPageState extends State<RouteMapPage> {
                   children: [
                     for (int ri = 0; ri < _plotted.length; ri++)
                       if (_plotted[ri].visible)
-                        for (int si = 0;
-                            si < _plotted[ri].stations.length;
-                            si++)
+                        for (
+                          int si = 0;
+                          si < _plotted[ri].stations.length;
+                          si++
+                        )
                           if (_plotted[ri].stations[si].hasLocation)
                             LayoutId(
                               id: '$ri-$si',
@@ -491,9 +487,9 @@ class _RouteMapPageState extends State<RouteMapPage> {
                       final s = route.stations[h.si];
                       final mileStr =
                           (h.si < route.stations.length - 1 &&
-                                  s.mileageToNext != null)
-                              ? '至下站 ${s.mileageToNext} km'
-                              : null;
+                              s.mileageToNext != null)
+                          ? '至下站 ${s.mileageToNext} km'
+                          : null;
                       return LayoutId(
                         id: idx,
                         child: Container(
@@ -531,9 +527,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
                               ),
                               Text(
                                 route.model.name +
-                                    (s.city.isNotEmpty
-                                        ? ' · ${s.city}'
-                                        : ''),
+                                    (s.city.isNotEmpty ? ' · ${s.city}' : ''),
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: route.color,
@@ -750,10 +744,12 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final isFirst = si == 0;
     final isLast = si == route.stations.length - 1;
     final isBoth = isFirst && isLast;
-    final originName =
-        route.stations.isNotEmpty ? '${route.stations.first.name}站' : '';
-    final termName =
-        route.stations.length > 1 ? '${route.stations.last.name}站' : '';
+    final originName = route.stations.isNotEmpty
+        ? '${route.stations.first.name}站'
+        : '';
+    final termName = route.stations.length > 1
+        ? '${route.stations.last.name}站'
+        : '';
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -926,18 +922,17 @@ class _RouteMapPageState extends State<RouteMapPage> {
   }
 
   Widget _badge(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-          color: color.withAlpha(40),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withAlpha(120)),
-        ),
-        child: Text(
-          text,
-          style:
-              TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(
+      color: color.withAlpha(40),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: color.withAlpha(120)),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+    ),
+  );
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -1053,12 +1048,16 @@ class _NumberOverlayDelegate extends MultiChildLayoutDelegate {
         final id = '$ri-$si';
         if (!hasChild(id)) continue;
 
-        final canvasPt =
-            Offset(s.x * canvasSize.width, s.y * canvasSize.height);
+        final canvasPt = Offset(
+          s.x * canvasSize.width,
+          s.y * canvasSize.height,
+        );
         final screenPt = MatrixUtils.transformPoint(transform, canvasPt);
 
-        final childSize =
-            layoutChild(id, BoxConstraints.loose(const Size(32, 32)));
+        final childSize = layoutChild(
+          id,
+          BoxConstraints.loose(const Size(32, 32)),
+        );
         positionChild(
           id,
           Offset(
@@ -1112,12 +1111,13 @@ class _LabelLayoutDelegate extends MultiChildLayoutDelegate {
       }
       final s = route.stations[h.si];
 
-      final canvasPt =
-          Offset(s.x * canvasSize.width, s.y * canvasSize.height);
+      final canvasPt = Offset(s.x * canvasSize.width, s.y * canvasSize.height);
       final screenPt = MatrixUtils.transformPoint(transform, canvasPt);
 
-      final childSize =
-          layoutChild(idx, BoxConstraints.loose(const Size(220, 120)));
+      final childSize = layoutChild(
+        idx,
+        BoxConstraints.loose(const Size(220, 120)),
+      );
 
       const mg = 12.0;
       double dx = screenPt.dx + mg;

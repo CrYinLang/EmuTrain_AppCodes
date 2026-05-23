@@ -83,7 +83,9 @@ class _RouteStorePageState extends State<RouteStorePage> {
     final url = '${baseUrl}lines/lines.json';
 
     try {
-      final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+      final resp = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 12));
       if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
       final raw = json.decode(resp.body);
       if (raw is! List) throw const FormatException('顶层必须是 JSON 数组');
@@ -115,7 +117,9 @@ class _RouteStorePageState extends State<RouteStorePage> {
     try {
       final baseUrl = Vars.mirrorBaseUrl;
       final url = '${baseUrl}lines/line${item.page}.json';
-      final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
+      final resp = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 15));
       if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
 
       final raw = json.decode(resp.body);
@@ -123,7 +127,7 @@ class _RouteStorePageState extends State<RouteStorePage> {
 
       // 在该页数据中找到对应 id 的线路
       final found = (raw as List).cast<Map<String, dynamic>>().firstWhere(
-            (e) => e['id'] == item.id,
+        (e) => e['id'] == item.id,
         orElse: () => throw Exception('页面数据中未找到该线路'),
       );
 
@@ -131,7 +135,9 @@ class _RouteStorePageState extends State<RouteStorePage> {
 
       // 冲突检测
       final existing = await RouteStorage.loadAll();
-      final conflict = existing.where((r) => r.name == model.name && r.id != model.id).firstOrNull;
+      final conflict = existing
+          .where((r) => r.name == model.name && r.id != model.id)
+          .firstOrNull;
 
       if (conflict != null && mounted) {
         final overwrite = await showDialog<bool>(
@@ -140,8 +146,14 @@ class _RouteStorePageState extends State<RouteStorePage> {
             title: const Text('同名线路'),
             content: Text('本地已存在线路「${model.name}」，是否覆盖？'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('覆盖')),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('覆盖'),
+              ),
             ],
           ),
         );
@@ -158,7 +170,10 @@ class _RouteStorePageState extends State<RouteStorePage> {
           _installing.remove(item.id);
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('「${model.name}」已安装'), duration: const Duration(seconds: 2)),
+          SnackBar(
+            content: Text('「${model.name}」已安装'),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
@@ -183,8 +198,14 @@ class _RouteStorePageState extends State<RouteStorePage> {
         title: const Text('批量安装'),
         content: Text('确认安装选中的 ${toInstall.length} 条线路？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('安装')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('安装'),
+          ),
         ],
       ),
     );
@@ -204,7 +225,9 @@ class _RouteStorePageState extends State<RouteStorePage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
+      backgroundColor: isDark
+          ? const Color(0xFF111111)
+          : const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: Text(_checked.isNotEmpty ? '已选 ${_checked.length} 条' : '线路商城'),
         backgroundColor: isDark ? Colors.black : Colors.white,
@@ -212,14 +235,14 @@ class _RouteStorePageState extends State<RouteStorePage> {
         elevation: 0,
         leading: _checked.isNotEmpty
             ? IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => setState(() => _checked.clear()),
-        )
+                icon: const Icon(Icons.close),
+                onPressed: () => setState(() => _checked.clear()),
+              )
             : null,
         actions: [
           if (_checked.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.download_done_outlined),
+              icon: const Icon(Icons.download),
               tooltip: '安装选中',
               onPressed: _installChecked,
             ),
@@ -232,20 +255,26 @@ class _RouteStorePageState extends State<RouteStorePage> {
       ),
       body: _loadingIndex
           ? const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('正在加载线路目录…'),
-          ],
-        ),
-      )
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('正在加载线路目录…'),
+                ],
+              ),
+            )
           : _indexError != null
           ? _buildError(isDark, cs)
           : _items.isEmpty
           ? _buildEmpty()
-          : _buildList(isDark, cs),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHint(),
+                Expanded(child: _buildList(isDark, cs)),
+              ],
+            ),
     );
   }
 
@@ -302,6 +331,17 @@ class _RouteStorePageState extends State<RouteStorePage> {
 
   // ── 列表 ─────────────────────────────────────────────────────
 
+  Widget _buildHint() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Text(
+        '你知道吗？长按线路可以批量安装',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+      ),
+    );
+  }
+
   Widget _buildList(bool isDark, ColorScheme cs) {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
@@ -344,12 +384,12 @@ class _RouteStorePageState extends State<RouteStorePage> {
           boxShadow: isDark
               ? []
               : [
-            BoxShadow(
-              color: Colors.black.withAlpha(15),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+                  BoxShadow(
+                    color: Colors.black.withAlpha(15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -384,14 +424,14 @@ class _RouteStorePageState extends State<RouteStorePage> {
                 child: item.icon.isEmpty
                     ? Icon(Icons.route, color: cs.primary, size: 24)
                     : Padding(
-                  padding: const EdgeInsets.all(5.5),
-                  child: Image.asset(
-                    'assets/icon/${item.icon}',
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) =>
-                        Icon(Icons.route, color: cs.primary, size: 24),
-                  ),
-                ),
+                        padding: const EdgeInsets.all(5.5),
+                        child: Image.asset(
+                          'assets/icon/${item.icon}',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) =>
+                              Icon(Icons.route, color: cs.primary, size: 24),
+                        ),
+                      ),
               ),
               const SizedBox(width: 12),
               // 文字信息
@@ -409,7 +449,11 @@ class _RouteStorePageState extends State<RouteStorePage> {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        Icon(Icons.person_outline, size: 12, color: cs.onSurface.withAlpha(120)),
+                        Icon(
+                          Icons.person_outline,
+                          size: 12,
+                          color: cs.onSurface.withAlpha(120),
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           item.author,
@@ -421,11 +465,16 @@ class _RouteStorePageState extends State<RouteStorePage> {
                         if (isInstalled) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.green.withAlpha(40),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green.withAlpha(100)),
+                              border: Border.all(
+                                color: Colors.green.withAlpha(100),
+                              ),
                             ),
                             child: const Text(
                               '已安装',
@@ -446,22 +495,20 @@ class _RouteStorePageState extends State<RouteStorePage> {
               if (_checked.isEmpty)
                 isInstalling
                     ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : IconButton(
-                  icon: Icon(
-                    isInstalled
-                        ? Icons.download_done_outlined
-                        : Icons.download_outlined,
-                    color: isInstalled
-                        ? Colors.green
-                        : cs.primary,
-                  ),
-                  tooltip: isInstalled ? '重新安装' : '安装',
-                  onPressed: () => _installItem(item),
-                ),
+                        icon: Icon(
+                          isInstalled
+                              ? Icons.download_done_outlined
+                              : Icons.download_outlined,
+                          color: isInstalled ? Colors.green : cs.primary,
+                        ),
+                        tooltip: isInstalled ? '重新安装' : '安装',
+                        onPressed: () => _installItem(item),
+                      ),
             ],
           ),
         ),

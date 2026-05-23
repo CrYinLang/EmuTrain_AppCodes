@@ -83,8 +83,9 @@ double calculateMatchScore(String input, String trainNumber, String modelCode) {
     if (cleanedInput.endsWith(cleanedTrainNumber)) {
       numberScore = 1.0;
     } else if (cleanedTrainNumber.length >= 4) {
-      final trainLastFour =
-          cleanedTrainNumber.substring(cleanedTrainNumber.length - 4);
+      final trainLastFour = cleanedTrainNumber.substring(
+        cleanedTrainNumber.length - 4,
+      );
       if (cleanedInput.contains(trainLastFour)) numberScore = 0.8;
     }
   }
@@ -97,9 +98,11 @@ double calculateMatchScore(String input, String trainNumber, String modelCode) {
   } else {
     int commonPrefix = 0;
     final minLength = min(cleanedInput.length, cleanedModelCode.length);
-    for (var i = 0;
-        i < minLength && cleanedInput[i] == cleanedModelCode[i];
-        i++) {
+    for (
+      var i = 0;
+      i < minLength && cleanedInput[i] == cleanedModelCode[i];
+      i++
+    ) {
       commonPrefix++;
     }
     if (commonPrefix >= 4) {
@@ -324,24 +327,28 @@ Future<String?> fetchStationInfo(String trainCode) async {
     }
     return null;
   } catch (e) {
-    logError(from: 'EmuSearchPage.fetchStationInfo', error: e.toString(), level: 2);
+    logError(
+      from: 'EmuSearchPage.fetchStationInfo',
+      error: e.toString(),
+      level: 2,
+    );
     return null;
   }
 }
 
 /// 通过车次查询 emu_no（rail.re 数据源）
 Future<http.Response?> fetchTrainByRailRe(String fullCode) => http.get(
-      Uri.parse('https://api.rail.re/train/${fullCode.toUpperCase()}'),
-      headers: _defaultHeaders,
-    );
+  Uri.parse('https://api.rail.re/train/${fullCode.toUpperCase()}'),
+  headers: _defaultHeaders,
+);
 
 /// 通过车次查询 emu_no（railGo 数据源）
 Future<http.Response?> fetchTrainByRailGo(String fullCode) => http.get(
-      Uri.parse(
-        'https://emu.data.railgo.zenglingkun.cn/train/${fullCode.toUpperCase()}',
-      ),
-      headers: _defaultHeaders,
-    );
+  Uri.parse(
+    'https://emu.data.railgo.zenglingkun.cn/train/${fullCode.toUpperCase()}',
+  ),
+  headers: _defaultHeaders,
+);
 
 /// 通过车次查询 emu_no（12306 数据源），返回已格式化为 rail.re 格式的 Response
 Future<http.Response?> fetchTrainBy12306(String fullCode) async {
@@ -407,9 +414,8 @@ Future<String?> fetchRouteByRailGo(String emuNo) async {
         )
         .timeout(const Duration(seconds: 10));
 
-    if (resp.statusCode != 200 ||
-        resp.body.isEmpty ||
-        resp.body == '[]') return null;
+    if (resp.statusCode != 200 || resp.body.isEmpty || resp.body == '[]')
+      return null;
 
     final emuData = json.decode(resp.body) as List;
     if (emuData.isEmpty) return null;
@@ -433,9 +439,8 @@ Future<String?> fetchRouteByRailRe(String emuNo) async {
         )
         .timeout(const Duration(seconds: 10));
 
-    if (resp.statusCode != 200 ||
-        resp.body.isEmpty ||
-        resp.body == '[]') return null;
+    if (resp.statusCode != 200 || resp.body.isEmpty || resp.body == '[]')
+      return null;
 
     final emuData = json.decode(resp.body) as List;
     if (emuData.isEmpty) return null;
@@ -473,10 +478,10 @@ class PaginationState {
   bool loadingPage;
 
   PaginationState({this.pageSize = 7})
-      : allRecords = [],
-        currentPage = 1,
-        totalResults = 0,
-        loadingPage = false;
+    : allRecords = [],
+      currentPage = 1,
+      totalResults = 0,
+      loadingPage = false;
 
   int get totalPages => (totalResults / pageSize).ceil();
 
@@ -530,9 +535,13 @@ class _SearchPageState extends State<SearchPage> {
 
   // ---- 快捷访问分页字段（对外保持原有风格）----
   int get _currentPage => _pagination.currentPage;
+
   int get _totalPages => _pagination.totalPages;
+
   int get _totalResults => _pagination.totalResults;
+
   bool get _loadingPage => _pagination.loadingPage;
+
   String? get _currentBureauSearch => _pagination.currentSearchLabel;
 
   @override
@@ -563,7 +572,11 @@ class _SearchPageState extends State<SearchPage> {
         _depotNames = extractDepotNames(loaded);
       });
     } catch (e) {
-      logError(from: 'EmuSearchPage._loadConfig', error: e.toString(), level: 4);
+      logError(
+        from: 'EmuSearchPage._loadConfig',
+        error: e.toString(),
+        level: 4,
+      );
       if (mounted) setState(() => errorMsg = '加载数据失败: $e');
     }
   }
@@ -589,9 +602,8 @@ class _SearchPageState extends State<SearchPage> {
   // ============================================================
 
   void _loadBureauPage(int page) {
-    if (_pagination.allRecords.isEmpty ||
-        page < 1 ||
-        page > _totalPages) return;
+    if (_pagination.allRecords.isEmpty || page < 1 || page > _totalPages)
+      return;
 
     setState(() => _pagination.loadingPage = true);
 
@@ -734,7 +746,9 @@ class _SearchPageState extends State<SearchPage> {
       } else {
         resp = await fetchTrainBy12306(fullCode);
         if (resp == null) {
-          setState(() => errorMsg = '车次不存在!\n当前数据源: ${_dataSourceLabel(settings)}');
+          setState(
+            () => errorMsg = '车次不存在!\n当前数据源: ${_dataSourceLabel(settings)}',
+          );
           return;
         }
       }
@@ -747,16 +761,20 @@ class _SearchPageState extends State<SearchPage> {
     }
 
     if (resp == null) {
-      setState(() =>
-          errorMsg = '请求失败，请检查网络连接或数据源设置\n当前数据源: ${_dataSourceLabel(settings)}');
+      setState(
+        () => errorMsg =
+            '请求失败，请检查网络连接或数据源设置\n当前数据源: ${_dataSourceLabel(settings)}',
+      );
       return;
     }
 
     // 解析响应
     final List rawData = json.decode(resp.body);
     if (resp.body.isEmpty || resp.body == '[]' || rawData.isEmpty) {
-      setState(() => errorMsg =
-          '未查询到车次,请尝试:\n1.前往12306查询今日是否运行\n2.切换数据源查询\n当前数据源: ${_dataSourceLabel(settings)}');
+      setState(
+        () => errorMsg =
+            '未查询到车次,请尝试:\n1.前往12306查询今日是否运行\n2.切换数据源查询\n当前数据源: ${_dataSourceLabel(settings)}',
+      );
       return;
     }
 
@@ -772,7 +790,8 @@ class _SearchPageState extends State<SearchPage> {
     // 重联判断
     final first = rawData[0];
     final second = rawData.length > 1 ? rawData[1] : null;
-    final sameRun = second != null &&
+    final sameRun =
+        second != null &&
         first['date']?.toString() == second['date']?.toString();
 
     final emuNos = <String>[];
@@ -785,21 +804,22 @@ class _SearchPageState extends State<SearchPage> {
     final uniqueEmuNos = emuNos.toSet().toList();
 
     if (uniqueEmuNos.isEmpty) {
-      setState(() =>
-          errorMsg = 'API未返回车组号\n当前数据源: ${_dataSourceLabel(settings)}');
+      setState(
+        () => errorMsg = 'API未返回车组号\n当前数据源: ${_dataSourceLabel(settings)}',
+      );
       return;
     }
 
     // 查询交路（重联共用第一个）
-    final routeInfo =
-        await fetchRouteInfo(uniqueEmuNos.first, settings) ?? '';
+    final routeInfo = await fetchRouteInfo(uniqueEmuNos.first, settings) ?? '';
 
     // 本地匹配 + 构建结果
     for (final emuNo in uniqueEmuNos) {
       final cleanedEmuNo = cleanString(emuNo);
       List<Map<String, dynamic>> exactMatches = trainData
-          .where((r) =>
-              cleanString('${r['type_code']}${r['车组号']}') == cleanedEmuNo)
+          .where(
+            (r) => cleanString('${r['type_code']}${r['车组号']}') == cleanedEmuNo,
+          )
           .toList();
 
       if (exactMatches.isEmpty) {
@@ -815,22 +835,24 @@ class _SearchPageState extends State<SearchPage> {
         final bureau = (record['配属路局'] ?? '').toString().trim();
         final stationinfo = await fetchStationInfo(fullCode);
 
-        _searchResults.add(SearchResult(
-          model: record['type_code'] ?? '',
-          number: record['车组号'] ?? '',
-          bureau: bureau,
-          bureauFullName: _getBureauFullName(bureau),
-          depot: record['配属动车所']?.toString(),
-          manufacturer: record['生产厂家']?.toString(),
-          stationinfo: stationinfo,
-          remarks: record['备注']?.toString(),
-          routeInfo: routeInfo.isNotEmpty ? routeInfo : null,
-          score: 1.0,
-          isAmbiguousMatch: exactMatches.length > 1,
-          isCoupledTrain: uniqueEmuNos.length > 1,
-          queryTime: queryTime,
-          trainCodeForJourney: fullCode,
-        ));
+        _searchResults.add(
+          SearchResult(
+            model: record['type_code'] ?? '',
+            number: record['车组号'] ?? '',
+            bureau: bureau,
+            bureauFullName: _getBureauFullName(bureau),
+            depot: record['配属动车所']?.toString(),
+            manufacturer: record['生产厂家']?.toString(),
+            stationinfo: stationinfo,
+            remarks: record['备注']?.toString(),
+            routeInfo: routeInfo.isNotEmpty ? routeInfo : null,
+            score: 1.0,
+            isAmbiguousMatch: exactMatches.length > 1,
+            isCoupledTrain: uniqueEmuNos.length > 1,
+            queryTime: queryTime,
+            trainCodeForJourney: fullCode,
+          ),
+        );
       }
     }
   }
@@ -851,62 +873,69 @@ class _SearchPageState extends State<SearchPage> {
 
     final bestRecords = scoreAndSelectTrainId(trainData, input);
     if (bestRecords == null || bestRecords.isEmpty) {
-      setState(() => errorMsg =
-          bestRecords == null
-              ? (hasFourDigits ? '未找到末四位匹配的车组' : '未找到匹配车组')
-              : '本地未找到匹配车组');
+      setState(
+        () => errorMsg = bestRecords == null
+            ? (hasFourDigits ? '未找到末四位匹配的车组' : '未找到匹配车组')
+            : '本地未找到匹配车组',
+      );
       return;
     }
 
     // 并行查交路
     final Map<String, String?> routeMap = {};
     if (showRoutes) {
-      await Future.wait(bestRecords.map((record) async {
-        final emuNo =
-            cleanString('${record['type_code']}${record['车组号']}');
-        try {
-          routeMap[emuNo] = await fetchRouteInfo(emuNo, settings);
-        } catch (_) {
-          routeMap[emuNo] = null;
-        }
-      }));
+      await Future.wait(
+        bestRecords.map((record) async {
+          final emuNo = cleanString('${record['type_code']}${record['车组号']}');
+          try {
+            routeMap[emuNo] = await fetchRouteInfo(emuNo, settings);
+          } catch (_) {
+            routeMap[emuNo] = null;
+          }
+        }),
+      );
     }
 
     // 重新计算分数映射（用于 rank / score 字段）
     final scoredMap = <Map<String, dynamic>, double>{};
     for (final record in bestRecords) {
-      scoredMap[record] =
-          calculateMatchScore(input, record['车组号'] ?? '', record['type_code'] ?? '');
+      scoredMap[record] = calculateMatchScore(
+        input,
+        record['车组号'] ?? '',
+        record['type_code'] ?? '',
+      );
     }
 
     // 构建结果
     for (int i = 0; i < bestRecords.length; i++) {
       final record = bestRecords[i];
       final bureau = (record['配属路局'] ?? '').toString().trim();
-      final emuNo =
-          cleanString('${record['type_code']}${record['车组号']}');
+      final emuNo = cleanString('${record['type_code']}${record['车组号']}');
 
       String? trainCodeForJourney;
       if (showRoutes && routeMap[emuNo] != null) {
-        final match =
-            RegExp(r'本务车次:\s*([^\s\n]+)').firstMatch(routeMap[emuNo]!);
+        final match = RegExp(
+          r'本务车次:\s*([^\s\n]+)',
+        ).firstMatch(routeMap[emuNo]!);
         trainCodeForJourney = match?.group(1)?.trim();
       }
 
-      _searchResults.add(SearchResult(
-        model: record['type_code'] ?? '',
-        number: record['车组号'] ?? '',
-        bureau: bureau,
-        bureauFullName: _getBureauFullName(bureau),
-        depot: record['配属动车所']?.toString(),
-        manufacturer: record['生产厂家']?.toString(),
-        remarks: record['备注']?.toString(),
-        score: scoredMap[record],
-        rank: i + 1,
-        routeInfo: showRoutes ? routeMap[emuNo] : null,
-        queryTime: queryTime,
-        trainCodeForJourney: trainCodeForJourney,
-      ));
+      _searchResults.add(
+        SearchResult(
+          model: record['type_code'] ?? '',
+          number: record['车组号'] ?? '',
+          bureau: bureau,
+          bureauFullName: _getBureauFullName(bureau),
+          depot: record['配属动车所']?.toString(),
+          manufacturer: record['生产厂家']?.toString(),
+          remarks: record['备注']?.toString(),
+          score: scoredMap[record],
+          rank: i + 1,
+          routeInfo: showRoutes ? routeMap[emuNo] : null,
+          queryTime: queryTime,
+          trainCodeForJourney: trainCodeForJourney,
+        ),
+      );
     }
   }
 
@@ -957,7 +986,10 @@ class _SearchPageState extends State<SearchPage> {
       }
     } catch (e) {
       logError(
-          from: 'EmuSearchPage._performSearch', error: e.toString(), level: 4);
+        from: 'EmuSearchPage._performSearch',
+        error: e.toString(),
+        level: 4,
+      );
       setState(() => errorMsg = '查询失败: $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -972,15 +1004,15 @@ class _SearchPageState extends State<SearchPage> {
       settings.dataSource.toString().split('.').last;
 
   /// 检查 rail.re 数据日期新鲜度，返回 errorMsg 或 null
-  String? _checkDateFreshness(
-      List<dynamic> data, AppSettings settings) {
+  String? _checkDateFreshness(List<dynamic> data, AppSettings settings) {
     DateTime? latestDate;
     for (final item in data) {
       final emuDate = item['date']?.toString().trim() ?? '';
       if (emuDate.isEmpty) continue;
       try {
-        final datePart =
-            emuDate.contains(' ') ? emuDate.split(' ')[0] : emuDate;
+        final datePart = emuDate.contains(' ')
+            ? emuDate.split(' ')[0]
+            : emuDate;
         final parsed = DateTime.parse(datePart);
         if (latestDate == null || parsed.isAfter(latestDate)) {
           latestDate = parsed;
@@ -994,8 +1026,11 @@ class _SearchPageState extends State<SearchPage> {
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final latestDay =
-        DateTime(latestDate.year, latestDate.month, latestDate.day);
+    final latestDay = DateTime(
+      latestDate.year,
+      latestDate.month,
+      latestDate.day,
+    );
     if (latestDay.difference(today).inDays.abs() > 2) {
       return '车次过期! 时间过久可尝试切换数据源';
     }
@@ -1030,10 +1065,12 @@ class _SearchPageState extends State<SearchPage> {
           DropdownButton<String>(
             value: prefix,
             items: ['G', 'D', 'C']
-                .map((v) => DropdownMenuItem(
-                      value: v,
-                      child: Text(v, style: const TextStyle(fontSize: 18)),
-                    ))
+                .map(
+                  (v) => DropdownMenuItem(
+                    value: v,
+                    child: Text(v, style: const TextStyle(fontSize: 18)),
+                  ),
+                )
                 .toList(),
             onChanged: (v) => setState(() => prefix = v!),
           ),
@@ -1044,8 +1081,9 @@ class _SearchPageState extends State<SearchPage> {
           onPressed: isLoading ? null : _performSearch,
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(80, 56),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           child: Text(isLoading ? '查询中...' : '查询'),
         ),
@@ -1071,10 +1109,9 @@ class _SearchPageState extends State<SearchPage> {
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(4),
               TextInputFormatter.withFunction(
-                (old, newV) =>
-                    newV.text.startsWith('0') && newV.text.length > 1
-                        ? old
-                        : newV,
+                (old, newV) => newV.text.startsWith('0') && newV.text.length > 1
+                    ? old
+                    : newV,
               ),
             ]
           : [],
@@ -1152,8 +1189,7 @@ class _SearchPageState extends State<SearchPage> {
               label,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected
                     ? theme.colorScheme.onPrimary
                     : theme.colorScheme.onSurface,
@@ -1167,12 +1203,15 @@ class _SearchPageState extends State<SearchPage> {
 
   Widget _buildMoreMenu() {
     final theme = Theme.of(context);
-    final isMoreSelected = const {'carType', 'bureau', 'depot'}.contains(searchType);
+    final isMoreSelected = const {
+      'carType',
+      'bureau',
+      'depot',
+    }.contains(searchType);
 
     return PopupMenuButton<String>(
       onSelected: _changeSearchType,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       position: PopupMenuPosition.under,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1239,8 +1278,7 @@ class _SearchPageState extends State<SearchPage> {
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         children: [
@@ -1254,8 +1292,7 @@ class _SearchPageState extends State<SearchPage> {
           ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text('不显示交路信息时无冷却时间限制',
-                style: TextStyle(fontSize: 12)),
+            child: Text('不显示交路信息时无冷却时间限制', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -1263,23 +1300,24 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildEmptyState() {
-    final isPaginated = const {'bureau', 'carType', 'depot'}.contains(searchType);
+    final isPaginated = const {
+      'bureau',
+      'carType',
+      'depot',
+    }.contains(searchType);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 40),
       child: Column(
         children: [
-          Icon(
-            switch (searchType) {
-              'trainCode' => Icons.numbers,
-              'trainId' => Icons.confirmation_number,
-              'carType' => Icons.card_travel_rounded,
-              'bureau' => Icons.business,
-              'depot' => Icons.warehouse_outlined,
-              _ => Icons.train_outlined,
-            },
-            size: 64,
-          ),
+          Icon(switch (searchType) {
+            'trainCode' => Icons.numbers,
+            'trainId' => Icons.confirmation_number,
+            'carType' => Icons.card_travel_rounded,
+            'bureau' => Icons.business,
+            'depot' => Icons.warehouse_outlined,
+            _ => Icons.train_outlined,
+          }, size: 64),
           const SizedBox(height: 16),
           Text(
             switch (searchType) {
@@ -1293,27 +1331,30 @@ class _SearchPageState extends State<SearchPage> {
             style: const TextStyle(fontSize: 16),
           ),
           if (searchType == 'trainCode') _buildTrainCodePrefixChips(),
-          if (searchType == 'carType') _buildQuickChips(
-            title: '所有可查车型:',
-            items: _getAllCarTypes(),
-            onTap: (item) {
-              controller.text = item;
-              _performSearch();
-            },
-          ),
-          if (searchType == 'bureau') _buildQuickChips(
-            title: '支持的路局简称:',
-            items: _getCommonBureauCodes(),
-            onTap: _handleBureauChipTap,
-          ),
-          if (searchType == 'depot') _buildQuickChips(
-            title: '所有动车所:',
-            items: _depotNames,
-            onTap: (item) {
-              controller.text = item;
-              _performSearch();
-            },
-          ),
+          if (searchType == 'carType')
+            _buildQuickChips(
+              title: '所有可查车型:',
+              items: _getAllCarTypes(),
+              onTap: (item) {
+                controller.text = item;
+                _performSearch();
+              },
+            ),
+          if (searchType == 'bureau')
+            _buildQuickChips(
+              title: '支持的路局简称:',
+              items: _getCommonBureauCodes(),
+              onTap: _handleBureauChipTap,
+            ),
+          if (searchType == 'depot')
+            _buildQuickChips(
+              title: '所有动车所:',
+              items: _depotNames,
+              onTap: (item) {
+                controller.text = item;
+                _performSearch();
+              },
+            ),
         ],
       ),
     );
@@ -1326,15 +1367,16 @@ class _SearchPageState extends State<SearchPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: ['G', 'D', 'C']
-              .map((p) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilterChip(
-                      label: Text(p),
-                      selected: prefix == p,
-                      onSelected: (s) =>
-                          s ? setState(() => prefix = p) : null,
-                    ),
-                  ))
+              .map(
+                (p) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: FilterChip(
+                    label: Text(p),
+                    selected: prefix == p,
+                    onSelected: (s) => s ? setState(() => prefix = p) : null,
+                  ),
+                ),
+              )
               .toList(),
         ),
       ],
@@ -1356,10 +1398,12 @@ class _SearchPageState extends State<SearchPage> {
           runSpacing: 4,
           alignment: WrapAlignment.center,
           children: items
-              .map((item) => GestureDetector(
-                    onTap: () => onTap(item),
-                    child: Chip(label: Text(item)),
-                  ))
+              .map(
+                (item) => GestureDetector(
+                  onTap: () => onTap(item),
+                  child: Chip(label: Text(item)),
+                ),
+              )
               .toList(),
         ),
       ],
@@ -1368,21 +1412,27 @@ class _SearchPageState extends State<SearchPage> {
 
   Widget _buildResultCard(SearchResult result) {
     final settings = Provider.of<AppSettings>(context, listen: false);
-    final isPaginated = const {'bureau', 'carType', 'depot'}.contains(searchType);
+    final isPaginated = const {
+      'bureau',
+      'carType',
+      'depot',
+    }.contains(searchType);
 
-    final canNavigateToJourney = result.trainCodeForJourney != null &&
+    final canNavigateToJourney =
+        result.trainCodeForJourney != null &&
         result.trainCodeForJourney!.isNotEmpty &&
-        (searchType == 'trainCode' ||
-            (searchType == 'trainId' && showRoutes));
+        (searchType == 'trainCode' || (searchType == 'trainId' && showRoutes));
 
     return InkWell(
       onTap: canNavigateToJourney
-          ? () => Navigator.of(context).push(MaterialPageRoute(
+          ? () => Navigator.of(context).push(
+              MaterialPageRoute(
                 builder: (_) => AddJourneyPage(
                   initialTrainNumber: result.trainCodeForJourney!,
                   autoSearchAndExpand: true,
                 ),
-              ))
+              ),
+            )
           : null,
       borderRadius: BorderRadius.circular(12),
       child: Card(
@@ -1403,10 +1453,7 @@ class _SearchPageState extends State<SearchPage> {
                 '查询时间: ${result.queryTime}',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withAlpha(150),
+                  color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
                 ),
               ),
             ],
@@ -1433,17 +1480,18 @@ class _SearchPageState extends State<SearchPage> {
               Text(
                 '${result.model}-${result.number}',
                 style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (isPaginated)
                 Text(
                   result.bureauFullName,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withAlpha(150),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha(150),
                   ),
                 ),
               if (result.isCoupledTrain)
@@ -1480,7 +1528,11 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildCardDetails(SearchResult result) {
-    final isPaginated = const {'bureau', 'carType', 'depot'}.contains(searchType);
+    final isPaginated = const {
+      'bureau',
+      'carType',
+      'depot',
+    }.contains(searchType);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1505,24 +1557,24 @@ class _SearchPageState extends State<SearchPage> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color:
-                Theme.of(context).colorScheme.primary.withAlpha(20),
+            color: Theme.of(context).colorScheme.primary.withAlpha(20),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: routeInfo
                 .split('\n')
-                .map((line) => Text(
-                      line,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withAlpha(200),
-                      ),
-                    ))
+                .map(
+                  (line) => Text(
+                    line,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withAlpha(200),
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ),
@@ -1533,11 +1585,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildErrorSection(AppSettings settings) {
     return Column(
       children: [
-        buildErrorCard(
-          context,
-          errorMsg,
-          () => setState(() => errorMsg = ''),
-        ),
+        buildErrorCard(context, errorMsg, () => setState(() => errorMsg = '')),
         const SizedBox(height: 12),
         if (searchType == 'trainCode')
           IntrinsicHeight(
@@ -1572,14 +1620,14 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildPaginationControls() => buildPaginationControls(
-        context: context,
-        currentPage: _currentPage,
-        totalPages: _totalPages,
-        totalResults: _totalResults,
-        loadingPage: _loadingPage,
-        pageController: _pageController,
-        onGoToPage: _goToPage,
-      );
+    context: context,
+    currentPage: _currentPage,
+    totalPages: _totalPages,
+    totalResults: _totalResults,
+    loadingPage: _loadingPage,
+    pageController: _pageController,
+    onGoToPage: _goToPage,
+  );
 
   // ============================================================
   // build
@@ -1588,8 +1636,11 @@ class _SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<AppSettings>(context);
-    final isPaginated =
-        const {'bureau', 'carType', 'depot'}.contains(searchType);
+    final isPaginated = const {
+      'bureau',
+      'carType',
+      'depot',
+    }.contains(searchType);
     final displayedCount = _searchResults.length;
     final totalCount = isPaginated ? _totalResults : displayedCount;
 
@@ -1602,11 +1653,13 @@ class _SearchPageState extends State<SearchPage> {
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               if (value == 'coach') {
-                Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const CoachSearchPage()));
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CoachSearchPage()),
+                );
               } else if (value == 'loco') {
-                Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const LocoSearchPage()));
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LocoSearchPage()),
+                );
               }
             },
             itemBuilder: (_) => const [
