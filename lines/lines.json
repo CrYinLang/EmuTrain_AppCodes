@@ -159,5 +159,33 @@
         "author": "水稻本尊",
         "icon": "bureau/济南铁路局.png",
         "page": "1"
+    },
+    {
+        "name": "成灌铁路",
+        "id": "route_1779550478436",
+        "author": "熊猫慢车",
+        "icon": "train/CRH6A.png",
+        "page": "1"
+    },
+    {
+        "name": "昆楚大铁路",
+        "id": "route_1779550415129",
+        "author": "花栗鼠",
+        "icon": "train/CRH2A.png",
+        "page": "1"
+    },
+    {
+        "name": "济莱高铁",
+        "id": "route_1779550302907",
+        "author": "花栗鼠",
+        "icon": "train/CR300AF.png",
+        "page": "1"
+    },
+    {
+        "name": "银西高铁",
+        "id": "route_1779550176808",
+        "author": "花栗鼠",
+        "icon": "train/CR300BF.png",
+        "page": "1"
     }
 ]

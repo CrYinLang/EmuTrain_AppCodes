@@ -1737,5 +1737,209 @@
                 "tel": "QDK"
             }
         ]
+    },
+    {
+        "id": "route_1779550478436",
+        "name": "成灌铁路",
+        "author": "熊猫慢车",
+        "icon": "train/CRH6A.png",
+        "createdAt": "2026-05-23T23:34:38.436669",
+        "updatedAt": "2026-05-23T23:34:38.436670",
+        "stations": [
+            {
+                "tel": "CDW",
+                "mile": 8.0
+            },
+            {
+                "tel": "PYW",
+                "mile": 4.0
+            },
+            {
+                "tel": "XAW",
+                "mile": 3.0
+            },
+            {
+                "tel": "XIW",
+                "mile": 3.0
+            },
+            {
+                "tel": "IGW",
+                "mile": 6.0
+            },
+            {
+                "tel": "PWW",
+                "mile": 3.0
+            },
+            {
+                "tel": "PCW",
+                "mile": 9.0
+            },
+            {
+                "tel": "ARW",
+                "mile": 21.0
+            },
+            {
+                "tel": "DDW",
+                "mile": 8.0
+            },
+            {
+                "tel": "QSW"
+            }
+        ]
+    },
+    {
+        "id": "route_1779550415129",
+        "name": "昆楚大铁路",
+        "author": "花栗鼠",
+        "icon": "train/CRH2A.png",
+        "createdAt": "2026-05-23T23:33:35.129237",
+        "updatedAt": "2026-05-23T23:33:35.129238",
+        "stations": [
+            {
+                "tel": "KOM",
+                "mile": 28.0
+            },
+            {
+                "tel": "KMM",
+                "mile": 99.0
+            },
+            {
+                "tel": "LQM",
+                "mile": 54.0
+            },
+            {
+                "tel": "GPM",
+                "mile": 27.0
+            },
+            {
+                "tel": "CUM",
+                "mile": 32.0
+            },
+            {
+                "tel": "NAM",
+                "mile": 62.0
+            },
+            {
+                "tel": "ANM",
+                "mile": 17.0
+            },
+            {
+                "tel": "XQM",
+                "mile": 37.0
+            },
+            {
+                "tel": "DKM"
+            }
+        ]
+    },
+    {
+        "id": "route_1779550302907",
+        "name": "济莱高铁",
+        "author": "花栗鼠",
+        "icon": "train/CR300AF.png",
+        "createdAt": "2026-05-23T23:31:42.907260",
+        "updatedAt": "2026-05-23T23:31:42.907260",
+        "stations": [
+            {
+                "tel": "MDK",
+                "mile": 13.0
+            },
+            {
+                "tel": "VHK",
+                "mile": 31.0
+            },
+            {
+                "tel": "VQK",
+                "mile": 18.0
+            },
+            {
+                "tel": "XYK",
+                "mile": 23.0
+            },
+            {
+                "tel": "VIK",
+                "mile": 31.0
+            },
+            {
+                "tel": "GAK"
+            }
+        ]
+    },
+    {
+        "id": "route_1779550176808",
+        "name": "银西高铁",
+        "author": "花栗鼠",
+        "icon": "train/CR300BF.png",
+        "createdAt": "2026-05-23T23:29:36.808327",
+        "updatedAt": "2026-05-23T23:29:47.363017",
+        "stations": [
+            {
+                "tel": "YIJ",
+                "mile": 33.0
+            },
+            {
+                "tel": "HFJ",
+                "mile": 22.0
+            },
+            {
+                "tel": "UWJ",
+                "mile": 19.0
+            },
+            {
+                "tel": "WVJ",
+                "mile": 68.0
+            },
+            {
+                "tel": "KBJ",
+                "mile": 40.0
+            },
+            {
+                "tel": "TUJ",
+                "mile": 89.0
+            },
+            {
+                "tel": "KXJ",
+                "mile": 24.0
+            },
+            {
+                "tel": "QJJ",
+                "mile": 39.0
+            },
+            {
+                "tel": "QHJ",
+                "mile": 50.0
+            },
+            {
+                "tel": "QOJ",
+                "mile": 41.0
+            },
+            {
+                "tel": "AXJ",
+                "mile": 59.0
+            },
+            {
+                "tel": "BFY",
+                "mile": 38.0
+            },
+            {
+                "tel": "AUY",
+                "mile": 29.0
+            },
+            {
+                "tel": "QBY",
+                "mile": 13.0
+            },
+            {
+                "tel": "UNY",
+                "mile": 25.0
+            },
+            {
+                "tel": "EBY",
+                "mile": 28.0
+            },
+            {
+                "tel": "EAY"
+            }
+        ]
     }
 ]
