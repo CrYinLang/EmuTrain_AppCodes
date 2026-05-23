@@ -8,12 +8,10 @@ import '../../station_selector.dart'; // loadStations()
 import 'route_models.dart';
 
 Color _colorForRouteId(String id) {
-  // 用字符串哈希得到 0~1 之间均匀分布的 hue
   int hash = 0;
   for (final c in id.codeUnits) {
     hash = (hash * 31 + c) & 0xFFFFFFFF;
   }
-  // 黄金比例散布避免相邻色相近
   const phi = 0.6180339887;
   final hue = ((hash & 0xFFFF) / 0xFFFF + phi * (hash >> 16)) % 1.0;
   return HSLColor.fromAHSL(1.0, hue * 360, 0.72, 0.48).toColor();
@@ -75,12 +73,13 @@ class _RouteMapPageState extends State<RouteMapPage> {
   // 命中的站点列表（支持多线路共站）
   List<({int ri, int si})> _selHits = [];
   final TransformationController _txCtrl = TransformationController();
+  final GlobalKey _paintKey = GlobalKey(); // ← 修复点击偏移
   double _scale = 1.0;
-  double _maxScale = 12.0; // 动态最大缩放，根据最短线路计算
+  double _maxScale = 12.0;
 
   // 底部面板控制器
   final DraggableScrollableController _draggableCtrl =
-  DraggableScrollableController();
+      DraggableScrollableController();
 
   @override
   void initState() {
@@ -99,7 +98,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
 
   Future<void> _loadAndPlot() async {
     final allStations = await loadStations();
-    // 用 telecode 建索引（精确匹配，不再依赖 name）
     final Map<String, Map<String, dynamic>> tcIdx = {};
     for (final s in allStations) {
       final tc = (s['telecode'] as String? ?? '').trim();
@@ -146,7 +144,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
     });
   }
 
-  /// 以最短线路的跨度为基准，确保放大后该线路能铺满整个视口
   double _computeMaxScale(List<_PlottedRoute> routes) {
     double minSpan = double.infinity;
     for (final r in routes) {
@@ -155,14 +152,15 @@ class _RouteMapPageState extends State<RouteMapPage> {
       double minX = double.infinity, maxX = -double.infinity;
       double minY = double.infinity, maxY = -double.infinity;
       for (final s in valid) {
-        minX = min(minX, s.x); maxX = max(maxX, s.x);
-        minY = min(minY, s.y); maxY = max(maxY, s.y);
+        minX = min(minX, s.x);
+        maxX = max(maxX, s.x);
+        minY = min(minY, s.y);
+        maxY = max(maxY, s.y);
       }
       final span = max(maxX - minX, maxY - minY);
       if (span > 0.01) minSpan = min(minSpan, span);
     }
     if (minSpan == double.infinity || minSpan <= 0) return 12.0;
-    // 放大到最短线路铺满视口，再多给 1.5 倍余量
     final scale = (1.0 / minSpan) * 1.5;
     return scale.clamp(8.0, 40.0);
   }
@@ -223,13 +221,18 @@ class _RouteMapPageState extends State<RouteMapPage> {
   // ── 点击处理 ─────────────────────────────────────────────────
 
   void _handleTap(TapUpDetails details, Size sz) {
+    // 通过 RenderBox 将全局坐标换算为 CustomPaint canvas 本地坐标，
+    // 避免 InteractiveViewer 内部坐标系偏移
+    final renderBox = _paintKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final localInCanvas = renderBox.globalToLocal(details.globalPosition);
+
     final local = MatrixUtils.transformPoint(
       Matrix4.inverted(_txCtrl.value),
-      details.localPosition,
+      localInCanvas,
     );
     final hr = 20.0 / _scale;
 
-    // 收集所有在命中半径内的站点
     final hits = <({int ri, int si, double d})>[];
     for (int ri = 0; ri < _plotted.length; ri++) {
       if (!_plotted[ri].visible) continue;
@@ -246,26 +249,22 @@ class _RouteMapPageState extends State<RouteMapPage> {
       return;
     }
 
-    // 按距离排序，取最近的那个点，再把所有距离该点坐标够近的一起收集
     hits.sort((a, b) => a.d.compareTo(b.d));
     final nearest = _plotted[hits.first.ri].stations[hits.first.si];
     final grouped = hits
         .where((h) {
-      final s = _plotted[h.ri].stations[h.si];
-      return (Offset(s.x, s.y) - Offset(nearest.x, nearest.y)).distance <
-          (hr * 1.5) / sz.shortestSide;
-    })
+          final s = _plotted[h.ri].stations[h.si];
+          return (Offset(s.x, s.y) - Offset(nearest.x, nearest.y)).distance <
+              (hr * 1.5) / sz.shortestSide;
+        })
         .map((h) => (ri: h.ri, si: h.si))
         .toList();
 
     setState(() {
-      // 再次点击同一组则取消选中
-      final same =
-          _selHits.length == grouped.length &&
-              _selHits.every(
-                    (a) => grouped.any((b) => b.ri == a.ri && b.si == a.si),
-              );
-      // 最多展示 5 条
+      final same = _selHits.length == grouped.length &&
+          _selHits.every(
+            (a) => grouped.any((b) => b.ri == a.ri && b.si == a.si),
+          );
       _selHits = same ? [] : grouped.take(5).toList();
     });
   }
@@ -278,9 +277,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF111111)
-          : const Color(0xFFF5F5F5),
+      backgroundColor:
+          isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('线路走向图'),
         backgroundColor: isDark ? Colors.black : Colors.white,
@@ -289,121 +287,118 @@ class _RouteMapPageState extends State<RouteMapPage> {
       ),
       body: _loading
           ? const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('正在加载坐标数据…'),
-          ],
-        ),
-      )
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('正在加载坐标数据…'),
+                ],
+              ),
+            )
           : Stack(
-        children: [
-          // ── 固定布局：图例 + 地图 ──────────────────────────
-          Column(
-            children: [
-              _buildLegend(isDark),
-              Expanded(child: _buildMap()),
-              // 底部留出空间防止面板遮挡时最小占位
-              const SizedBox(height: 0),
-            ],
-          ),
-          // ── 可拖动底部面板 ─────────────────────────────────
-          if (_selHits.isNotEmpty)
-            DraggableScrollableSheet(
-              controller: _draggableCtrl,
-              initialChildSize: 0.32,
-              minChildSize: 0.10,
-              maxChildSize: 0.70,
-              snap: true,
-              snapSizes: const [0.10, 0.32, 0.70],
-              builder: (ctx, scrollCtrl) =>
-                  _buildDraggablePanel(isDark, cs, scrollCtrl),
+              children: [
+                Column(
+                  children: [
+                    _buildLegend(isDark),
+                    Expanded(child: _buildMap()),
+                    const SizedBox(height: 0),
+                  ],
+                ),
+                if (_selHits.isNotEmpty)
+                  DraggableScrollableSheet(
+                    controller: _draggableCtrl,
+                    initialChildSize: 0.32,
+                    minChildSize: 0.10,
+                    maxChildSize: 0.70,
+                    snap: true,
+                    snapSizes: const [0.10, 0.32, 0.70],
+                    builder: (ctx, scrollCtrl) =>
+                        _buildDraggablePanel(isDark, cs, scrollCtrl),
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 
   // ── 图例 ─────────────────────────────────────────────────────
 
   Widget _buildLegend(bool isDark) => Container(
-    color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _plotted.map((r) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => r.visible = !r.visible),
-              child: AnimatedOpacity(
-                opacity: r.visible ? 1.0 : 0.4,
-                duration: const Duration(milliseconds: 200),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: r.color.withAlpha(r.visible ? 30 : 15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: r.color.withAlpha(r.visible ? 150 : 60),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: r.color,
-                          shape: BoxShape.circle,
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _plotted.map((r) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => r.visible = !r.visible),
+                  child: AnimatedOpacity(
+                    opacity: r.visible ? 1.0 : 0.4,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: r.color.withAlpha(r.visible ? 30 : 15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: r.color.withAlpha(r.visible ? 150 : 60),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            r.model.name,
-                            style: TextStyle(
-                              fontSize: 12,
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
                               color: r.color,
-                              fontWeight: FontWeight.w600,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                          if (r.stations.length >= 2)
-                            Text(
-                              '${r.stations.first.name} → ${r.stations.last.name}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: r.color.withAlpha(170),
+                          const SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                r.model.name,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: r.color,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
+                              if (r.stations.length >= 2)
+                                Text(
+                                  '${r.stations.first.name} → ${r.stations.last.name}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: r.color.withAlpha(170),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            r.visible ? Icons.visibility : Icons.visibility_off,
+                            size: 12,
+                            color: r.color.withAlpha(180),
+                          ),
                         ],
                       ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        r.visible ? Icons.visibility : Icons.visibility_off,
-                        size: 12,
-                        color: r.color.withAlpha(180),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    ),
-  );
+              );
+            }).toList(),
+          ),
+        ),
+      );
 
   // ── 地图（全页铺满） ─────────────────────────────────────────
 
@@ -414,7 +409,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
         final sz = constraints.biggest;
         return Stack(
           children: [
-            // 背景色
             Positioned.fill(child: ColoredBox(color: surfaceColor)),
             // 交互式地图层
             InteractiveViewer(
@@ -424,12 +418,12 @@ class _RouteMapPageState extends State<RouteMapPage> {
               boundaryMargin: const EdgeInsets.all(100),
               onInteractionUpdate: (_) {
                 final s = _txCtrl.value.getMaxScaleOnAxis();
-                // Always rebuild so label overlay repositions during pan/zoom
                 setState(() => _scale = s);
               },
               child: GestureDetector(
                 onTapUp: (d) => _handleTap(d, sz),
                 child: CustomPaint(
+                  key: _paintKey, // ← 修复点击偏移
                   size: sz,
                   painter: _RouteMapPainter(
                     routes: _plotted,
@@ -437,6 +431,39 @@ class _RouteMapPageState extends State<RouteMapPage> {
                     scale: _scale,
                     surfaceColor: surfaceColor,
                   ),
+                ),
+              ),
+            ),
+            // ── 站点序号叠加层（Widget 渲染，缩放不模糊）────────
+            IgnorePointer(
+              child: SizedBox.expand(
+                child: CustomMultiChildLayout(
+                  delegate: _NumberOverlayDelegate(
+                    routes: _plotted,
+                    transform: _txCtrl.value,
+                    canvasSize: sz,
+                    scale: _scale,
+                  ),
+                  children: [
+                    for (int ri = 0; ri < _plotted.length; ri++)
+                      if (_plotted[ri].visible)
+                        for (int si = 0;
+                            si < _plotted[ri].stations.length;
+                            si++)
+                          if (_plotted[ri].stations[si].hasLocation)
+                            LayoutId(
+                              id: '$ri-$si',
+                              child: Text(
+                                '${si + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ),
+                  ],
                 ),
               ),
             ),
@@ -463,10 +490,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
                       }
                       final s = route.stations[h.si];
                       final mileStr =
-                      (h.si < route.stations.length - 1 &&
-                          s.mileageToNext != null)
-                          ? '至下站 ${s.mileageToNext} km'
-                          : null;
+                          (h.si < route.stations.length - 1 &&
+                                  s.mileageToNext != null)
+                              ? '至下站 ${s.mileageToNext} km'
+                              : null;
                       return LayoutId(
                         id: idx,
                         child: Container(
@@ -536,13 +563,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
     );
   }
 
-  // ── 站点信息卡片 ─────────────────────────────────────────────
-
   // ── 多线路信息卡片（支持共站） ───────────────────────────────
 
   Widget _buildInfoCards(bool isDark, ColorScheme cs) {
     if (_selHits.isEmpty) return const SizedBox();
-    // 站点名取第一个命中的（共站时名字相同）
     final firstName = () {
       final h = _selHits.first;
       if (h.ri < _plotted.length && h.si < _plotted[h.ri].stations.length) {
@@ -554,7 +578,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 共站时显示站点名标题
         if (_selHits.length > 1 && firstName.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
@@ -601,13 +624,12 @@ class _RouteMapPageState extends State<RouteMapPage> {
   // ── 可拖动底部面板 ───────────────────────────────────────────
 
   Widget _buildDraggablePanel(
-      bool isDark,
-      ColorScheme cs,
-      ScrollController scrollCtrl,
-      ) {
+    bool isDark,
+    ColorScheme cs,
+    ScrollController scrollCtrl,
+  ) {
     final bgColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
 
-    // 站点名（共站时取第一个）
     final firstName = () {
       final h = _selHits.first;
       if (h.ri < _plotted.length && h.si < _plotted[h.ri].stations.length) {
@@ -616,7 +638,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
       return '';
     }();
 
-    // 实际命中总数（未裁切前）
     final totalHits = _selHits.length;
 
     return Container(
@@ -635,10 +656,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
         controller: scrollCtrl,
         padding: EdgeInsets.zero,
         children: [
-          // ── 拖动把手 ─────────────────────────────────────────
           GestureDetector(
             onTap: () {
-              // 点击把手区域切换展开/收起
               final cur = _draggableCtrl.size;
               _draggableCtrl.animateTo(
                 cur < 0.20 ? 0.32 : 0.10,
@@ -661,7 +680,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
               ),
             ),
           ),
-          // ── 标题行 ────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
             child: Row(
@@ -699,7 +717,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
                     ),
                   ),
                 const SizedBox(width: 8),
-                // 关闭按钮
                 GestureDetector(
                   onTap: () => setState(() => _selHits = []),
                   child: Container(
@@ -718,7 +735,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
               ],
             ),
           ),
-          // ── 卡片列表（最多 5 条）────────────────────────────
           ..._selHits.map((h) => _buildOneCard(h.ri, h.si, isDark, cs)),
           const SizedBox(height: 16),
         ],
@@ -734,12 +750,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final isFirst = si == 0;
     final isLast = si == route.stations.length - 1;
     final isBoth = isFirst && isLast;
-    final originName = route.stations.isNotEmpty
-        ? '${route.stations.first.name}站'
-        : '';
-    final termName = route.stations.length > 1
-        ? '${route.stations.last.name}站'
-        : '';
+    final originName =
+        route.stations.isNotEmpty ? '${route.stations.first.name}站' : '';
+    final termName =
+        route.stations.length > 1 ? '${route.stations.last.name}站' : '';
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -760,7 +774,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── 线路名 + 始发→终点 ──────────────────────────────
           Row(
             children: [
               Container(
@@ -823,7 +836,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
             ],
           ),
           const SizedBox(height: 8),
-          // ── 当前站信息 ────────────────────────────────────────
           Row(
             children: [
               Container(
@@ -870,7 +882,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
                         ] else if (isFirst)
                           _badge('起点', Colors.green)
                         else if (isLast)
-                            _badge('终点', Colors.red),
+                          _badge('终点', Colors.red),
                       ],
                     ),
                     if (s.city.isNotEmpty)
@@ -914,17 +926,18 @@ class _RouteMapPageState extends State<RouteMapPage> {
   }
 
   Widget _badge(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-    decoration: BoxDecoration(
-      color: color.withAlpha(40),
-      borderRadius: BorderRadius.circular(4),
-      border: Border.all(color: color.withAlpha(120)),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: color.withAlpha(40),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withAlpha(120)),
+        ),
+        child: Text(
+          text,
+          style:
+              TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+        ),
+      );
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -959,7 +972,7 @@ class _RouteMapPainter extends CustomPainter {
       if (!r.visible) continue;
       _drawStops(canvas, size, r, ri);
     }
-    // labels are now rendered as Flutter Widgets (see _LabelLayoutDelegate)
+    // 序号由 _NumberOverlayDelegate Widget 层渲染，不在此绘制
   }
 
   void _drawLine(Canvas canvas, Size size, _PlottedRoute r, bool isSelected) {
@@ -1003,46 +1016,65 @@ class _RouteMapPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = _px(2.0),
       );
-      final tp = TextPainter(
-        text: TextSpan(
-          text: '${si + 1}',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: _px(6.5),
-            fontWeight: FontWeight.bold,
-            height: 1.0,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, c - Offset(tp.width / 2, tp.height / 2));
+      // 序号不在此绘制，由 Widget 叠加层负责
     }
-  }
-
-
-  TextPainter _tp(
-      String text,
-      double fontSize,
-      Color color, {
-        bool bold = false,
-      }) {
-    return TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          fontSize: fontSize,
-          color: color,
-          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-          height: 1.2,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
   }
 
   @override
   bool shouldRepaint(_RouteMapPainter old) =>
       old.routes != routes || old.selHits != selHits || old.scale != scale;
+}
+
+// ═════════════════════════════════════════════════════════════
+// 站点序号叠加层 delegate（Widget 渲染，永远清晰不模糊）
+// ═════════════════════════════════════════════════════════════
+
+class _NumberOverlayDelegate extends MultiChildLayoutDelegate {
+  final List<_PlottedRoute> routes;
+  final Matrix4 transform;
+  final Size canvasSize;
+  final double scale;
+
+  _NumberOverlayDelegate({
+    required this.routes,
+    required this.transform,
+    required this.canvasSize,
+    required this.scale,
+  });
+
+  @override
+  void performLayout(Size size) {
+    for (int ri = 0; ri < routes.length; ri++) {
+      final r = routes[ri];
+      if (!r.visible) continue;
+      for (int si = 0; si < r.stations.length; si++) {
+        final s = r.stations[si];
+        if (!s.hasLocation) continue;
+        final id = '$ri-$si';
+        if (!hasChild(id)) continue;
+
+        final canvasPt =
+            Offset(s.x * canvasSize.width, s.y * canvasSize.height);
+        final screenPt = MatrixUtils.transformPoint(transform, canvasPt);
+
+        final childSize =
+            layoutChild(id, BoxConstraints.loose(const Size(32, 32)));
+        positionChild(
+          id,
+          Offset(
+            screenPt.dx - childSize.width / 2,
+            screenPt.dy - childSize.height / 2,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRelayout(_NumberOverlayDelegate old) =>
+      old.transform.storage.toString() != transform.storage.toString() ||
+      old.routes != routes ||
+      old.scale != scale;
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -1080,18 +1112,18 @@ class _LabelLayoutDelegate extends MultiChildLayoutDelegate {
       }
       final s = route.stations[h.si];
 
-      // 把归一化坐标映射到 canvas 空间，再用 transform 转换到屏幕空间
-      final canvasPt = Offset(s.x * canvasSize.width, s.y * canvasSize.height);
+      final canvasPt =
+          Offset(s.x * canvasSize.width, s.y * canvasSize.height);
       final screenPt = MatrixUtils.transformPoint(transform, canvasPt);
 
-      // label child 尺寸
-      final childSize = layoutChild(idx, BoxConstraints.loose(const Size(220, 120)));
+      final childSize =
+          layoutChild(idx, BoxConstraints.loose(const Size(220, 120)));
 
-      // 偏好右上，检测边界后调整
       const mg = 12.0;
       double dx = screenPt.dx + mg;
       double dy = screenPt.dy - childSize.height - mg;
-      if (dx + childSize.width > size.width) dx = screenPt.dx - childSize.width - mg;
+      if (dx + childSize.width > size.width)
+        dx = screenPt.dx - childSize.width - mg;
       if (dy < 0) dy = screenPt.dy + mg;
       dx = dx.clamp(4.0, size.width - childSize.width - 4);
       dy = dy.clamp(4.0, size.height - childSize.height - 4);
@@ -1103,6 +1135,6 @@ class _LabelLayoutDelegate extends MultiChildLayoutDelegate {
   @override
   bool shouldRelayout(_LabelLayoutDelegate old) =>
       old.hits != hits ||
-          old.transform.storage.toString() != transform.storage.toString() ||
-          old.routes != routes;
+      old.transform.storage.toString() != transform.storage.toString() ||
+      old.routes != routes;
 }
