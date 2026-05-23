@@ -1,0 +1,471 @@
+// ui/function/route_store_page.dart
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../main.dart';
+import 'route_models.dart';
+
+// ─────────────────────────────────────────────────────────────
+// 数据模型
+// ─────────────────────────────────────────────────────────────
+
+class _StoreItem {
+  final String name;
+  final String id;
+  final String author;
+  final String icon;
+  final String page;
+
+  const _StoreItem({
+    required this.name,
+    required this.id,
+    required this.author,
+    required this.icon,
+    required this.page,
+  });
+
+  factory _StoreItem.fromJson(Map<String, dynamic> j) => _StoreItem(
+    name: j['name'] as String? ?? '',
+    id: j['id'] as String? ?? '',
+    author: j['author'] as String? ?? '',
+    icon: j['icon'] as String? ?? '',
+    page: j['page']?.toString() ?? '1',
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// RouteStorePage
+// ─────────────────────────────────────────────────────────────
+
+class RouteStorePage extends StatefulWidget {
+  const RouteStorePage({super.key});
+
+  @override
+  State<RouteStorePage> createState() => _RouteStorePageState();
+}
+
+class _RouteStorePageState extends State<RouteStorePage> {
+  // 目录列表
+  List<_StoreItem> _items = [];
+  bool _loadingIndex = true;
+  String? _indexError;
+
+  // 已安装的线路 id 集合（用于显示"已安装"标记）
+  Set<String> _installedIds = {};
+
+  // 正在安装的 id 集合
+  final Set<String> _installing = {};
+
+  // 批量勾选
+  final Set<String> _checked = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIndex();
+  }
+
+  // ── 加载目录 ─────────────────────────────────────────────────
+
+  Future<void> _loadIndex() async {
+    setState(() {
+      _loadingIndex = true;
+      _indexError = null;
+    });
+
+    // 同时加载「已安装」列表，用于标记
+    final installed = await RouteStorage.loadAll();
+    _installedIds = {for (final r in installed) r.id};
+
+    final baseUrl = Vars.mirrorBaseUrl;
+    final url = '${baseUrl}lines/lines.json';
+
+    try {
+      final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+      if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
+      final raw = json.decode(resp.body);
+      if (raw is! List) throw const FormatException('顶层必须是 JSON 数组');
+      final items = raw
+          .map((e) => _StoreItem.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+      if (mounted) {
+        setState(() {
+          _items = items;
+          _loadingIndex = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _indexError = e.toString();
+          _loadingIndex = false;
+        });
+      }
+    }
+  }
+
+  // ── 安装单条线路 ─────────────────────────────────────────────
+
+  Future<void> _installItem(_StoreItem item) async {
+    if (_installing.contains(item.id)) return;
+    setState(() => _installing.add(item.id));
+
+    try {
+      final baseUrl = Vars.mirrorBaseUrl;
+      final url = '${baseUrl}lines/line${item.page}.json';
+      final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
+      if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
+
+      final raw = json.decode(resp.body);
+      if (raw is! List) throw const FormatException('数据格式错误');
+
+      // 在该页数据中找到对应 id 的线路
+      final found = (raw as List).cast<Map<String, dynamic>>().firstWhere(
+            (e) => e['id'] == item.id,
+        orElse: () => throw Exception('页面数据中未找到该线路'),
+      );
+
+      final model = RouteModel.fromJson(found);
+
+      // 冲突检测
+      final existing = await RouteStorage.loadAll();
+      final conflict = existing.where((r) => r.name == model.name && r.id != model.id).firstOrNull;
+
+      if (conflict != null && mounted) {
+        final overwrite = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('同名线路'),
+            content: Text('本地已存在线路「${model.name}」，是否覆盖？'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('覆盖')),
+            ],
+          ),
+        );
+        if (overwrite != true) {
+          setState(() => _installing.remove(item.id));
+          return;
+        }
+      }
+
+      await RouteStorage.save(model);
+      if (mounted) {
+        setState(() {
+          _installedIds.add(item.id);
+          _installing.remove(item.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('「${model.name}」已安装'), duration: const Duration(seconds: 2)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _installing.remove(item.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('安装失败：$e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ── 批量安装 ─────────────────────────────────────────────────
+
+  Future<void> _installChecked() async {
+    final toInstall = _items.where((i) => _checked.contains(i.id)).toList();
+    if (toInstall.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('批量安装'),
+        content: Text('确认安装选中的 ${toInstall.length} 条线路？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('安装')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    for (final item in toInstall) {
+      await _installItem(item);
+    }
+    setState(() => _checked.clear());
+  }
+
+  // ── Build ────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5),
+      appBar: AppBar(
+        title: Text(_checked.isNotEmpty ? '已选 ${_checked.length} 条' : '线路商城'),
+        backgroundColor: isDark ? Colors.black : Colors.white,
+        foregroundColor: cs.onSurface,
+        elevation: 0,
+        leading: _checked.isNotEmpty
+            ? IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => setState(() => _checked.clear()),
+        )
+            : null,
+        actions: [
+          if (_checked.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.download_done_outlined),
+              tooltip: '安装选中',
+              onPressed: _installChecked,
+            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '刷新',
+            onPressed: _loadIndex,
+          ),
+        ],
+      ),
+      body: _loadingIndex
+          ? const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在加载线路目录…'),
+          ],
+        ),
+      )
+          : _indexError != null
+          ? _buildError(isDark, cs)
+          : _items.isEmpty
+          ? _buildEmpty()
+          : _buildList(isDark, cs),
+    );
+  }
+
+  // ── 错误态 ───────────────────────────────────────────────────
+
+  Widget _buildError(bool isDark, ColorScheme cs) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.cloud_off_outlined, size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            '加载失败',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _indexError ?? '',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _loadIndex,
+            icon: const Icon(Icons.refresh),
+            label: const Text('重试'),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  // ── 空态 ─────────────────────────────────────────────────────
+
+  Widget _buildEmpty() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.store_outlined, size: 64, color: Colors.grey.shade400),
+        const SizedBox(height: 16),
+        Text(
+          '暂无线路',
+          style: TextStyle(fontSize: 18, color: Colors.grey.shade500),
+        ),
+      ],
+    ),
+  );
+
+  // ── 列表 ─────────────────────────────────────────────────────
+
+  Widget _buildList(bool isDark, ColorScheme cs) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+      itemCount: _items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (ctx, idx) => _buildCard(_items[idx], isDark, cs),
+    );
+  }
+
+  Widget _buildCard(_StoreItem item, bool isDark, ColorScheme cs) {
+    final isInstalled = _installedIds.contains(item.id);
+    final isInstalling = _installing.contains(item.id);
+    final isChecked = _checked.contains(item.id);
+
+    return GestureDetector(
+      onTap: () {
+        if (_checked.isNotEmpty) {
+          // 批量模式：切换勾选
+          setState(() {
+            isChecked ? _checked.remove(item.id) : _checked.add(item.id);
+          });
+        }
+      },
+      onLongPress: () => setState(() {
+        isChecked ? _checked.remove(item.id) : _checked.add(item.id);
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isChecked
+                ? cs.primary
+                : isDark
+                ? Colors.white.withAlpha(20)
+                : Colors.transparent,
+            width: isChecked ? 2 : 1,
+          ),
+          boxShadow: isDark
+              ? []
+              : [
+            BoxShadow(
+              color: Colors.black.withAlpha(15),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              // 勾选圆圈（批量模式时显示）
+              if (_checked.isNotEmpty)
+                Container(
+                  width: 24,
+                  height: 24,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isChecked ? cs.primary : Colors.transparent,
+                    border: Border.all(
+                      color: isChecked ? cs.primary : Colors.grey.shade400,
+                      width: 2,
+                    ),
+                  ),
+                  child: isChecked
+                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                      : null,
+                ),
+              // 图标
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: cs.primary.withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: item.icon.isEmpty
+                    ? Icon(Icons.route, color: cs.primary, size: 24)
+                    : Padding(
+                  padding: const EdgeInsets.all(5.5),
+                  child: Image.asset(
+                    'assets/icon/${item.icon}',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                        Icon(Icons.route, color: cs.primary, size: 24),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 文字信息
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(Icons.person_outline, size: 12, color: cs.onSurface.withAlpha(120)),
+                        const SizedBox(width: 3),
+                        Text(
+                          item.author,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurface.withAlpha(140),
+                          ),
+                        ),
+                        if (isInstalled) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withAlpha(40),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.withAlpha(100)),
+                            ),
+                            child: const Text(
+                              '已安装',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // 安装按钮
+              if (_checked.isEmpty)
+                isInstalling
+                    ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                    : IconButton(
+                  icon: Icon(
+                    isInstalled
+                        ? Icons.download_done_outlined
+                        : Icons.download_outlined,
+                    color: isInstalled
+                        ? Colors.green
+                        : cs.primary,
+                  ),
+                  tooltip: isInstalled ? '重新安装' : '安装',
+                  onPressed: () => _installItem(item),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
