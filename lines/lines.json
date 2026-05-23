@@ -152,5 +152,12 @@
         "author": "闪闪发光",
         "icon": "train/CR400BF.png",
         "page": "1"
+    },
+    {
+        "name": "胶济客专",
+        "id": "route_1779550247049",
+        "author": "水稻本尊",
+        "icon": "bureau/济南铁路局.png",
+        "page": "1"
     }
 ]

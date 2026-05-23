@@ -1680,5 +1680,62 @@
                 "tel": "KOM"
             }
         ]
+    },
+    {
+        "id": "route_1779550247049",
+        "name": "胶济客专",
+        "author": "水稻本尊",
+        "icon": "bureau/济南铁路局.png",
+        "createdAt": "2026-05-23T23:30:47.049601",
+        "updatedAt": "2026-05-23T23:33:06.572507",
+        "stations": [
+            {
+                "tel": "JNK",
+                "mile": -61.0
+            },
+            {
+                "tel": "JAK",
+                "mile": 46.0
+            },
+            {
+                "tel": "ZTK",
+                "mile": 61.0
+            },
+            {
+                "tel": "ZBK",
+                "mile": 43.0
+            },
+            {
+                "tel": "QZK",
+                "mile": 33.0
+            },
+            {
+                "tel": "CLK",
+                "mile": 24.0
+            },
+            {
+                "tel": "WFK",
+                "mile": 85.0
+            },
+            {
+                "tel": "GMK",
+                "mile": 35.0
+            },
+            {
+                "tel": "JZK",
+                "mile": 32.0
+            },
+            {
+                "tel": "CEK",
+                "mile": 16.0
+            },
+            {
+                "tel": "QHK",
+                "mile": 15.0
+            },
+            {
+                "tel": "QDK"
+            }
+        ]
     }
 ]
