@@ -108,28 +108,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('已复制 ${sel.length} 条线路的 JSON 到剪贴板'),
-        duration: const Duration(seconds: 3),
-        action: SnackBarAction(
-          label: '查看',
-          onPressed: () => showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('导出 JSON'),
-              content: SingleChildScrollView(
-                child: SelectableText(
-                  jsonStr,
-                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('关闭'),
-                ),
-              ],
-            ),
-          ),
-        ),
+        duration: const Duration(seconds: 1),
       ),
     );
   }
@@ -473,7 +452,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
   void _openShop() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('商店功能即将上线，敬请期待 🚀'),
+        content: Text('并没有做'),
         duration: Duration(seconds: 2),
       ),
     );

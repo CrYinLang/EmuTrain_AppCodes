@@ -1,5 +1,7 @@
 // ui/function/route_edit_page.dart
-
+// ─────────────────────────────────────────────────────────────
+// 新建 / 编辑线路页面 — 站点数量无限制 + 作者 + 图标
+// ─────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,6 +9,9 @@ import '../../icon_selector.dart';
 import '../../station_selector.dart';
 import 'route_models.dart';
 
+// ──────────────────────────────────────────────────────────
+// 路路通导入：解析 + 匹配
+// ──────────────────────────────────────────────────────────
 
 /// 一条解析出的站点记录（仅含名称和累计里程）
 class _ParsedStation {
@@ -375,11 +380,12 @@ class _RoutePageState extends State<RoutePage> {
       final city = (info['city'] as String? ?? '');
 
       // mileageToNext = 下一个有效站里程 - 当前里程（跨越所有被跳过的中间站）
+      // offsetKm 取负：起点里程非零时，用补偿值抵消第一段多出的里程
       double? mileageToNext;
       if (i < valid.length - 1) {
-        final raw = valid[i + 1].mileage - p.mileage + offsetKm;
+        final raw = valid[i + 1].mileage - p.mileage - offsetKm;
         mileageToNext = double.parse(raw.toStringAsFixed(1));
-        offsetKm = 0; // 补偿只加一次（加在第一个区间上）
+        offsetKm = 0; // 补偿只减一次（在第一个区间上）
       }
 
       setState(() {
@@ -961,151 +967,174 @@ class _LutongImportDialogState extends State<_LutongImportDialog> {
     final cs = Theme.of(context).colorScheme;
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+      // 键盘弹起时 Dialog 跟着上移，insetPadding 给键盘留空间
+      insetPadding: EdgeInsets.fromLTRB(
+        16,
+        32,
+        16,
+        MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── 标题 ──
-            Row(
-              children: [
-                Icon(Icons.import_contacts, color: cs.primary),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    '从路路通导入线路',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+      // 用 ConstrainedBox 限制最大高度，让内容可以在框内滚动
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.82,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── 标题（固定在顶部，不随内容滚动）──
+              Row(
+                children: [
+                  Icon(Icons.import_contacts, color: cs.primary),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '从路路通导入线路',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-
-            // ── 使用说明 ──
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cs.primary.withAlpha(15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: cs.primary.withAlpha(40)),
-              ),
-              child: const Text(
-                '操作步骤：\n'
-                '1. 打开路路通 → 找到对应线路的车次并进入\n'
-                '2. 点击「经由」→「纠错」\n'
-                '3. 找到线路分界站，仅复制该线路范围内的站点\n'
-                '   例如：南广/南昆交接处，复制到南宁站为止\n'
-                '4. 将复制的内容粘贴到下方输入框',
-                style: TextStyle(fontSize: 12, height: 1.6),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // ── 粘贴区 ──
-            const Text(
-              '粘贴路路通经由信息',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: widget.textCtrl,
-              maxLines: 8,
-              minLines: 5,
-              decoration: InputDecoration(
-                hintText: '例如：\nD3822 正确的经由信息为:\n茂名 深湛江湛段 0km\n电白 深湛江湛段 24km\n…',
-                hintStyle: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(90)),
-                border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.all(10),
-              ),
-              style: const TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-
-            // ── 里程补偿 ──
-            const Text(
-              '里程补偿（可选）',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '若路路通数据的起点里程不为 0，可在此填入偏移量（km），'
-              '系统将从该数值开始计算区间距离。填 0 表示不补偿。',
-              style: TextStyle(fontSize: 11, color: cs.onSurface.withAlpha(150)),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: widget.offsetCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-                LengthLimitingTextInputFormatter(8),
-              ],
-              decoration: const InputDecoration(
-                labelText: '里程补偿值',
-                hintText: '如 0 或 35.5',
-                border: OutlineInputBorder(),
-                suffixText: 'km',
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // ── 预览 ──
-            if (_preview.isNotEmpty) ...[
-              const Text(
-                '解析预览',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 140),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withAlpha(80),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: cs.outline.withAlpha(60)),
-                ),
+
+              // ── 可滚动的正文区 ──
+              Flexible(
                 child: SingleChildScrollView(
-                  child: Text(
-                    _preview,
-                    style: const TextStyle(fontSize: 12, height: 1.5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── 使用说明 ──
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withAlpha(15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: cs.primary.withAlpha(40)),
+                        ),
+                        child: const Text(
+                          '操作步骤：\n'
+                          '1. 打开路路通 → 找到对应线路的车次并进入\n'
+                          '2. 点击「经由」→「纠错」\n'
+                          '3. 找到线路分界站，仅复制该线路范围内的站点\n'
+                          '   例如：南广/南昆交接处，复制到南宁站为止\n'
+                          '4. 将复制的内容粘贴到下方输入框',
+                          style: TextStyle(fontSize: 12, height: 1.6),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ── 粘贴区 ──
+                      const Text(
+                        '粘贴路路通经由信息',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: widget.textCtrl,
+                        maxLines: 8,
+                        minLines: 5,
+                        decoration: InputDecoration(
+                          hintText: '例如：\nD3822 正确的经由信息为:\n茂名 深湛江湛段 0km\n电白 深湛江湛段 24km\n…',
+                          hintStyle: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(90)),
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.all(10),
+                        ),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ── 里程补偿 ──
+                      const Text(
+                        '里程补偿（可选）',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '若路路通数据的起点里程不为 0，可填入该起点里程值，'
+                        '系统会将其从第一段区间中减去。填 0 表示不补偿。',
+                        style: TextStyle(fontSize: 11, color: cs.onSurface.withAlpha(150)),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: widget.offsetCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                          LengthLimitingTextInputFormatter(8),
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: '里程补偿值',
+                          hintText: '如 0 或 35.5',
+                          border: OutlineInputBorder(),
+                          suffixText: 'km',
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ── 预览 ──
+                      if (_preview.isNotEmpty) ...[
+                        const Text(
+                          '解析预览',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 140),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withAlpha(80),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: cs.outline.withAlpha(60)),
+                          ),
+                          child: SingleChildScrollView(
+                            child: Text(
+                              _preview,
+                              style: const TextStyle(fontSize: 12, height: 1.5),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-            ],
 
-            // ── 按钮 ──
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    final text = widget.textCtrl.text.trim();
-                    if (text.isEmpty) return;
-                    final offset =
-                        double.tryParse(widget.offsetCtrl.text.trim()) ?? 0.0;
-                    Navigator.pop(context);
-                    widget.onImport(text, offset.clamp(0, double.infinity));
-                  },
-                  icon: const Icon(Icons.download_done, size: 18),
-                  label: const Text('导入站点'),
-                ),
-              ],
-            ),
-          ],
+              // ── 按钮（固定在底部）──
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final text = widget.textCtrl.text.trim();
+                      if (text.isEmpty) return;
+                      final offset =
+                          double.tryParse(widget.offsetCtrl.text.trim()) ?? 0.0;
+                      Navigator.pop(context);
+                      widget.onImport(text, offset.clamp(0, double.infinity));
+                    },
+                    icon: const Icon(Icons.download_done, size: 18),
+                    label: const Text('导入站点'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
