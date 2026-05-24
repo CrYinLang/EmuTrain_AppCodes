@@ -36,6 +36,8 @@ class _StoreItem {
   );
 }
 
+enum _StoreAction { refresh }
+
 // ─────────────────────────────────────────────────────────────
 // RouteStorePage
 // ─────────────────────────────────────────────────────────────
@@ -380,11 +382,35 @@ class _RouteStorePageState extends State<RouteStorePage> {
               tooltip: '安装选中',
               onPressed: _installChecked,
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
-            onPressed: _loadIndex,
-          ),
+          if (_checked.isEmpty) ...[
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: '搜索线路',
+              onPressed: _openSearch,
+            ),
+            PopupMenuButton<_StoreAction>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: '更多操作',
+              onSelected: (action) {
+                switch (action) {
+                  case _StoreAction.refresh:
+                    _loadIndex();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: _StoreAction.refresh,
+                  child: Row(
+                    children: [
+                      Icon(Icons.refresh),
+                      SizedBox(width: 12),
+                      Text('刷新'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
       body: _loadingIndex
@@ -419,6 +445,138 @@ class _RouteStorePageState extends State<RouteStorePage> {
                 Expanded(child: _buildList(isDark, cs)),
               ],
             ),
+    );
+  }
+
+  // ── 搜索 ─────────────────────────────────────────────────────
+
+  void _openSearch() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+    showSearchDialog<_StoreItem>(
+      context: context,
+      items: _items,
+      title: '搜索商城线路',
+      hintText: '输入线路名 / 作者名…',
+      filter: (item, q) =>
+          item.name.contains(q) || item.author.contains(q),
+      itemBuilder: (ctx, item, _) {
+        final isInstalled = _installedIds.contains(item.id);
+        final isInstalling = _installing.contains(item.id);
+        return InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withAlpha(8) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: item.icon.isEmpty
+                      ? Icon(Icons.route, color: cs.primary, size: 20)
+                      : Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Image.asset(
+                            'assets/icon/${item.icon}',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                Icon(Icons.route, color: cs.primary, size: 20),
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            size: 11,
+                            color: cs.onSurface.withAlpha(120),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            item.author,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: item.author == 'CrYinLang'
+                                  ? Colors.red
+                                  : cs.onSurface.withAlpha(140),
+                            ),
+                          ),
+                          if (isInstalled) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withAlpha(40),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Colors.green.withAlpha(100),
+                                ),
+                              ),
+                              child: const Text(
+                                '已安装',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                isInstalling
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        icon: Icon(
+                          isInstalled
+                              ? Icons.download_done_outlined
+                              : Icons.download_outlined,
+                          color: isInstalled ? Colors.green : cs.primary,
+                          size: 20,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: isInstalled ? '重新安装' : '安装',
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _installItem(item);
+                        },
+                      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

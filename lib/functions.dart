@@ -366,6 +366,282 @@ Widget buildResultCountBar(
   );
 }
 
+// ==================== 搜索弹窗 ====================
+/// 通用搜索弹窗。
+/// [items]       全量数据列表
+/// [filter]      返回 true 表示该条目匹配搜索词
+/// [itemBuilder] 构建每条结果的 Widget（context, item, index）
+/// [pageSize]    每页条数，默认 10
+/// [hintText]    输入框占位文字
+Future<void> showSearchDialog<T>({
+  required BuildContext context,
+  required List<T> items,
+  required bool Function(T item, String query) filter,
+  required Widget Function(BuildContext context, T item, int index) itemBuilder,
+  int pageSize = 10,
+  String hintText = '输入关键词搜索…',
+  String title = '搜索',
+}) {
+  return showDialog(
+    context: context,
+    builder: (ctx) => _SearchDialog<T>(
+      items: items,
+      filter: filter,
+      itemBuilder: itemBuilder,
+      pageSize: pageSize,
+      hintText: hintText,
+      title: title,
+    ),
+  );
+}
+
+class _SearchDialog<T> extends StatefulWidget {
+  final List<T> items;
+  final bool Function(T item, String query) filter;
+  final Widget Function(BuildContext context, T item, int index) itemBuilder;
+  final int pageSize;
+  final String hintText;
+  final String title;
+
+  const _SearchDialog({
+    required this.items,
+    required this.filter,
+    required this.itemBuilder,
+    required this.pageSize,
+    required this.hintText,
+    required this.title,
+  });
+
+  @override
+  State<_SearchDialog<T>> createState() => _SearchDialogState<T>();
+}
+
+class _SearchDialogState<T> extends State<_SearchDialog<T>> {
+  final _ctrl = TextEditingController();
+  List<T> _results = [];
+  bool _searched = false;
+  int _page = 1;
+
+  int get _totalPages =>
+      _results.isEmpty ? 1 : (_results.length / widget.pageSize).ceil();
+
+  List<T> get _pageItems {
+    final start = (_page - 1) * widget.pageSize;
+    final end = (start + widget.pageSize).clamp(0, _results.length);
+    return _results.sublist(start, end);
+  }
+
+  void _doSearch() {
+    final q = _ctrl.text.trim();
+    if (q.isEmpty) return;
+    setState(() {
+      _results = widget.items.where((i) => widget.filter(i, q)).toList();
+      _searched = true;
+      _page = 1;
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── 标题栏 ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 8, 0),
+            child: Row(
+              children: [
+                Icon(Icons.search, color: cs.primary, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+          // ── 搜索框 ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _doSearch(),
+                    decoration: InputDecoration(
+                      hintText: widget.hintText,
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      filled: true,
+                      fillColor: isDark
+                          ? Colors.white.withAlpha(12)
+                          : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _doSearch,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text('搜索'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // ── 结果区域 ──
+          if (!_searched)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.manage_search,
+                    size: 48,
+                    color: cs.onSurface.withAlpha(80),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '输入关键词后点击「搜索」',
+                    style: TextStyle(
+                      color: cs.onSurface.withAlpha(120),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (_results.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.search_off,
+                    size: 48,
+                    color: cs.onSurface.withAlpha(80),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '没有符合「${_ctrl.text.trim()}」的结果',
+                    style: TextStyle(
+                      color: cs.onSurface.withAlpha(120),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            // 结果统计
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: cs.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    '共 ${_results.length} 条结果',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 列表（限高）
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.4,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _pageItems.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (c, i) =>
+                    widget.itemBuilder(c, _pageItems[i], i),
+              ),
+            ),
+            // 分页栏
+            if (_totalPages > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: _page > 1
+                          ? () => setState(() => _page--)
+                          : null,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    Text(
+                      '$_page / $_totalPages',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: _page < _totalPages
+                          ? () => setState(() => _page++)
+                          : null,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
 // ==================== 分页控件 ====================
 /// 通用分页控件：上一页 / 页码输入框 / 下一页
 Widget buildPaginationControls({

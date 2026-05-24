@@ -11,6 +11,8 @@ import 'route_map_page.dart';
 import 'route_models.dart';
 import 'route_store_page.dart';
 
+enum _HubAction { importJson, shop, refresh }
+
 class RouteHubPage extends StatefulWidget {
   const RouteHubPage({super.key});
 
@@ -448,6 +450,93 @@ class _RouteHubPageState extends State<RouteHubPage> {
     );
   }
 
+  // ── 搜索 ─────────────────────────────────────────────────────
+
+  void _openSearch() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+    showSearchDialog<RouteModel>(
+      context: context,
+      items: _pager.allItems,
+      title: '搜索线路',
+      hintText: '输入线路名 / 起终点站名…',
+      filter: (r, q) =>
+          r.name.contains(q) ||
+          r.fromStation.contains(q) ||
+          r.toStation.contains(q) ||
+          r.author.contains(q),
+      itemBuilder: (ctx, r, _) {
+        final mileage = r.totalMileage;
+        return InkWell(
+          onTap: () {
+            Navigator.pop(ctx);
+            _openEdit(r);
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withAlpha(8) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: r.icon.isEmpty
+                      ? Icon(Icons.route, color: cs.primary, size: 20)
+                      : Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Image.asset(
+                            'assets/icon/${r.icon}',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                Icon(Icons.route, color: cs.primary, size: 20),
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        r.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${r.fromStation} → ${r.toStation}'
+                        '${mileage > 0 ? '  ·  ${mileage.toStringAsFixed(0)} km' : ''}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withAlpha(140),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: cs.onSurface.withAlpha(100),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ── 商店占位（后期功能）────────────────────────────────────
 
   void _openShop() {
@@ -496,22 +585,57 @@ class _RouteHubPageState extends State<RouteHubPage> {
               style: IconButton.styleFrom(foregroundColor: Colors.red),
             ),
           ] else ...[
-            // 导入
             IconButton(
-              icon: const Icon(Icons.file_download_outlined),
-              tooltip: '导入线路',
-              onPressed: _importFromJson,
+              icon: const Icon(Icons.search),
+              tooltip: '搜索线路',
+              onPressed: _openSearch,
             ),
-            // 商店（占位，后期加功能）
-            IconButton(
-              icon: const Icon(Icons.storefront_outlined),
-              tooltip: '商店',
-              onPressed: _openShop,
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _reload,
-              tooltip: '刷新',
+            PopupMenuButton<_HubAction>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: '更多操作',
+              onSelected: (action) {
+                switch (action) {
+                  case _HubAction.importJson:
+                    _importFromJson();
+                  case _HubAction.shop:
+                    _openShop();
+                  case _HubAction.refresh:
+                    _reload();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: _HubAction.importJson,
+                  child: Row(
+                    children: [
+                      Icon(Icons.file_download_outlined),
+                      SizedBox(width: 12),
+                      Text('导入线路'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _HubAction.shop,
+                  child: Row(
+                    children: [
+                      Icon(Icons.storefront_outlined),
+                      SizedBox(width: 12),
+                      Text('线路商城'),
+                    ],
+                  ),
+                ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: _HubAction.refresh,
+                  child: Row(
+                    children: [
+                      Icon(Icons.refresh),
+                      SizedBox(width: 12),
+                      Text('刷新'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ],
