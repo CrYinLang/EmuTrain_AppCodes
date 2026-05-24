@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../station_selector.dart';
+import '../journey.dart';
 
 class StationScreen extends StatefulWidget {
   const StationScreen({super.key});
@@ -204,117 +205,135 @@ class _StationScreenState extends State<StationScreen> {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  train['trainNumber'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_directionMode == 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          final trainNumber = (train['trainNumber'] as String?)?.trim();
+          if (trainNumber == null || trainNumber.isEmpty) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddJourneyPage(
+                initialTrainNumber: trainNumber,
+                autoSearchAndExpand: true,
+              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    train['trainNumber'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Text(
-                      statusText,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                  ),
+                  if (_directionMode == 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${train['beginStationName']} → ${train['endStationName']}',
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.schedule,
-                  size: 16,
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${train['beginStationName']} → ${train['endStationName']}',
+                style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  '${train['scheduledTime']}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                if (delayMinutes > 0) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    '实际: ${train['actualTime']}',
-                    style: TextStyle(color: Colors.orange),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.train, size: 16, color: Colors.red),
-                const SizedBox(width: 4),
-                Text(
-                  '站台: ${train['platform']}',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ],
-            ),
-            if (_directionMode == 0) const SizedBox(height: 8),
-            if (_directionMode == 0)
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Icon(
-                    Icons.meeting_room,
+                    Icons.schedule,
                     size: 16,
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
                   const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      '候车室: ${train['waitingRoom']}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
+                  Text(
+                    '${train['scheduledTime']}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  if (delayMinutes > 0) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '实际: ${train['actualTime']}',
+                      style: const TextStyle(color: Colors.orange),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.train, size: 16, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Text(
+                    '站台: ${train['platform']}',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ],
+              ),
+              if (_directionMode == 0) const SizedBox(height: 8),
+              if (_directionMode == 0)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.meeting_room,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        '候车室: ${train['waitingRoom']}',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            if (_directionMode == 0) const SizedBox(height: 8),
-            if (_directionMode == 0)
-              Row(
-                children: [
-                  Icon(
-                    Icons.exit_to_app,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      '检票口: ${train['checkoutName']}',
-                      style: TextStyle(color: Colors.green),
+                  ],
+                ),
+              if (_directionMode == 0) const SizedBox(height: 8),
+              if (_directionMode == 0)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.exit_to_app,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
-                  ),
-                ],
-              ),
-          ],
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        '检票口: ${train['checkoutName']}',
+                        style: const TextStyle(color: Colors.green),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
