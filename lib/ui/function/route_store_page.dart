@@ -142,7 +142,9 @@ class _RouteStorePageState extends State<RouteStorePage> {
         setState(() {
           _items = items;
           // 重载后保持当前搜索过滤状态
-          final toLoad = _isFiltered ? _filterItems(items, _searchQuery) : items;
+          final toLoad = _isFiltered
+              ? _filterItems(items, _searchQuery)
+              : items;
           _pager.resetAndLoad(toLoad);
           _pageController.text = '1';
           _loadingIndex = false;
@@ -518,11 +520,7 @@ class _RouteStorePageState extends State<RouteStorePage> {
                         ),
                         GestureDetector(
                           onTap: () => _onSearch(''),
-                          child: Icon(
-                            Icons.close,
-                            size: 16,
-                            color: cs.primary,
-                          ),
+                          child: Icon(Icons.close, size: 16, color: cs.primary),
                         ),
                       ],
                     ),

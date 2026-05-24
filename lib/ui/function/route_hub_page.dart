@@ -100,9 +100,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
     setState(() {
       _allRoutes = all;
       // 重载后保持当前搜索过滤状态
-      final toLoad = _isFiltered
-          ? _filterRoutes(all, _searchQuery)
-          : all;
+      final toLoad = _isFiltered ? _filterRoutes(all, _searchQuery) : all;
       _pager.resetAndLoad(toLoad);
       _selected.retainWhere((id) => all.any((r) => r.id == id));
       _pageController.text = '1';
@@ -112,12 +110,15 @@ class _RouteHubPageState extends State<RouteHubPage> {
 
   // ── 搜索过滤 ─────────────────────────────────────────────────
 
-  List<RouteModel> _filterRoutes(List<RouteModel> src, String q) =>
-      src.where((r) =>
-          r.name.contains(q) ||
-          r.fromStation.contains(q) ||
-          r.toStation.contains(q) ||
-          r.author.contains(q)).toList();
+  List<RouteModel> _filterRoutes(List<RouteModel> src, String q) => src
+      .where(
+        (r) =>
+            r.name.contains(q) ||
+            r.fromStation.contains(q) ||
+            r.toStation.contains(q) ||
+            r.author.contains(q),
+      )
+      .toList();
 
   void _onSearch(String q) {
     setState(() {

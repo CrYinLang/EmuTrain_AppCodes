@@ -472,7 +472,11 @@ class _RouteMapPageState extends State<RouteMapPage> {
                     children: [
                       for (int ri = 0; ri < _plotted.length; ri++)
                         if (_plotted[ri].visible)
-                          for (int si = 0; si < _plotted[ri].stations.length; si++)
+                          for (
+                            int si = 0;
+                            si < _plotted[ri].stations.length;
+                            si++
+                          )
                             if (_plotted[ri].stations[si].hasLocation)
                               LayoutId(
                                 id: '$ri-$si',

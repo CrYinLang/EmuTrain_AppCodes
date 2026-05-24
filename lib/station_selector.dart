@@ -243,22 +243,22 @@ class _StationSelectorState extends State<StationSelector> {
       if (query.isEmpty) {
         _filtered = _allStations;
       } else {
-            _filtered = _allStations.where((s) {
-              final name = (s['name'] ?? '').toLowerCase();
-              final tc = (s['telecode'] ?? '').toLowerCase();
-              final city = (s['city'] ?? '').toLowerCase();
-              final code = (s['code'] ?? '').toLowerCase();
-              final pinyin = (s['pinyin'] ?? '').toLowerCase();
-              final shortCode = (s['short_code'] ?? '').toLowerCase();
-              final location = (s['location'] ?? '').toLowerCase();
-              return name.contains(query) ||
-                  tc.contains(query) ||
-                  city.contains(query) ||
-                  code.contains(query) ||
-                  pinyin.contains(query) ||
-                  shortCode.contains(query) ||
-                  location.contains(query);
-            }).toList();
+        _filtered = _allStations.where((s) {
+          final name = (s['name'] ?? '').toLowerCase();
+          final tc = (s['telecode'] ?? '').toLowerCase();
+          final city = (s['city'] ?? '').toLowerCase();
+          final code = (s['code'] ?? '').toLowerCase();
+          final pinyin = (s['pinyin'] ?? '').toLowerCase();
+          final shortCode = (s['short_code'] ?? '').toLowerCase();
+          final location = (s['location'] ?? '').toLowerCase();
+          return name.contains(query) ||
+              tc.contains(query) ||
+              city.contains(query) ||
+              code.contains(query) ||
+              pinyin.contains(query) ||
+              shortCode.contains(query) ||
+              location.contains(query);
+        }).toList();
       }
     });
   }
