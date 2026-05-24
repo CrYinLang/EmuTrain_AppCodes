@@ -6,15 +6,15 @@
   "minVersion": "1212",
   "message": "",
 
-  "StationBuild": "202605230",
-  "TrainBuild": "202605230",
-  "CoachTrainBuild": "202605230",
-  "LocoBuild": "202605230",
+  "StationBuild": "202605240",
+  "TrainBuild": "202605240",
+  "CoachTrainBuild": "202605240",
+  "LocoBuild": "202605240",
 
-  "github": "https://gh-proxy.com/https://github.com/CrYinLang/EmuTrain/releases/download/1.2.2.5/app-release.apk",
-  "gitee": "https://gitee.com/CrYinLang/EmuTrain/releases/download/1.2.2.5/app-release.apk",
+  "github": "https://gh-proxy.com/https://github.com/CrYinLang/EmuTrain/releases/download/1.2.2.6/app-release.apk",
+  "gitee": "https://gitee.com/CrYinLang/EmuTrain/releases/download/1.2.2.6/app-release.apk",
   "qq": "https://qm.qq.com/q/fk5M9PJGyk",
 
-  "describe": "",
+  "describe": "新增 线路商城\n优化 线路逻辑\n优化 线路图\n新增 车站大屏可点击车次查询对应车次\n优化 车站搜索逻辑",
   "Announcement": "公告:QQ群:667933194\n官网:https://emutrain.github.io/"
 }
