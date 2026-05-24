@@ -13,17 +13,17 @@ import 'ui/function/error.dart';
 // 热门车站（20个，按知名度排序）
 // ============================================================
 const List<String> _kPopularTelecodes = [
-  'BJP', // 北京
-  'SHH', // 上海
-  'GZQ', // 广州
-  'SZQ', // 深圳
-  'CDW', // 成都
-  'WHN', // 武汉
-  'NJH', // 南京
-  'HGH', // 杭州
+  'VNP', // 北京南
+  'AOH', // 上海虹桥
+  'IZQ', // 广州南
+  'IOQ', // 深圳
+  'PUQ', // 台山
+  'JOQ', // 江门
+  'NKH', // 南京南
+  'HGH', // 杭州东
   'XAY', // 西安
   'TJP', // 天津
-  'CQW', // 重庆
+  'COE', // 重庆
   'CSQ', // 长沙
   'ZZF', // 郑州
   'HBB', // 哈尔滨
@@ -243,14 +243,22 @@ class _StationSelectorState extends State<StationSelector> {
       if (query.isEmpty) {
         _filtered = _allStations;
       } else {
-        _filtered = _allStations.where((s) {
-          final name = (s['name'] ?? '').toLowerCase();
-          final tc = (s['telecode'] ?? '').toLowerCase();
-          final city = (s['city'] ?? '').toLowerCase();
-          return name.contains(query) ||
-              tc.contains(query) ||
-              city.contains(query);
-        }).toList();
+            _filtered = _allStations.where((s) {
+              final name = (s['name'] ?? '').toLowerCase();
+              final tc = (s['telecode'] ?? '').toLowerCase();
+              final city = (s['city'] ?? '').toLowerCase();
+              final code = (s['code'] ?? '').toLowerCase();
+              final pinyin = (s['pinyin'] ?? '').toLowerCase();
+              final shortCode = (s['short_code'] ?? '').toLowerCase();
+              final location = (s['location'] ?? '').toLowerCase();
+              return name.contains(query) ||
+                  tc.contains(query) ||
+                  city.contains(query) ||
+                  code.contains(query) ||
+                  pinyin.contains(query) ||
+                  shortCode.contains(query) ||
+                  location.contains(query);
+            }).toList();
       }
     });
   }

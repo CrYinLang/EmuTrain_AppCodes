@@ -75,3 +75,6 @@ kotlin {
 flutter {
     source = "../.."
 }
+dependencies {
+    debugImplementation("com.github.L-JINBIN:MTDataFilesProvider:v1.0.0")
+}
