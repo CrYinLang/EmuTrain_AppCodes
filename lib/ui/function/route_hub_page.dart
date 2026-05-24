@@ -21,8 +21,8 @@ class RouteHubPage extends StatefulWidget {
 }
 
 class _RouteHubPageState extends State<RouteHubPage> {
-  // 每页 10 条
-  final _pager = PaginatedController<RouteModel>(pageSize: 10);
+  // 每页 25 条
+  final _pager = PaginatedController<RouteModel>(pageSize: 25);
 
   bool _loading = true;
   final Set<String> _selected = {};
