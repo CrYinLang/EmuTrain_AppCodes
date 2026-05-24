@@ -28,6 +28,13 @@ class _RouteHubPageState extends State<RouteHubPage> {
   final Set<String> _selected = {};
   late TextEditingController _pageController;
 
+  // ── 搜索 ──────────────────────────────────────────────────────
+  List<RouteModel> _allRoutes = []; // 全量缓存，用于搜索过滤
+  bool _searchOpen = false;
+  String _searchQuery = '';
+
+  bool get _isFiltered => _searchQuery.isNotEmpty;
+
   bool get _selecting => _selected.isNotEmpty;
 
   bool get _currentPageAllSelected =>
@@ -91,10 +98,45 @@ class _RouteHubPageState extends State<RouteHubPage> {
     if (!mounted) return;
 
     setState(() {
-      _pager.resetAndLoad(all);
+      _allRoutes = all;
+      // 重载后保持当前搜索过滤状态
+      final toLoad = _isFiltered
+          ? _filterRoutes(all, _searchQuery)
+          : all;
+      _pager.resetAndLoad(toLoad);
       _selected.retainWhere((id) => all.any((r) => r.id == id));
       _pageController.text = '1';
       _loading = false;
+    });
+  }
+
+  // ── 搜索过滤 ─────────────────────────────────────────────────
+
+  List<RouteModel> _filterRoutes(List<RouteModel> src, String q) =>
+      src.where((r) =>
+          r.name.contains(q) ||
+          r.fromStation.contains(q) ||
+          r.toStation.contains(q) ||
+          r.author.contains(q)).toList();
+
+  void _onSearch(String q) {
+    setState(() {
+      _searchQuery = q;
+      final toLoad = q.isEmpty ? _allRoutes : _filterRoutes(_allRoutes, q);
+      _pager.resetAndLoad(toLoad);
+      _pageController.text = '1';
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _searchOpen = !_searchOpen;
+      if (!_searchOpen && _isFiltered) {
+        // 关闭搜索栏时清除过滤
+        _searchQuery = '';
+        _pager.resetAndLoad(_allRoutes);
+        _pageController.text = '1';
+      }
     });
   }
 
@@ -450,93 +492,6 @@ class _RouteHubPageState extends State<RouteHubPage> {
     );
   }
 
-  // ── 搜索 ─────────────────────────────────────────────────────
-
-  void _openSearch() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-    showSearchDialog<RouteModel>(
-      context: context,
-      items: _pager.allItems,
-      title: '搜索线路',
-      hintText: '输入线路名 / 起终点站名…',
-      filter: (r, q) =>
-          r.name.contains(q) ||
-          r.fromStation.contains(q) ||
-          r.toStation.contains(q) ||
-          r.author.contains(q),
-      itemBuilder: (ctx, r, _) {
-        final mileage = r.totalMileage;
-        return InkWell(
-          onTap: () {
-            Navigator.pop(ctx);
-            _openEdit(r);
-          },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withAlpha(8) : Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: cs.primary.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: r.icon.isEmpty
-                      ? Icon(Icons.route, color: cs.primary, size: 20)
-                      : Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Image.asset(
-                            'assets/icon/${r.icon}',
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) =>
-                                Icon(Icons.route, color: cs.primary, size: 20),
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        r.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '${r.fromStation} → ${r.toStation}'
-                        '${mileage > 0 ? '  ·  ${mileage.toStringAsFixed(0)} km' : ''}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurface.withAlpha(140),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: cs.onSurface.withAlpha(100),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   // ── 商店占位（后期功能）────────────────────────────────────
 
   void _openShop() {
@@ -586,9 +541,9 @@ class _RouteHubPageState extends State<RouteHubPage> {
             ),
           ] else ...[
             IconButton(
-              icon: const Icon(Icons.search),
-              tooltip: '搜索线路',
-              onPressed: _openSearch,
+              icon: Icon(_searchOpen ? Icons.search_off : Icons.search),
+              tooltip: _searchOpen ? '关闭搜索' : '搜索线路',
+              onPressed: _toggleSearch,
             ),
             PopupMenuButton<_HubAction>(
               icon: const Icon(Icons.more_vert),
@@ -642,22 +597,72 @@ class _RouteHubPageState extends State<RouteHubPage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _pager.totalCount == 0
-          ? _buildEmpty(isDark)
           : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (_pager.hasMultiplePages)
-                  buildPaginationControls(
-                    context: context,
-                    currentPage: _pager.currentPage,
-                    totalPages: _pager.totalPages,
-                    totalResults: _pager.totalCount,
-                    loadingPage: false,
-                    pageController: _pageController,
-                    onGoToPage: _goToPage,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                // ── 内联搜索栏（展开时显示）──
+                if (_searchOpen) ...[
+                  InlineSearchBar(
+                    initialQuery: _searchQuery,
+                    hintText: '输入线路名 / 起终点 / 作者…',
+                    onSearch: _onSearch,
                   ),
-                Expanded(child: _buildList(isDark, cs)),
+                  const Divider(height: 1),
+                ],
+                // ── 搜索结果提示条 ──
+                if (_isFiltered)
+                  Container(
+                    color: Theme.of(context).colorScheme.primary.withAlpha(15),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.filter_list,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '「$_searchQuery」的搜索结果：共 ${_pager.totalCount} 条',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _onSearch(''),
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // ── 空态 ──
+                if (_pager.totalCount == 0)
+                  Expanded(child: _buildEmpty(isDark))
+                else ...[
+                  if (_pager.hasMultiplePages)
+                    buildPaginationControls(
+                      context: context,
+                      currentPage: _pager.currentPage,
+                      totalPages: _pager.totalPages,
+                      totalResults: _pager.totalCount,
+                      loadingPage: false,
+                      pageController: _pageController,
+                      onGoToPage: _goToPage,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  Expanded(child: _buildList(isDark, cs)),
+                ],
               ],
             ),
       floatingActionButton: Column(

@@ -69,6 +69,12 @@ class _RouteStorePageState extends State<RouteStorePage> {
   // 批量勾选
   final Set<String> _checked = {};
 
+  // ── 搜索 ──────────────────────────────────────────────────────
+  bool _searchOpen = false;
+  String _searchQuery = '';
+
+  bool get _isFiltered => _searchQuery.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -121,7 +127,9 @@ class _RouteStorePageState extends State<RouteStorePage> {
       if (mounted) {
         setState(() {
           _items = items;
-          _pager.resetAndLoad(items);
+          // 重载后保持当前搜索过滤状态
+          final toLoad = _isFiltered ? _filterItems(items, _searchQuery) : items;
+          _pager.resetAndLoad(toLoad);
           _pageController.text = '1';
           _loadingIndex = false;
         });
@@ -134,6 +142,32 @@ class _RouteStorePageState extends State<RouteStorePage> {
         });
       }
     }
+  }
+
+  // ── 搜索过滤 ─────────────────────────────────────────────────
+
+  List<_StoreItem> _filterItems(List<_StoreItem> src, String q) =>
+      src.where((i) => i.name.contains(q) || i.author.contains(q)).toList();
+
+  void _onSearch(String q) {
+    setState(() {
+      _searchQuery = q;
+      final toLoad = q.isEmpty ? _items : _filterItems(_items, q);
+      _pager.resetAndLoad(toLoad);
+      _pageController.text = '1';
+      _loadingPage = false;
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _searchOpen = !_searchOpen;
+      if (!_searchOpen && _isFiltered) {
+        _searchQuery = '';
+        _pager.resetAndLoad(_items);
+        _pageController.text = '1';
+      }
+    });
   }
 
   // ── 安装单条线路 ─────────────────────────────────────────────
@@ -384,9 +418,9 @@ class _RouteStorePageState extends State<RouteStorePage> {
             ),
           if (_checked.isEmpty) ...[
             IconButton(
-              icon: const Icon(Icons.search),
-              tooltip: '搜索线路',
-              onPressed: _openSearch,
+              icon: Icon(_searchOpen ? Icons.search_off : Icons.search),
+              tooltip: _searchOpen ? '关闭搜索' : '搜索线路',
+              onPressed: _toggleSearch,
             ),
             PopupMenuButton<_StoreAction>(
               icon: const Icon(Icons.more_vert),
@@ -426,157 +460,70 @@ class _RouteStorePageState extends State<RouteStorePage> {
             )
           : _indexError != null
           ? _buildError(isDark, cs)
-          : _pager.totalCount == 0
-          ? _buildEmpty()
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildHint(),
-                if (_pager.hasMultiplePages)
-                  buildPaginationControls(
-                    context: context,
-                    currentPage: _pager.currentPage,
-                    totalPages: _pager.totalPages,
-                    totalResults: _pager.totalCount,
-                    pageController: _pageController,
-                    loadingPage: _loadingPage,
-                    onGoToPage: _goToPage,
+                // ── 内联搜索栏 ──
+                if (_searchOpen) ...[
+                  InlineSearchBar(
+                    initialQuery: _searchQuery,
+                    hintText: '输入线路名 / 作者名…',
+                    onSearch: _onSearch,
                   ),
-                Expanded(child: _buildList(isDark, cs)),
-              ],
-            ),
-    );
-  }
-
-  // ── 搜索 ─────────────────────────────────────────────────────
-
-  void _openSearch() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-    showSearchDialog<_StoreItem>(
-      context: context,
-      items: _items,
-      title: '搜索商城线路',
-      hintText: '输入线路名 / 作者名…',
-      filter: (item, q) =>
-          item.name.contains(q) || item.author.contains(q),
-      itemBuilder: (ctx, item, _) {
-        final isInstalled = _installedIds.contains(item.id);
-        final isInstalling = _installing.contains(item.id);
-        return InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withAlpha(8) : Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: cs.primary.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: item.icon.isEmpty
-                      ? Icon(Icons.route, color: cs.primary, size: 20)
-                      : Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Image.asset(
-                            'assets/icon/${item.icon}',
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) =>
-                                Icon(Icons.route, color: cs.primary, size: 20),
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.person_outline,
-                            size: 11,
-                            color: cs.onSurface.withAlpha(120),
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            item.author,
+                  const Divider(height: 1),
+                ],
+                // ── 搜索结果提示条 ──
+                if (_isFiltered)
+                  Container(
+                    color: cs.primary.withAlpha(15),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.filter_list, size: 14, color: cs.primary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '「$_searchQuery」的搜索结果：共 ${_pager.totalCount} 条',
                             style: TextStyle(
                               fontSize: 12,
-                              color: item.author == 'CrYinLang'
-                                  ? Colors.red
-                                  : cs.onSurface.withAlpha(140),
+                              color: cs.primary,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          if (isInstalled) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withAlpha(40),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: Colors.green.withAlpha(100),
-                                ),
-                              ),
-                              child: const Text(
-                                '已安装',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                isInstalling
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : IconButton(
-                        icon: Icon(
-                          isInstalled
-                              ? Icons.download_done_outlined
-                              : Icons.download_outlined,
-                          color: isInstalled ? Colors.green : cs.primary,
-                          size: 20,
                         ),
-                        visualDensity: VisualDensity.compact,
-                        tooltip: isInstalled ? '重新安装' : '安装',
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _installItem(item);
-                        },
-                      ),
+                        GestureDetector(
+                          onTap: () => _onSearch(''),
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // ── 提示 + 列表 ──
+                if (_pager.totalCount == 0)
+                  Expanded(child: _buildEmpty())
+                else ...[
+                  if (!_isFiltered) _buildHint(),
+                  if (_pager.hasMultiplePages)
+                    buildPaginationControls(
+                      context: context,
+                      currentPage: _pager.currentPage,
+                      totalPages: _pager.totalPages,
+                      totalResults: _pager.totalCount,
+                      pageController: _pageController,
+                      loadingPage: _loadingPage,
+                      onGoToPage: _goToPage,
+                    ),
+                  Expanded(child: _buildList(isDark, cs)),
+                ],
               ],
             ),
-          ),
-        );
-      },
     );
   }
 
