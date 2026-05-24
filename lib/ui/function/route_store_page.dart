@@ -69,6 +69,20 @@ class _RouteStorePageState extends State<RouteStorePage> {
   // 批量勾选
   final Set<String> _checked = {};
 
+  bool get _currentPageAllChecked =>
+      _pager.currentPageItems.isNotEmpty &&
+      _pager.currentPageItems.every((i) => _checked.contains(i.id));
+
+  void _toggleSelectCurrentPage() {
+    setState(() {
+      if (_currentPageAllChecked) {
+        for (final i in _pager.currentPageItems) _checked.remove(i.id);
+      } else {
+        for (final i in _pager.currentPageItems) _checked.add(i.id);
+      }
+    });
+  }
+
   // ── 搜索 ──────────────────────────────────────────────────────
   bool _searchOpen = false;
   String _searchQuery = '';
@@ -410,12 +424,20 @@ class _RouteStorePageState extends State<RouteStorePage> {
               )
             : null,
         actions: [
-          if (_checked.isNotEmpty)
+          if (_checked.isNotEmpty) ...[
+            IconButton(
+              icon: Icon(
+                _currentPageAllChecked ? Icons.deselect : Icons.select_all,
+              ),
+              tooltip: _currentPageAllChecked ? '取消全选本页' : '全选本页',
+              onPressed: _toggleSelectCurrentPage,
+            ),
             IconButton(
               icon: const Icon(Icons.download),
               tooltip: '安装选中',
               onPressed: _installChecked,
             ),
+          ],
           if (_checked.isEmpty) ...[
             IconButton(
               icon: Icon(_searchOpen ? Icons.search_off : Icons.search),

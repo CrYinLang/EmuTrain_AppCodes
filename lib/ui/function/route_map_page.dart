@@ -84,11 +84,25 @@ class _RouteMapPageState extends State<RouteMapPage> {
   @override
   void initState() {
     super.initState();
+    // 监听变换矩阵的每一帧变化（包含惯性动画），确保叠加层始终跟随
+    _txCtrl.addListener(_onTransformChanged);
     _loadAndPlot();
+  }
+
+  void _onTransformChanged() {
+    final s = _txCtrl.value.getMaxScaleOnAxis();
+    if ((s - _scale).abs() > 0.001) {
+      // scale 有变化，同时更新 _scale
+      setState(() => _scale = s);
+    } else {
+      // 纯平移：scale 不变，但 transform 变了，叠加层需要跟随
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _txCtrl.removeListener(_onTransformChanged);
     _txCtrl.dispose();
     _draggableCtrl.dispose();
     super.dispose();
@@ -431,10 +445,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
               minScale: 0.5,
               maxScale: _maxScale,
               boundaryMargin: const EdgeInsets.all(100),
-              onInteractionUpdate: (_) {
-                final s = _txCtrl.value.getMaxScaleOnAxis();
-                setState(() => _scale = s);
-              },
               child: GestureDetector(
                 onTapUp: (d) => _handleTap(d, sz),
                 child: CustomPaint(
