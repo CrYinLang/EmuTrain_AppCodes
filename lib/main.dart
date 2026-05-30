@@ -24,11 +24,11 @@ import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '260524';
-  static const String version = '1.2.2.6';
-  static const String build = '1226';
+  static const String lastUpdate = '260530';
+  static const String version = '1.2.3.0';
+  static const String build = '1230';
 
-  static String defaultStationBuild = '202605230';
+  static String defaultStationBuild = '202605300';
   static String defaultTrainBuild = '202605230';
   static String defaultCoachTrainBuild = '202605230';
   static String defaultLocoBuild = '202605230';

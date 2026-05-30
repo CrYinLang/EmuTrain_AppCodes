@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'ui/function/error.dart';
 
 // ============================================================
-// 热门车站（20个，按知名度排序）
+// 热门车站（20个）
 // ============================================================
 const List<String> _kPopularTelecodes = [
   'VNP', // 北京南
@@ -154,12 +154,14 @@ class StationSelector extends StatefulWidget {
   final String title;
   final String? selectedCode;
   final Function(Map<String, String?>) onSelected;
+  final bool crOnly;
 
   const StationSelector({
     super.key,
     required this.title,
     this.selectedCode,
     required this.onSelected,
+    this.crOnly = false,
   });
 
   @override
@@ -217,7 +219,9 @@ class _StationSelectorState extends State<StationSelector> {
       setState(() {
         _allStations = stationsList;
         _teleIndex = idx;
-        _filtered = stationsList;
+        _filtered = widget.crOnly
+            ? stationsList.where((s) => s['crstation'] == true).toList()
+            : stationsList; // 改这里
         _recentTelecodes = recent;
         _favoriteTelecodes = favs;
         _popularStations = popular;
@@ -240,10 +244,14 @@ class _StationSelectorState extends State<StationSelector> {
   void _onSearchChanged() {
     final query = _searchCtrl.text.toLowerCase().trim();
     setState(() {
+      var source = widget.crOnly
+          ? _allStations.where((s) => s['crstation'] == true).toList()
+          : _allStations;
+
       if (query.isEmpty) {
-        _filtered = _allStations;
+        _filtered = source;
       } else {
-        _filtered = _allStations.where((s) {
+        _filtered = source.where((s) {
           final name = (s['name'] ?? '').toLowerCase();
           final tc = (s['telecode'] ?? '').toLowerCase();
           final city = (s['city'] ?? '').toLowerCase();
@@ -251,12 +259,14 @@ class _StationSelectorState extends State<StationSelector> {
           final pinyin = (s['pinyin'] ?? '').toLowerCase();
           final shortCode = (s['short_code'] ?? '').toLowerCase();
           final location = (s['location'] ?? '').toLowerCase();
+          final tmis = (s['tmis'] ?? '').toLowerCase();
           return name.contains(query) ||
               tc.contains(query) ||
               city.contains(query) ||
               code.contains(query) ||
               pinyin.contains(query) ||
               shortCode.contains(query) ||
+              tmis.contains(query) ||
               location.contains(query);
         }).toList();
       }
@@ -308,8 +318,9 @@ class _StationSelectorState extends State<StationSelector> {
     final selected = _isSelected(station);
     final fav = _isFavorite(station);
     final tc = (station['telecode'] ?? '').toString();
+    final tmis = (station['tmis'] ?? '').toString();
     final name = (station['name'] ?? '').toString();
-    final city = (station['city'] ?? '').toString();
+    final city = (station['city'] ?? '并不知道').toString();
     final primary = Theme.of(context).colorScheme.primary;
 
     return ListTile(
@@ -331,7 +342,7 @@ class _StationSelectorState extends State<StationSelector> {
         ),
       ),
       subtitle: Text(
-        '$city市  $tc',
+        '$city市  $tc $tmis',
         style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
       ),
       trailing: Row(
@@ -378,12 +389,25 @@ class _StationSelectorState extends State<StationSelector> {
   }
 
   Widget _buildHomeSections() {
-    final List<Widget> sections = [];
+    bool allow(dynamic s) => !widget.crOnly || s['crstation'] == true;
 
     final favStations = _favoriteTelecodes
         .where(_teleIndex.containsKey)
         .map((tc) => _teleIndex[tc]!)
+        .where(allow)
         .toList();
+
+    final recentStations = _recentTelecodes
+        .where(_teleIndex.containsKey)
+        .map((tc) => _teleIndex[tc]!)
+        .where(allow)
+        .toList();
+
+    final popularStations = _popularStations
+        .where(allow)
+        .toList();
+
+    final List<Widget> sections = [];
 
     if (favStations.isNotEmpty) {
       sections.add(_sectionHeader('收藏车站', Icons.star_rounded));
@@ -393,11 +417,6 @@ class _StationSelectorState extends State<StationSelector> {
       sections.add(const Divider(height: 1, indent: 16, endIndent: 16));
     }
 
-    final recentStations = _recentTelecodes
-        .where(_teleIndex.containsKey)
-        .map((tc) => _teleIndex[tc]!)
-        .toList();
-
     if (recentStations.isNotEmpty) {
       sections.add(_sectionHeader('最近使用', Icons.history_rounded));
       for (final s in recentStations) {
@@ -406,9 +425,9 @@ class _StationSelectorState extends State<StationSelector> {
       sections.add(const Divider(height: 1, indent: 16, endIndent: 16));
     }
 
-    if (_popularStations.isNotEmpty) {
+    if (popularStations.isNotEmpty) {
       sections.add(_sectionHeader('热门车站', Icons.local_fire_department_rounded));
-      for (final s in _popularStations) {
+      for (final s in popularStations) {
         sections.add(_stationTile(s, compact: true));
       }
     }
