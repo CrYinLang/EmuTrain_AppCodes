@@ -1,0 +1,86 @@
+[
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=https://q4.qlogo.cn/g?b=qq&nk=3290534620&s=140",
+    "title": "MCSQNXY for Github",
+    "summary": "MCSQNXY 的 Github 仓库",
+    "website": "https://github.com/MCSQNXY"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=https://q4.qlogo.cn/g?b=qq&nk=3337140142&s=140",
+    "title": "PluginDemo",
+    "summary": "Secluded WebSocket Plugin Demo",
+    "website": "https://github.com/MCSQNXA/SecludedPluginDemo"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=https://q4.qlogo.cn/g?b=qq&nk=1493813167&s=140",
+    "title": "PluginDemo for Python",
+    "summary": "使用Python的websockets库构成的WebSocket插件示例，当前仓库已明确使用MIT协议完全开源。",
+    "website": "https://github.com/SumaRoder/SecPluginPySdk"
+  },
+  {
+    "icon": "https://images-eds-ssl.xboxlive.com/image?url=4rt9.lXDC4H_93laV1_eHM0OYfiFeMI2p9MWie0CvL99U4GA1gf6_kayTt_kBblFwHwo8BW8JXlqfnYxKPmmBV5Yhy7gxJRxaU7_oj4b1ALcPJ31lfKRkQ9gAVoaj6FM1blhM5zYp7nKh9yCCSd1HuqzzWI3SYyTzu4bk1AByNc-&format=source&h=380",
+    "title": "PanelSSH for Windows",
+    "summary": "本SSH连接工具为用户提供了一个多功能、易于使用的远程管理平台，专为需要进行SSH连接的用户设计。通过该工具，用户可以轻松地远程连接到服务器，执行命令行操作，监控系统性能，并进行文件传输，确保高效、安全的远程管理体验。",
+    "website": "https://apps.microsoft.com/store/detail/XP99DNXXBPDNNX"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=http://q.qlogo.cn/headimg_dl?dst_uin=2070560848&spec=640&img_type=jpg",
+    "title": "暗影之风",
+    "summary": "联合开发",
+    "website": "https://7.plus"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=https://mpimg.cn/view.php/f353ffef06a24adb31bf3a44ba1c805e.jpg",
+    "title": "卡卡资源网",
+    "summary": "卡卡资源网是一个分享php源码的一个网站（包括其他） 如果你自己纯手搓了一个网站源码也可以在这个网站里分享！公益网站求别攻击",
+    "website": "kz.kkdd.asia"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=http://img.apixzy.cn/logo.png",
+    "title": "星之月API",
+    "summary": "星之月API，启航星辰大海，让梦想触手可及。",
+    "website": "https://api.apixzy.cn"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=http://api.ziyi.site/api/LOGO.PNG",
+    "title": "猫猫API",
+    "summary": "“猫猫API，次元通道的专属接口～ 喵爪一搭，两个次元便悄悄牵起了线～”",
+    "website": "http://api.ziyi.site/"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=https://q4.qlogo.cn/g?b=qq&nk=3588281902&s=140",
+    "title": "Ary API",
+    "summary": "Ary API —— 高效便捷的接口服务集合，赋能开发与创新",
+    "website": "https://api.aary.top/index.php"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=https://www.blzcraft.me/favicon.png",
+    "title": "BLZ API",
+    "summary": "一个学生党的小破API",
+    "website": "https://api.blzcraft.me/"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=http://q.qlogo.cn/headimg_dl?dst_uin=25632286&spec=640&img_type=jpg",
+    "title": "繁华API",
+    "summary": "随意",
+    "website": "https://api.s01s.cn"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=http://q.qlogo.cn/headimg_dl?dst_uin=1073865004&spec=640&img_type=jpg",
+    "title": "初意API",
+    "summary": "付费稳定的企业级API",
+    "website": "https://api.jujukai.cn"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=https://xiaodi.jujukai.cn/图标.png",
+    "title": "愿想API",
+    "summary": "免费API, 不稳定API，可能🐔的API",
+    "website": "https://xiaodi.jujukai.cn"
+  },
+  {
+    "icon": "${host}/proxy?sign=${sign}&url=https://ecyapi.cn/logo.png",
+    "title": "御坂API",
+    "summary": "免费稳定快速的API接口调用平台",
+    "website": "https://ecyapi.cn"
+  }
+]
