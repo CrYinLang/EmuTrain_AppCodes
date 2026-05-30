@@ -1,0 +1,1164 @@
+// lib/main.dart
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'functions.dart';
+import 'journey_provider.dart';
+import 'speed_service.dart';
+import 'ui/emu_search_page.dart';
+import 'ui/function/error.dart';
+import 'ui/function/gallery_page.dart';
+import 'ui/function/more_search.dart';
+import 'ui/function/settings.dart';
+import 'ui/function/tool_screen.dart';
+import 'ui/travel_screen.dart';
+import 'update.dart';
+
+// ==================== 应用常量 ====================
+class Vars {
+  static const String lastUpdate = '260530';
+  static const String version = '1.2.3.0';
+  static const String build = '1230';
+
+  static String defaultStationBuild = '202605300';
+  static String defaultTrainBuild = '202605230';
+  static String defaultCoachTrainBuild = '202605230';
+  static String defaultLocoBuild = '202605230';
+
+  // ---------- stationBuild ----------
+  static String _stationBuild = defaultStationBuild;
+  static bool _isStationBuildInitialized = false;
+
+  static String get stationBuild => _stationBuild;
+
+  static Future<void> initStationBuild() async {
+    if (_isStationBuildInitialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    _stationBuild = prefs.getString('stationBuild') ?? defaultStationBuild;
+    _isStationBuildInitialized = true;
+  }
+
+  static Future<void> setStationBuild(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('stationBuild', value);
+    _stationBuild = value;
+    _isStationBuildInitialized = true;
+  }
+
+  // ---------- trainBuild ----------
+  static String _trainBuild = defaultTrainBuild;
+  static bool _isTrainBuildInitialized = false;
+
+  static String get trainBuild => _trainBuild;
+
+  static Future<void> initTrainBuild() async {
+    if (_isTrainBuildInitialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    _trainBuild = prefs.getString('trainBuild') ?? defaultTrainBuild;
+    _isTrainBuildInitialized = true;
+  }
+
+  static Future<void> setTrainBuild(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('trainBuild', value);
+    _trainBuild = value;
+    _isTrainBuildInitialized = true;
+  }
+
+  // ---------- coachTrainBuild ----------
+  static String _coachTrainBuild = defaultCoachTrainBuild;
+  static bool _isCoachTrainBuildInitialized = false;
+
+  static String get coachTrainBuild => _coachTrainBuild;
+
+  static Future<void> initCoachTrainBuild() async {
+    if (_isCoachTrainBuildInitialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    _coachTrainBuild =
+        prefs.getString('coachTrainBuild') ?? defaultCoachTrainBuild;
+    _isCoachTrainBuildInitialized = true;
+  }
+
+  static Future<void> setCoachTrainBuild(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('coachTrainBuild', value);
+    _coachTrainBuild = value;
+    _isCoachTrainBuildInitialized = true;
+  }
+
+  // ---------- locoBuild ----------
+  static String _locoBuild = defaultLocoBuild;
+  static bool _isLocoBuildInitialized = false;
+
+  static String get locoBuild => _locoBuild;
+
+  static Future<void> initLocoBuild() async {
+    if (_isLocoBuildInitialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    _locoBuild = prefs.getString('locoBuild') ?? defaultLocoBuild;
+    _isLocoBuildInitialized = true;
+  }
+
+  static Future<void> setLocoBuild(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('locoBuild', value);
+    _locoBuild = value;
+    _isLocoBuildInitialized = true;
+  }
+
+  // ---------- mirrorSource ----------
+  // 可选值: 'Mirror' | 'Gitee' | 'GitHub'
+  static String _mirrorSource = 'Mirror';
+  static bool _isMirrorSourceInitialized = false;
+
+  static const String _mirrorSourceKey = 'mirror_source';
+
+  static String get mirrorSource => _mirrorSource;
+
+  /// 根据当前优先镜像源返回完整的数据文件前缀（含尾部斜杠）
+  static String get mirrorBaseUrl => _mirrorFallbackOrder(_mirrorSource).first;
+
+  static Future<void> initMirrorSource() async {
+    if (_isMirrorSourceInitialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    _mirrorSource = prefs.getString(_mirrorSourceKey) ?? 'Mirror';
+    _isMirrorSourceInitialized = true;
+  }
+
+  static Future<void> setMirrorSource(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_mirrorSourceKey, value);
+    _mirrorSource = value;
+    _isMirrorSourceInitialized = true;
+  }
+
+  static Map<String, dynamic>? _cachedVersionInfo;
+
+  /// 是否正在进行中的请求（防止并发重复请求）
+  static Future<Map<String, dynamic>?>? _pendingFetch;
+
+  static Future<Map<String, dynamic>?> fetchVersionCommand() async {
+    // 已有缓存直接返回
+    if (_cachedVersionInfo != null) return _cachedVersionInfo;
+
+    // 有进行中的请求则共享同一 Future，避免并发重复网络请求
+    _pendingFetch ??= _doFetch().then((result) {
+      if (result != null) _cachedVersionInfo = result;
+      _pendingFetch = null;
+      return result;
+    });
+
+    return _pendingFetch;
+  }
+
+  static Future<Map<String, dynamic>?> _doFetch() async {
+    // 按优先级排列的 base URL 列表：优先选用户设置，失败依次回退
+    final ordered = _mirrorFallbackOrder(_mirrorSource);
+    for (final base in ordered) {
+      final url = '${base}version.json';
+      try {
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          return json.decode(response.body);
+        } else {
+          await logError(
+            from: 'Vars._doFetch',
+            error: '版本信息请求失败 ($base)，HTTP ${response.statusCode}',
+            level: 4,
+          );
+        }
+      } catch (e, stack) {
+        await logError(
+          from: 'Vars._doFetch',
+          error: '获取版本信息异常 ($base): $e',
+          level: 4,
+        );
+        debugPrint('fetchVersion error ($base): $e\n$stack');
+      }
+    }
+    return null;
+  }
+
+  /// 返回以 [preferred] 为首的 base URL 回退顺序
+  /// 默认回退顺序（从次选到最终）：Gitee → Mirror → GitHub
+  static List<String> _mirrorFallbackOrder(String preferred) {
+    const gitee =
+        'https://raw.giteeusercontent.com/CrYinLang/EmuTrain/raw/master/';
+    const github =
+        'https://raw.githubusercontent.com/CrYinLang/EmuTrain/refs/heads/main/';
+    const mirror =
+        'https://gh-proxy.com/https://raw.githubusercontent.com/CrYinLang/EmuTrain/refs/heads/main/';
+
+    final String preferredUrl;
+    switch (preferred) {
+      case 'Gitee':
+        preferredUrl = gitee;
+        break;
+      case 'GitHub':
+        preferredUrl = github;
+        break;
+      case 'Mirror':
+      default:
+        preferredUrl = mirror;
+    }
+
+    final fallbacks = [
+      gitee,
+      mirror,
+      github,
+    ].where((u) => u != preferredUrl).toList();
+    return [preferredUrl, ...fallbacks];
+  }
+
+  static void clearVersionCache() {
+    _cachedVersionInfo = null;
+    _pendingFetch = null;
+  }
+}
+
+// ==================== 数据文件 ====================
+
+class DataFileHelper {
+  /// 加载客车配属数据
+  static Future<List<CoachRecord>> loadCoaches() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/coach.json');
+      String? jsonString;
+
+      if (await file.exists()) {
+        try {
+          jsonString = await file.readAsString();
+          json.decode(jsonString); // 验证 JSON 合法性
+          debugPrint('[DataFileHelper] 已加载下载版本 coach.json');
+        } catch (e, stack) {
+          await logError(
+            from: 'DataFileHelper.loadCoaches',
+            error: 'coach.json 文件损坏或解析失败，回退到 assets: $e',
+            level: 3,
+          );
+          debugPrint('coach.json 损坏: $e\n$stack');
+          jsonString = null;
+        }
+      }
+
+      // 如果本地文件不存在或损坏，则加载 assets 默认数据
+      jsonString ??= await rootBundle.loadString('assets/coach.json');
+      debugPrint('[DataFileHelper] 已加载 assets/coach.json');
+
+      final Map<String, dynamic> dataJson = json.decode(jsonString);
+      final List<CoachRecord> result = [];
+
+      for (final model in dataJson.keys) {
+        for (final record in dataJson[model]) {
+          result.add(CoachRecord.fromJson(Map<String, dynamic>.from(record)));
+        }
+      }
+      return result;
+    } catch (e, stack) {
+      await logError(
+        from: 'DataFileHelper.loadCoaches',
+        error: '加载客车配属数据失败: $e',
+        level: 4,
+      );
+      debugPrint('loadCoaches 严重错误: $e\n$stack');
+      rethrow; // 让上层捕获处理
+    }
+  }
+
+  /// 读取列车数据（Map 结构），并展开为带 type_code 的 List
+  static Future<List<Map<String, dynamic>>> loadTrains() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/train.json');
+
+      String? jsonString;
+
+      if (await file.exists()) {
+        try {
+          jsonString = await file.readAsString();
+          json.decode(jsonString); // 验证 JSON 合法
+          debugPrint('[DataFileHelper] 已加载下载版本 train.json');
+        } catch (e, stack) {
+          await logError(
+            from: 'DataFileHelper.loadTrains',
+            error: 'train.json 文件损坏或解析失败，回退到 assets: $e',
+            level: 3,
+          );
+          debugPrint('train.json 损坏: $e\n$stack');
+          jsonString = null;
+        }
+      }
+
+      jsonString ??= await rootBundle.loadString('assets/train.json');
+      debugPrint('[DataFileHelper] 已加载 assets/train.json');
+
+      final Map<String, dynamic> dataJson = json.decode(jsonString);
+      final List<Map<String, dynamic>> result = [];
+
+      for (var model in dataJson.keys) {
+        for (var record in dataJson[model]) {
+          final r = Map<String, dynamic>.from(record);
+          r['type_code'] = model;
+          result.add(r);
+        }
+      }
+      return result;
+    } catch (e, stack) {
+      await logError(
+        from: 'DataFileHelper.loadTrains',
+        error: '加载列车数据失败: $e',
+        level: 4,
+      );
+      debugPrint('loadTrains 严重错误: $e\n$stack');
+      rethrow;
+    }
+  }
+
+  /// 加载机车配属数据
+  static Future<List<Map<String, dynamic>>> loadLocos() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/loco.json');
+
+      String? jsonString;
+
+      if (await file.exists()) {
+        try {
+          jsonString = await file.readAsString();
+          json.decode(jsonString); // 验证 JSON 合法
+          debugPrint('[DataFileHelper] 已加载下载版本 loco.json');
+        } catch (e, stack) {
+          await logError(
+            from: 'DataFileHelper.loadLocos',
+            error: 'loco.json 文件损坏或解析失败，回退到 assets: $e',
+            level: 3,
+          );
+          debugPrint('loco.json 损坏: $e\n$stack');
+          jsonString = null;
+        }
+      }
+
+      jsonString ??= await rootBundle.loadString('assets/loco.json');
+      debugPrint('[DataFileHelper] 已加载 assets/loco.json');
+
+      final Map<String, dynamic> dataJson = json.decode(jsonString);
+      final List<Map<String, dynamic>> result = [];
+
+      for (final model in dataJson.keys) {
+        for (final record in dataJson[model]) {
+          result.add({
+            'model': model,
+            'number': (record['车组号'] ?? '').toString(),
+            'depot': (record['配属段'] ?? '').toString(),
+          });
+        }
+      }
+      return result;
+    } catch (e, stack) {
+      await logError(
+        from: 'DataFileHelper.loadLocos',
+        error: '加载机车配属数据失败: $e',
+        level: 4,
+      );
+      debugPrint('loadLocos 严重错误: $e\n$stack');
+      rethrow;
+    }
+  }
+}
+
+// ==================== 数据源枚举 ====================
+
+/// 车次查询数据源
+enum TrainStationDataSource { moeFactory, ctrip }
+
+/// 车次查询数据源
+enum TrainDataSource { railRe, railGo, official12306 }
+
+/// 车号/交路查询数据源
+enum TrainEmuDataSource { railRe, railGo, moeFactory }
+
+// ==================== 设置管理 ====================
+class AppSettings extends ChangeNotifier {
+  // ---------- 版本信息 ----------
+  static const String version = Vars.version;
+  static const String build = Vars.build;
+  static const String lastUpdate = Vars.lastUpdate;
+
+  // ---------- 主题 ----------
+  ThemeMode _themeMode = ThemeMode.dark;
+  bool _midnightMode = false;
+  bool _isLoading = false;
+  bool _followSystem = false;
+  Color? _seedColor; // null = 莫奈 / 跟随壁纸
+
+  /// 跟随系统时强制返回 ThemeMode.system
+  ThemeMode get themeMode => _followSystem ? ThemeMode.system : _themeMode;
+
+  bool get midnightMode => _midnightMode;
+
+  bool get isLoading => _isLoading;
+
+  bool get followSystem => _followSystem;
+
+  /// null 表示使用 dynamic_color（莫奈壁纸色）
+  Color? get seedColor => _seedColor;
+
+  // ---------- 图标显示 ----------
+  bool _showTrainIcons = true;
+  bool _showBureauIcons = true;
+
+  bool get showTrainIcons => _showTrainIcons;
+
+  bool get showBureauIcons => _showBureauIcons;
+
+  // ---------- 自动更新 ----------
+  bool _showAutoUpdate = true;
+
+  bool get showAutoUpdate => _showAutoUpdate;
+
+  // ---------- 数据源 ----------
+  TrainDataSource _dataSource = TrainDataSource.railRe;
+  TrainEmuDataSource _dataEmuSource = TrainEmuDataSource.railRe;
+  TrainStationDataSource _dataStationSource = TrainStationDataSource.moeFactory;
+
+  TrainDataSource get dataSource => _dataSource;
+
+  TrainEmuDataSource get dataEmuSource => _dataEmuSource;
+
+  TrainStationDataSource get dataStationSource => _dataStationSource;
+
+  String get dataSourceDisplayName {
+    switch (_dataSource) {
+      case TrainDataSource.railRe:
+        return 'Rail.re';
+      case TrainDataSource.railGo:
+        return 'RailGo';
+      case TrainDataSource.official12306:
+        return '12306官方';
+    }
+  }
+
+  String get dataEmuSourceDisplayName {
+    switch (_dataEmuSource) {
+      case TrainEmuDataSource.railRe:
+        return 'Rail.re';
+      case TrainEmuDataSource.railGo:
+        return 'RailGo';
+      case TrainEmuDataSource.moeFactory:
+        return 'MoeFactory';
+    }
+  }
+
+  String get dataSourceDescription {
+    switch (_dataSource) {
+      case TrainDataSource.railRe:
+        return '第三方API，提供更丰富的数据，但可能缺少部分数据';
+      case TrainDataSource.railGo:
+        return '第三方API，提供更丰富的数据，但可能缺少部分数据';
+      case TrainDataSource.official12306:
+        return '官方数据源，最准确可靠，但不显示重连，城际等';
+    }
+  }
+
+  String get dataEmuSourceDescription => '第三方数据源，提供更全面的车型信息';
+
+  Future<void> setDataSource(TrainDataSource source) async {
+    if (_dataSource == source) return;
+    _dataSource = source;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('dataSource', source.index);
+    notifyListeners();
+  }
+
+  Future<void> setEmuDataSource(TrainEmuDataSource source) async {
+    if (_dataEmuSource == source) return;
+    _dataEmuSource = source;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('dataEmuSource', source.index);
+    notifyListeners();
+  }
+
+  Future<void> setStationDataSource(TrainStationDataSource source) async {
+    if (_dataStationSource == source) return;
+    _dataStationSource = source;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('dataStationSource', source.index);
+    notifyListeners();
+  }
+
+  // ==================== 初始化 ====================
+  // ==================== 初始化 ====================
+  Future<void> loadSettings() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      _themeMode = (prefs.getBool('isDark') ?? true)
+          ? ThemeMode.dark
+          : ThemeMode.light;
+
+      _midnightMode = prefs.getBool('midnightMode') ?? false;
+      _followSystem = prefs.getBool('followSystem') ?? false;
+
+      final seedColorValue = prefs.getInt('seedColor');
+      _seedColor = seedColorValue != null ? Color(seedColorValue) : null;
+
+      _showTrainIcons = prefs.getBool('showTrainIcons') ?? true;
+      _showBureauIcons = prefs.getBool('showBureauIcons') ?? true;
+      _showAutoUpdate = prefs.getBool('showAutoUpdate') ?? true;
+
+      // 数据源 - 车次查询
+      final dataSourceIndex = prefs.getInt('dataSource') ?? 0;
+      _dataSource = TrainDataSource
+          .values[dataSourceIndex.clamp(0, TrainDataSource.values.length - 1)];
+
+      // 数据源 - 车号/交路查询
+      final dataEmuSourceIndex = prefs.getInt('dataEmuSource') ?? 0;
+      _dataEmuSource =
+          TrainEmuDataSource.values[dataEmuSourceIndex.clamp(
+            0,
+            TrainEmuDataSource.values.length - 1,
+          )];
+
+      // 数据源 - 车站查询
+      final dataStationSourceIndex = prefs.getInt('dataStationSource') ?? 0;
+      _dataStationSource =
+          TrainStationDataSource.values[dataStationSourceIndex.clamp(
+            0,
+            TrainStationDataSource.values.length - 1,
+          )];
+
+      debugPrint('AppSettings: 设置加载完成');
+    } catch (e, stack) {
+      await logError(
+        from: 'AppSettings.loadSettings',
+        error: '加载应用设置失败: $e',
+        level: 4,
+      );
+      debugPrint('loadSettings 异常: $e\n$stack');
+
+      // 发生错误时使用默认值
+      _setDefaultValues();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void _setDefaultValues() {
+    _themeMode = ThemeMode.dark;
+    _midnightMode = false;
+    _followSystem = false;
+    _seedColor = null;
+    _showTrainIcons = true;
+    _showBureauIcons = true;
+    _showAutoUpdate = true;
+    _dataSource = TrainDataSource.railRe;
+    _dataEmuSource = TrainEmuDataSource.railRe;
+    _dataStationSource = TrainStationDataSource.moeFactory;
+  }
+
+  // ==================== 主题 ====================
+  Future<void> toggleTheme(bool isDark) async {
+    _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDark', isDark);
+    notifyListeners();
+  }
+
+  Future<void> toggleMidnightMode(bool value) async {
+    _midnightMode = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('midnightMode', value);
+    notifyListeners();
+  }
+
+  Future<void> toggleFollowSystem(bool value) async {
+    _followSystem = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('followSystem', value);
+    notifyListeners();
+  }
+
+  Future<void> setSeedColor(Color? color) async {
+    _seedColor = color;
+    final prefs = await SharedPreferences.getInstance();
+    if (color == null) {
+      await prefs.remove('seedColor');
+    } else {
+      await prefs.setInt('seedColor', color.toARGB32());
+    }
+    notifyListeners();
+  }
+
+  // ==================== 图标显示 ====================
+  Future<void> toggleTrainIcons(bool value) async {
+    _showTrainIcons = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('showTrainIcons', value);
+    notifyListeners();
+  }
+
+  Future<void> toggleBureauIcons(bool value) async {
+    _showBureauIcons = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('showBureauIcons', value);
+    notifyListeners();
+  }
+
+  // ==================== 自动更新 ====================
+  Future<void> toggleAutoUpdate(bool value) async {
+    _showAutoUpdate = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('showAutoUpdate', value);
+    notifyListeners();
+  }
+}
+
+// ==================== 入口 ====================
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Vars.initStationBuild();
+  await Vars.initTrainBuild();
+  await Vars.initCoachTrainBuild();
+  await Vars.initLocoBuild();
+  await Vars.initMirrorSource();
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppSettings()..loadSettings()),
+        ChangeNotifierProvider(create: (_) => SpeedService()),
+      ],
+      child: const EmuTrainApp(),
+    ),
+  );
+}
+
+// ==================== App 根组件 ====================
+class EmuTrainApp extends StatelessWidget {
+  const EmuTrainApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppSettings>(
+      builder: (context, settings, _) {
+        return DynamicColorBuilder(
+          builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+            // 优先用用户选择的颜色；没有则用莫奈壁纸色；再没有就用默认蓝色
+            ColorScheme lightScheme;
+            ColorScheme darkScheme;
+
+            if (settings.seedColor != null) {
+              lightScheme = ColorScheme.fromSeed(
+                seedColor: settings.seedColor!,
+                brightness: Brightness.light,
+              );
+              darkScheme = ColorScheme.fromSeed(
+                seedColor: settings.seedColor!,
+                brightness: Brightness.dark,
+              );
+            } else if (lightDynamic != null && darkDynamic != null) {
+              lightScheme = lightDynamic.harmonized();
+              darkScheme = darkDynamic.harmonized();
+            } else {
+              lightScheme = ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+                brightness: Brightness.light,
+              );
+              darkScheme = ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+                brightness: Brightness.dark,
+              );
+            }
+
+            return ChangeNotifierProvider(
+              create: (_) => JourneyProvider(),
+              child: MaterialApp(
+                title: 'EmuTrain',
+                themeMode: settings.themeMode,
+                theme: ThemeData(
+                  colorScheme: lightScheme,
+                  useMaterial3: true,
+                  brightness: Brightness.light,
+                ),
+                darkTheme: ThemeData(
+                  colorScheme: darkScheme,
+                  useMaterial3: true,
+                  brightness: Brightness.dark,
+                ),
+                home: const MainScreen(),
+                debugShowCheckedModeBanner: false,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// ==================== 主屏幕（导航） ====================
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultHomePage();
+    _handleUpdate();
+  }
+
+  Future<void> _loadDefaultHomePage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final defaultPage = prefs.getString('default_home_page') ?? '旅途';
+    setState(() {
+      _currentIndex = defaultPage == '旅途' ? 0 : 1;
+    });
+  }
+
+  Future<bool> _getSetting(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(key) ?? true;
+  }
+
+  Future<void> _handleUpdate() async {
+    bool update = await _getSetting('showAutoUpdate');
+    final versionInfo = await Vars.fetchVersionCommand();
+
+    if (versionInfo == null) return;
+
+    // 检查是否需要强制更新
+    final minVersion = versionInfo['minVersion']?.toString() ?? '';
+    final currentBuild = Vars.build;
+    final message = versionInfo['message']?.toString() ?? '';
+    final describe = versionInfo['describe']?.toString() ?? '';
+    final version = versionInfo['Version']?.toString() ?? '';
+    final qq = versionInfo['qq']?.toString() ?? '';
+
+    // 先检查强制更新
+    if (minVersion.isNotEmpty &&
+        int.tryParse(minVersion) != null &&
+        int.tryParse(currentBuild) != null) {
+      if (int.parse(minVersion) > int.parse(currentBuild) && mounted) {
+        // 显示强制更新对话框
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showForceUpdateDialog(context, describe, version, qq);
+        });
+        return; // 直接返回，不继续检查其他更新
+      }
+    }
+
+    // 如果不是强制更新，检查是否有新版本
+    if (update) {
+      final remoteBuild = versionInfo['Build']?.toString() ?? '';
+      if (remoteBuild.isNotEmpty &&
+          int.tryParse(remoteBuild) != null &&
+          int.tryParse(currentBuild) != null) {
+        if (int.parse(remoteBuild) > int.parse(currentBuild) && mounted) {
+          UpdateUI.showAppUpdateFlow(context);
+        }
+      }
+    }
+
+    // 如果有公告消息，显示公告
+    if (message.isNotEmpty && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showAnnouncementDialog(context, message);
+      });
+    }
+
+    // 静默更新所有本地数据库（如果用户开启了自动静默更新）
+    final autoSilentUpdate = await _getSetting('auto_silent_update_data');
+    if (autoSilentUpdate) {
+      UpdateService.silentUpdateAllData();
+    }
+  }
+
+  void _showForceUpdateDialog(
+    BuildContext context,
+    String message,
+    String version,
+    String qq,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // 不可关闭
+      builder: (BuildContext ctx) {
+        return PopScope(
+          canPop: false, // 禁用返回键
+          child: AlertDialog(
+            title: const Text('版本过低'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '当前版本过低，请更新到最新版本后再使用。在更新之前，您无法使用任何功能\n请您更新到最新版本${Vars.version}→$version',
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  '更新说明：',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(message),
+                const SizedBox(height: 4),
+                const Text(
+                  '下载链接：',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(qq),
+                const SizedBox(height: 4),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  launchSocialLink(context, qq);
+                },
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 公告对话框
+  void _showAnnouncementDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return PopScope(
+          child: AlertDialog(
+            title: const Text('调度命令'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [Text(message)],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String get _currentPageTitle {
+    switch (_currentIndex) {
+      case 0:
+        return '行程';
+      case 1:
+        return '搜索';
+      case 2:
+        return '其他';
+      case 3:
+        return '设置';
+      default:
+        return 'EmuTrain';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppSettings>(
+      builder: (context, settings, _) {
+        return Scaffold(
+          appBar: _currentIndex != 1
+              ? AppBar(title: Text(_currentPageTitle), centerTitle: true)
+              : null,
+          body: _buildCurrentPage(),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            type: BottomNavigationBarType.fixed,
+            selectedItemColor: Theme.of(context).colorScheme.primary,
+            unselectedItemColor: Colors.grey,
+            onTap: (index) => setState(() => _currentIndex = index),
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: '旅行'),
+              BottomNavigationBarItem(icon: Icon(Icons.search), label: '搜索'),
+              BottomNavigationBarItem(icon: Icon(Icons.build), label: '其他'),
+              BottomNavigationBarItem(icon: Icon(Icons.settings), label: '设置'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCurrentPage() {
+    switch (_currentIndex) {
+      case 0:
+        return const TravelScreen();
+      case 1:
+        return const SearchPage();
+      case 2:
+        return const ToolScreen();
+      case 3:
+        return const SettingsScreen();
+      default:
+        return const TravelScreen();
+    }
+  }
+}
+
+// ==================== 图标工具类 ====================
+class IconUtils {
+  /// 返回路局图标文件名（无扩展名），空字符串返回 null
+  static String? getBureauIconFileName(String bureau) {
+    if (bureau.isEmpty) return null;
+    return bureau; // assets/icon/bureau/<bureau>.png
+  }
+}
+
+// ==================== 车次图标 Widget ====================
+class TrainIconWidget extends StatelessWidget {
+  final String model;
+  final String number;
+  final double size;
+  final bool showIcon;
+  final Color? backgroundColor;
+  final BorderRadius? borderRadius;
+
+  const TrainIconWidget({
+    super.key,
+    required this.model,
+    required this.number,
+    this.size = 32,
+    this.showIcon = true,
+    this.backgroundColor,
+    this.borderRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = Provider.of<AppSettings>(context, listen: false);
+    if (!settings.showTrainIcons || !showIcon) {
+      return SizedBox(width: size, height: size);
+    }
+
+    final iconModel = TrainInfo.getTrainIconModel(model, number);
+    final cleanName = _removePngExtension(iconModel);
+    final assetPath = 'assets/icon/train/$cleanName.png';
+
+    return FutureBuilder<bool>(
+      future: _checkAssetExists(assetPath),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          return snapshot.data == true
+              ? _buildImageAsset(assetPath)
+              : _buildFallbackIcon();
+        }
+        return _buildLoadingIndicator();
+      },
+    );
+  }
+
+  Future<bool> _checkAssetExists(String path) async {
+    try {
+      await rootBundle.load(path);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String _removePngExtension(String fileName) {
+    if (fileName.toLowerCase().endsWith('.png')) {
+      return fileName.substring(0, fileName.length - 4);
+    }
+    return fileName;
+  }
+
+  Widget _buildImageAsset(String assetPath) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius ?? BorderRadius.circular(size / 8),
+        color: backgroundColor,
+      ),
+      child: Image.asset(
+        assetPath,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(),
+      ),
+    );
+  }
+
+  Widget _buildFallbackIcon() {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius ?? BorderRadius.circular(size / 8),
+        color: backgroundColor ?? Colors.grey[200],
+        border: Border.all(color: Colors.grey[400]!, width: 1),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.train, size: size * 0.4, color: Colors.grey[600]),
+          if (size > 40)
+            Text(
+              model,
+              style: TextStyle(
+                fontSize: size * 0.2,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius ?? BorderRadius.circular(size / 8),
+        color: backgroundColor ?? Colors.grey[200],
+      ),
+      child: const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== 路局图标 Widget ====================
+class BureauIconWidget extends StatelessWidget {
+  final String bureau;
+  final double size;
+  final bool showIcon;
+  final Color? backgroundColor;
+  final BorderRadius? borderRadius;
+
+  const BureauIconWidget({
+    super.key,
+    required this.bureau,
+    this.size = 32,
+    this.showIcon = true,
+    this.backgroundColor,
+    this.borderRadius,
+  });
+
+  Future<bool> _checkImageExists(String path) async {
+    try {
+      await rootBundle.load(path);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = Provider.of<AppSettings>(context, listen: false);
+    if (!settings.showBureauIcons || !showIcon || bureau.isEmpty) {
+      return SizedBox(width: size, height: size);
+    }
+
+    final fileName = IconUtils.getBureauIconFileName(bureau);
+    if (fileName == null) return SizedBox(width: size, height: size);
+
+    final iconPath = 'assets/icon/bureau/$fileName.png';
+
+    return FutureBuilder<bool>(
+      future: _checkImageExists(iconPath),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.data == true) {
+            return Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                borderRadius: borderRadius ?? BorderRadius.circular(size / 8),
+                color: backgroundColor ?? Colors.transparent,
+              ),
+              child: Image.asset(
+                iconPath,
+                width: size,
+                height: size,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildFallbackIcon(),
+              ),
+            );
+          } else {
+            return _buildFallbackIcon();
+          }
+        }
+        return _buildLoadingIndicator();
+      },
+    );
+  }
+
+  Widget _buildFallbackIcon() {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius ?? BorderRadius.circular(size / 8),
+        color: Colors.grey[200],
+      ),
+      child: Icon(
+        Icons.account_balance,
+        size: size * 0.6,
+        color: Colors.grey[600],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius ?? BorderRadius.circular(size / 8),
+        color: Colors.grey[200],
+      ),
+      child: const CircularProgressIndicator(strokeWidth: 2),
+    );
+  }
+}

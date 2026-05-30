@@ -1,0 +1,36 @@
+name: emutrain
+description: ""
+
+publish_to: 'none'
+
+version: 1.2.30+1230
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.5+1
+  path_provider: ^2.1.5
+  shared_preferences: ^2.5.4
+  url_launcher: ^6.3.2
+  http: ^1.6.0
+  dynamic_color: ^1.8.1
+  cupertino_icons: ^1.0.8
+  geolocator: ^14.0.2
+  permission_handler: ^12.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/emu/
+    - assets/icon/
+    - assets/icon/bureau/
+    - assets/icon/train/
