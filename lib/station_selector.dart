@@ -220,7 +220,7 @@ class _StationSelectorState extends State<StationSelector> {
         _allStations = stationsList;
         _teleIndex = idx;
         _filtered = widget.crOnly
-            ? stationsList.where((s) => s['crstation'] == true).toList()
+            ? stationsList.where((s) => _isCrStation(s)).toList()
             : stationsList; // 改这里
         _recentTelecodes = recent;
         _favoriteTelecodes = favs;
@@ -245,7 +245,7 @@ class _StationSelectorState extends State<StationSelector> {
     final query = _searchCtrl.text.toLowerCase().trim();
     setState(() {
       var source = widget.crOnly
-          ? _allStations.where((s) => s['crstation'] == true).toList()
+          ? _allStations.where((s) => _isCrStation(s)).toList()
           : _allStations;
 
       if (query.isEmpty) {
@@ -302,6 +302,15 @@ class _StationSelectorState extends State<StationSelector> {
     await toggleFavoriteTelecode(telecode);
     final favs = await loadFavoriteTelecodes();
     if (mounted) setState(() => _favoriteTelecodes = favs);
+  }
+
+  /// crstation 字段可能是 bool true/false，也可能是字符串 "True"/"False"
+  /// 只要不是明确的 false / "false" 就视为属于国铁
+  bool _isCrStation(dynamic s) {
+    final v = s['crstation'];
+    if (v == false) return false;
+    if (v is String && v.toLowerCase() == 'false') return false;
+    return true;
   }
 
   bool _isSelected(dynamic station) {
@@ -389,7 +398,7 @@ class _StationSelectorState extends State<StationSelector> {
   }
 
   Widget _buildHomeSections() {
-    bool allow(dynamic s) => !widget.crOnly || s['crstation'] == true;
+    bool allow(dynamic s) => !widget.crOnly || _isCrStation(s);
 
     final favStations = _favoriteTelecodes
         .where(_teleIndex.containsKey)
