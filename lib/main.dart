@@ -20,13 +20,23 @@ import 'ui/function/more_search.dart';
 import 'ui/function/settings.dart';
 import 'ui/function/tool_screen.dart';
 import 'ui/travel_screen.dart';
+import 'ui/welcome_page.dart';
 import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '260530';
+  static const String lastUpdate = '260531';
   static const String version = '1.2.3.0';
   static const String build = '1230';
+  static const String updateDescription =
+      '新增 首次启动欢迎界面和用户协议确认\n'
+      '优化 新版本更新说明显示逻辑\n'
+      '更新 应用日期至 2026-05-31';
+
+  static String getUpdateDescription(Map<String, dynamic>? versionInfo) {
+    final remoteDescribe = versionInfo?['describe']?.toString().trim() ?? '';
+    return remoteDescribe.isNotEmpty ? remoteDescribe : updateDescription;
+  }
 
   static String defaultStationBuild = '202605300';
   static String defaultTrainBuild = '202605230';
@@ -699,7 +709,7 @@ class EmuTrainApp extends StatelessWidget {
                   useMaterial3: true,
                   brightness: Brightness.dark,
                 ),
-                home: const MainScreen(),
+                home: const WelcomeGate(child: MainScreen()),
                 debugShowCheckedModeBanner: false,
               ),
             );
@@ -751,7 +761,7 @@ class _MainScreenState extends State<MainScreen> {
     final minVersion = versionInfo['minVersion']?.toString() ?? '';
     final currentBuild = Vars.build;
     final message = versionInfo['message']?.toString() ?? '';
-    final describe = versionInfo['describe']?.toString() ?? '';
+    final describe = Vars.getUpdateDescription(versionInfo);
     final version = versionInfo['Version']?.toString() ?? '';
     final qq = versionInfo['qq']?.toString() ?? '';
 

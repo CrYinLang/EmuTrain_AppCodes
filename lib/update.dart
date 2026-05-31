@@ -631,7 +631,7 @@ class AppUpdateResultDialog extends StatelessWidget {
       giteeUrl = versionInfo!['gitee'];
       qqUrl = versionInfo!['qq'];
 
-      describeText = versionInfo!['describe'] ?? '修复了一些已知问题';
+      describeText = Vars.getUpdateDescription(versionInfo);
 
       if (remoteBuild > currentBuild) {
         hasUpdate = true;

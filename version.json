@@ -1,7 +1,7 @@
 {
-  "LastUpdate": "260530",
+  "LastUpdate": "260531",
   "Version": "1.2.3.0",
-  "Build": "1226",
+  "Build": "1230",
 
   "minVersion": "1212",
   "message": "",
@@ -15,6 +15,6 @@
   "gitee": "https://gitee.com/CrYinLang/EmuTrain/releases/download/1.2.2.6/app-release.apk",
   "qq": "https://qm.qq.com/q/fk5M9PJGyk",
 
-  "describe": "新增 线路商城\n优化 线路逻辑\n优化 线路图\n新增 车站大屏可点击车次查询对应车次\n优化 车站搜索逻辑",
+  "describe": "新增 首次启动欢迎界面和用户协议确认\n优化 新版本更新说明显示逻辑\n更新 应用日期至 2026-05-31",
   "Announcement": "公告:QQ群:667933194\n官网:https://emutrain.github.io/"
 }
