@@ -47,6 +47,7 @@ class _StationScreenState extends State<StationScreen> {
       builder: (context) => StationSelector(
         title: '选择车站',
         selectedCode: _selectedStationCode,
+        crOnly: true,
         onSelected: (station) {
           setState(() {
             _selectedStationCode = station['code'];

@@ -802,6 +802,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
       isScrollControlled: true,
       builder: (context) => StationSelector(
         title: isFrom ? '选择出发站' : '选择到达站',
+        crOnly: true,
         selectedCode: isFrom ? _fromCode : _toCode,
         onSelected: (result) {
           if (mounted) {
