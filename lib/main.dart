@@ -25,20 +25,21 @@ import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '260531';
+  static const String lastUpdate = '260605';
   static const String version = '1.2.3.0';
-  static const String build = '1230';
+  static const String build = '1231';
   static const String updateDescription =
       '新增 首次启动欢迎界面和用户协议确认\n'
       '优化 新版本更新说明显示逻辑\n'
-      '更新 应用日期至 2026-05-31';
+      '新增 线路走向图无精准定位车站里程估算显示开关\n'
+      '更新 更多车站';
 
   static String getUpdateDescription(Map<String, dynamic>? versionInfo) {
     final remoteDescribe = versionInfo?['describe']?.toString().trim() ?? '';
     return remoteDescribe.isNotEmpty ? remoteDescribe : updateDescription;
   }
 
-  static String defaultStationBuild = '202605300';
+  static String defaultStationBuild = '202606050';
   static String defaultTrainBuild = '202605230';
   static String defaultCoachTrainBuild = '202605230';
   static String defaultLocoBuild = '202605230';

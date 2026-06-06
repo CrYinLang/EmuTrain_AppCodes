@@ -3,9 +3,12 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../station_selector.dart'; // loadStations()
 import 'route_models.dart';
+
+const String _routeMapMileageFallbackKey = 'route_map_mileage_fallback';
 
 Color _colorForRouteId(String id) {
   int hash = 0;
@@ -21,7 +24,8 @@ class _PlottedStation {
   final String name;
   final String city;
   final double? mileageToNext;
-  final bool hasLocation;
+  bool hasLocation;
+  bool isInferredLocation = false;
   double x;
   double y;
   final double lng;
@@ -111,6 +115,9 @@ class _RouteMapPageState extends State<RouteMapPage> {
   // ── 数据加载 ─────────────────────────────────────────────────
 
   Future<void> _loadAndPlot() async {
+    final prefs = await SharedPreferences.getInstance();
+    final useMileageFallback =
+        prefs.getBool(_routeMapMileageFallbackKey) ?? true;
     final allStations = await loadStations();
     final Map<String, Map<String, dynamic>> tcIdx = {};
     for (final s in allStations) {
@@ -149,7 +156,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
       raw.add(_PlottedRoute(model: r, stations: stations, color: color));
     }
 
-    _normalizeAll(raw);
+    _normalizeAll(raw, inferMissingLocations: useMileageFallback);
     final maxScale = _computeMaxScale(raw);
     setState(() {
       _plotted = raw;
@@ -179,7 +186,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
     return scale.clamp(8.0, 40.0);
   }
 
-  void _normalizeAll(List<_PlottedRoute> routes) {
+  void _normalizeAll(
+    List<_PlottedRoute> routes, {
+    required bool inferMissingLocations,
+  }) {
     final valid = <_PlottedStation>[
       for (final r in routes) ...r.stations.where((s) => s.hasLocation),
     ];
@@ -230,6 +240,74 @@ class _RouteMapPageState extends State<RouteMapPage> {
         }
       }
     }
+
+    if (inferMissingLocations) {
+      for (final r in routes) {
+        _inferMissingStationLocations(r);
+      }
+    }
+  }
+
+  void _inferMissingStationLocations(_PlottedRoute route) {
+    final stations = route.stations;
+    for (int i = 0; i < stations.length; i++) {
+      final station = stations[i];
+      if (station.hasLocation) continue;
+
+      final prevIdx = _nearestExactLocationBefore(stations, i);
+      final nextIdx = _nearestExactLocationAfter(stations, i);
+      if (prevIdx == null || nextIdx == null) continue;
+
+      final totalMileage = _sumMileage(stations, prevIdx, nextIdx);
+      final offsetMileage = _sumMileage(stations, prevIdx, i);
+      if (totalMileage == null ||
+          offsetMileage == null ||
+          totalMileage <= 0 ||
+          offsetMileage < 0) {
+        continue;
+      }
+
+      final ratio = (offsetMileage / totalMileage).clamp(0.0, 1.0);
+      final prev = stations[prevIdx];
+      final next = stations[nextIdx];
+      station.x = prev.x + (next.x - prev.x) * ratio;
+      station.y = prev.y + (next.y - prev.y) * ratio;
+      station.hasLocation = true;
+      station.isInferredLocation = true;
+    }
+  }
+
+  int? _nearestExactLocationBefore(List<_PlottedStation> stations, int index) {
+    for (int i = index - 1; i >= 0; i--) {
+      if (stations[i].hasLocation && !stations[i].isInferredLocation) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  int? _nearestExactLocationAfter(List<_PlottedStation> stations, int index) {
+    for (int i = index + 1; i < stations.length; i++) {
+      if (stations[i].hasLocation && !stations[i].isInferredLocation) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  double? _sumMileage(
+    List<_PlottedStation> stations,
+    int startIndex,
+    int endIndex,
+  ) {
+    if (startIndex >= endIndex) return 0;
+    double total = 0;
+    for (int i = startIndex; i < endIndex; i++) {
+      final mileage = stations[i].mileageToNext;
+      if (mileage == null || mileage < 0) return null;
+      total += mileage;
+    }
+    return total;
   }
 
   // ── 点击处理 ─────────────────────────────────────────────────
@@ -565,6 +643,15 @@ class _RouteMapPageState extends State<RouteMapPage> {
                                   height: 1.2,
                                 ),
                               ),
+                              if (s.isInferredLocation)
+                                const Text(
+                                  '里程估算位置',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.orange,
+                                    height: 1.2,
+                                  ),
+                                ),
                               if (mileStr != null)
                                 Text(
                                   mileStr,
@@ -910,6 +997,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
                           _badge('起点', Colors.green)
                         else if (isLast)
                           _badge('终点', Colors.red),
+                        if (s.isInferredLocation) ...[
+                          const SizedBox(width: 4),
+                          _badge('里程估算', Colors.orange),
+                        ],
                       ],
                     ),
                     if (s.city.isNotEmpty)
@@ -1024,7 +1115,11 @@ class _RouteMapPainter extends CustomPainter {
       final s = r.stations[si];
       if (!s.hasLocation) continue;
       final isSel = selHits.any((h) => h.ri == routeIdx && h.si == si);
-      final markerR = isSel ? _px(9.0) : baseR;
+      final markerR = isSel
+          ? _px(9.0)
+          : s.isInferredLocation
+          ? _px(5.0)
+          : baseR;
       final c = Offset(s.x * size.width, s.y * size.height);
       if (isSel) {
         canvas.drawCircle(
@@ -1033,7 +1128,12 @@ class _RouteMapPainter extends CustomPainter {
           Paint()..color = r.color.withAlpha(50),
         );
       }
-      canvas.drawCircle(c, markerR, Paint()..color = r.color);
+      canvas.drawCircle(
+        c,
+        markerR,
+        Paint()
+          ..color = s.isInferredLocation ? r.color.withAlpha(150) : r.color,
+      );
       canvas.drawCircle(
         c,
         markerR,
