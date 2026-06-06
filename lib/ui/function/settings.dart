@@ -23,12 +23,15 @@ class _SettingsScreenState extends State<SettingsScreen>
   // ---------- 旅途 tab 状态 ----------
   bool _showTrainImage = true;
   bool _showRealTrainMap = true;
+  bool _showRouteMapMileageFallback = true;
   bool _showAutoUpdate = true;
   String _defaultHomePage = '旅途';
   String _mirrorSource = 'Mirror';
 
   static const String _trainImageKey = 'show_train_image';
   static const String _realTrainMapKey = 'show_real_train_map';
+  static const String _routeMapMileageFallbackKey =
+      'route_map_mileage_fallback';
   static const String _defaultHomePageKey = 'default_home_page';
   static const String _showAutoUpdateKey = 'show_auto_update';
   static const String _mirrorSourceKey = 'mirror_source';
@@ -51,6 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     setState(() {
       _showTrainImage = prefs.getBool(_trainImageKey) ?? true;
       _showRealTrainMap = prefs.getBool(_realTrainMapKey) ?? true;
+      _showRouteMapMileageFallback =
+          prefs.getBool(_routeMapMileageFallbackKey) ?? true;
       _showAutoUpdate = prefs.getBool(_showAutoUpdateKey) ?? true;
       _defaultHomePage = prefs.getString(_defaultHomePageKey) ?? '旅途';
       _mirrorSource = prefs.getString(_mirrorSourceKey) ?? 'Mirror';
@@ -872,6 +877,18 @@ class _SettingsScreenState extends State<SettingsScreen>
                 await _saveSetting(_realTrainMapKey, v);
               },
             ),
+            const Divider(height: 1),
+            Tool.buildSwitch(
+              context: context,
+              title: '无精准定位车站里程显示',
+              subtitle: '走向图中无坐标车站按线路里程估算位置',
+              icon: Icons.straighten,
+              value: _showRouteMapMileageFallback,
+              onChanged: (v) async {
+                setState(() => _showRouteMapMileageFallback = v);
+                await _saveSetting(_routeMapMileageFallbackKey, v);
+              },
+            ),
           ],
         ),
       ],
@@ -934,6 +951,124 @@ class ThemeSettingsScreen extends StatelessWidget {
     (color: Color(0xFF607D8B), label: '蓝灰'),
     (color: Color(0xFF009688), label: '翠绿'),
   ];
+
+  Future<void> _showColorPalette(
+    BuildContext context,
+    AppSettings settings,
+  ) async {
+    var hsv = HSVColor.fromColor(
+      settings.seedColor ?? Theme.of(context).colorScheme.primary,
+    );
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final selectedColor = hsv.toColor();
+
+            Widget slider({
+              required String label,
+              required double value,
+              required double max,
+              required ValueChanged<double> onChanged,
+            }) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        max == 360
+                            ? value.round().toString()
+                            : '${(value * 100).round()}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: value,
+                    min: 0,
+                    max: max,
+                    onChanged: (v) => setDialogState(() => onChanged(v)),
+                  ),
+                ],
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('调色盘'),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: selectedColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: cs.outlineVariant),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    slider(
+                      label: '色相',
+                      value: hsv.hue,
+                      max: 360,
+                      onChanged: (v) => hsv = hsv.withHue(v),
+                    ),
+                    slider(
+                      label: '饱和度',
+                      value: hsv.saturation,
+                      max: 1,
+                      onChanged: (v) => hsv = hsv.withSaturation(v),
+                    ),
+                    slider(
+                      label: '亮度',
+                      value: hsv.value,
+                      max: 1,
+                      onChanged: (v) => hsv = hsv.withValue(v),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    settings.setSeedColor(null);
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('莫奈取色'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    settings.setSeedColor(selectedColor);
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('应用'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1099,6 +1234,42 @@ class ThemeSettingsScreen extends StatelessWidget {
                             )
                           : null,
                       onTap: () => settings.setSeedColor(null),
+                    ),
+
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+
+                    ListTile(
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: settings.seedColor ?? cs.primary,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: const Icon(
+                          Icons.palette_outlined,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                      title: const Text(
+                        '调色盘',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text(
+                        '自定义主题色',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      onTap: () => _showColorPalette(context, settings),
                     ),
 
                     const Divider(height: 1, indent: 16, endIndent: 16),
