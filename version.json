@@ -1,12 +1,12 @@
 {
   "LastUpdate": "260605",
-  "Version": "1.2.3.0",
+  "Version": "1.2.3.1",
   "Build": "1230",
 
   "minVersion": "1212",
   "message": "",
 
-  "StationBuild": "202606060",
+  "StationBuild": "202606070",
   "TrainBuild": "202605240",
   "CoachTrainBuild": "202605240",
   "LocoBuild": "202605240",

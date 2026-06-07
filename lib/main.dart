@@ -25,7 +25,7 @@ import 'update.dart';
 
 // ==================== 应用常量 ====================
 class Vars {
-  static const String lastUpdate = '260606';
+  static const String lastUpdate = '260607';
   static const String version = '1.2.3.1';
   static const String build = '1231';
   static const String updateDescription =
@@ -39,7 +39,7 @@ class Vars {
     return remoteDescribe.isNotEmpty ? remoteDescribe : updateDescription;
   }
 
-  static String defaultStationBuild = '202606060';
+  static String defaultStationBuild = '202606070';
   static String defaultTrainBuild = '202605230';
   static String defaultCoachTrainBuild = '202605230';
   static String defaultLocoBuild = '202605230';
