@@ -196,6 +196,26 @@ class RecordProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void removeImageFromRecord(String recordId, String imagePath) {
+    final idx = _records.indexWhere((r) => r.id == recordId);
+    if (idx >= 0) {
+      final r = _records[idx];
+      final updated = TrainRecord(
+        id: r.id, trainCode: r.trainCode,
+        fromStation: r.fromStation, toStation: r.toStation,
+        fromStationCode: r.fromStationCode, toStationCode: r.toStationCode,
+        departureTime: r.departureTime, arrivalTime: r.arrivalTime,
+        travelDate: r.travelDate, stations: r.stations,
+        seatType: r.seatType, seatInfo: r.seatInfo,
+        speedRecordIds: r.speedRecordIds,
+        imagePaths: r.imagePaths.where((p) => p != imagePath).toList(),
+      );
+      _records[idx] = updated;
+      _saveRecords();
+      notifyListeners();
+    }
+  }
+
   void clearAll() {
     _records.clear();
     _speedRecords.clear();

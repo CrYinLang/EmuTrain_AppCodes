@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../models/journey_model.dart';
 import 'linemap.dart';
-import 'function/gps.dart';
 
 class JourneyDetailPage extends StatelessWidget {
   final Journey journey;
@@ -752,23 +751,6 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
                 const SizedBox(width: 12),
                 Expanded(child: _buildLineMapButton(context)),
               ],
-            ),
-            const SizedBox(height: 12),
-            // 开始测速按钮
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const SpeedometerPage()));
-                },
-                icon: const Icon(Icons.speed, color: Colors.green),
-                label: const Text('开始测速', style: TextStyle(color: Colors.green)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.green,
-                  side: const BorderSide(color: Colors.green),
-                ),
-              ),
             ),
             // 自定义旅途限制提示
             if (journey.id.startsWith('custom_')) ...[

@@ -182,13 +182,27 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: latest.imagePaths.map((path) =>
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.file(File(path), width: 100, height: 100, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 100, height: 100, color: cs.surfaceContainerHighest,
-                      child: Icon(Icons.broken_image, color: cs.onSurfaceVariant),
+              children: latest.imagePaths.asMap().entries.map((entry) =>
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => _ImageViewer(
+                        imagePaths: latest.imagePaths,
+                        initialIndex: entry.key,
+                        onDelete: (idx) {
+                          final path = latest.imagePaths[idx];
+                          provider.removeImageFromRecord(latest.id, path);
+                        },
+                      ),
+                    ));
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(File(entry.value), width: 100, height: 100, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 100, height: 100, color: cs.surfaceContainerHighest,
+                        child: Icon(Icons.broken_image, color: cs.onSurfaceVariant),
+                      ),
                     ),
                   ),
                 ),
@@ -354,7 +368,7 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
   }
 }
 
-// 关联的测速记录卡片
+// 关联的测速记录卡片（可点击查看轨迹）
 class _LinkedTrackCard extends StatelessWidget {
   final String trackId;
   final VoidCallback onRemove;
@@ -386,26 +400,127 @@ class _LinkedTrackCard extends StatelessWidget {
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(children: [
-              Icon(Icons.speed, color: Colors.green[600], size: 32),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('最高速度: ${track.maxSpeedKmh.toStringAsFixed(1)} km/h',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('$distKm km | 均速 ${track.avgSpeedKmh.toStringAsFixed(1)} km/h',
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                Text(dateStr, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-              ])),
-              IconButton(
-                icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
-                onPressed: onRemove, tooltip: '取消关联',
-              ),
-            ]),
+          child: InkWell(
+            onTap: () {
+              Navigator.push(context,
+                MaterialPageRoute(builder: (_) => TrackDetailPage(recordId: trackId)));
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(children: [
+                Icon(Icons.speed, color: Colors.green[600], size: 32),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('最高速度: ${track.maxSpeedKmh.toStringAsFixed(1)} km/h',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('$distKm km | 均速 ${track.avgSpeedKmh.toStringAsFixed(1)} km/h',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  Text(dateStr, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                ])),
+                IconButton(
+                  icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+                  onPressed: onRemove, tooltip: '取消关联',
+                ),
+              ]),
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+// 全屏图片查看器（双指缩放 + 删除）
+class _ImageViewer extends StatefulWidget {
+  final List<String> imagePaths;
+  final int initialIndex;
+  final ValueChanged<int> onDelete; // 回调删除的索引
+
+  const _ImageViewer({required this.imagePaths, required this.initialIndex, required this.onDelete});
+
+  @override
+  State<_ImageViewer> createState() => _ImageViewerState();
+}
+
+class _ImageViewerState extends State<_ImageViewer> {
+  late PageController _pageCtrl;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageCtrl = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  void _deleteCurrent() {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('删除图片'),
+      content: const Text('确定要删除这张图片吗？'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            widget.onDelete(_currentIndex);
+            if (widget.imagePaths.length <= 1) {
+              Navigator.pop(context);
+            } else {
+              setState(() {
+                if (_currentIndex >= widget.imagePaths.length - 1) {
+                  _currentIndex = widget.imagePaths.length - 2;
+                  _pageCtrl.jumpToPage(_currentIndex);
+                }
+              });
+            }
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red[300]),
+          child: const Text('删除'),
+        ),
+      ],
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text('${_currentIndex + 1} / ${widget.imagePaths.length}',
+          style: const TextStyle(color: Colors.white)),
+        actions: [
+          IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red),
+            onPressed: _deleteCurrent),
+        ],
+      ),
+      body: PageView.builder(
+        controller: _pageCtrl,
+        itemCount: widget.imagePaths.length,
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        itemBuilder: (ctx, i) {
+          return InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 5.0,
+            child: Center(
+              child: Image.file(File(widget.imagePaths[i]),
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Icon(Icons.broken_image, color: Colors.white38, size: 64),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
