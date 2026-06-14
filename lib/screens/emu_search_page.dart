@@ -7,11 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
-import '../functions.dart';
-import '../main.dart';
+import '../config/functions.dart';
 import 'function/error.dart';
 import 'function/more_search.dart';
 import 'journey.dart';
+import '../config/app_settings.dart';
+import '../config/data_enums.dart';
+import '../config/data_file_helper.dart';
+import '../widgets/icon_widgets.dart';
 
 // ============================================================
 // 数据模型

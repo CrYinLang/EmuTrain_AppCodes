@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../journey_model.dart';
-import '../journey_provider.dart';
-import '../station_selector.dart';
+import '../models/journey_model.dart';
+import '../providers/journey_provider.dart';
+import '../config/station_selector.dart';
 
 // 内部数据模型：可编辑站点
 class _EditableStation {

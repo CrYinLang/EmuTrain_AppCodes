@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'ui/function/error.dart';
-import 'ui/function/gps.dart';
+import '../screens/function/error.dart';
+import '../screens/function/gps.dart';
 
 /// 轨迹点：经纬度 + 对应速度
 class TrackPoint {

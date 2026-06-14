@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../station_selector.dart'; // loadStations()
+import '../../config/station_selector.dart'; // loadStations()
 import 'route_models.dart';
 
 const String _routeMapMileageFallbackKey = 'route_map_mileage_fallback';

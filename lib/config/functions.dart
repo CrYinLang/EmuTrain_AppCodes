@@ -4,8 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'main.dart';
-import 'ui/function/error.dart';
+import '../screens/function/error.dart';
+import 'app_settings.dart';
+import 'data_enums.dart';
 
 // ========== Config 全局函数 ==========
 

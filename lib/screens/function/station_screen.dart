@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import '../../station_selector.dart';
+import '../../config/station_selector.dart';
 import '../journey.dart';
 
 class StationScreen extends StatefulWidget {

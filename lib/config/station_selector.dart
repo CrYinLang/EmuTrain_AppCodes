@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 // 新增：错误日志记录
-import 'ui/function/error.dart';
+import '../screens/function/error.dart';
 
 // ============================================================
 // 热门车站（20个）

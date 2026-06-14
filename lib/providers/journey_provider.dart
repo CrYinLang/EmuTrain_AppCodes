@@ -5,8 +5,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'journey_model.dart';
-import 'ui/function/error.dart';
+import '../models/journey_model.dart';
+import '../screens/function/error.dart';
 
 class JourneyProvider extends ChangeNotifier {
   final List<Journey> _journeys = [];

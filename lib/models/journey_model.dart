@@ -1,7 +1,7 @@
 // journey_model.dart
 import 'dart:async';
 
-import 'ui/function/error.dart';
+import '../screens/function/error.dart';
 
 class Journey {
   final String id;

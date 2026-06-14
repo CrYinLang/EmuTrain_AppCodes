@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../journey_model.dart';
+import '../models/journey_model.dart';
 import 'linemap.dart';
 
 class JourneyDetailPage extends StatelessWidget {

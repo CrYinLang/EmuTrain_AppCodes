@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import '../../functions.dart';
-import '../../main.dart';
+import '../../config/functions.dart';
 import 'route_models.dart';
+import '../../config/app_vars.dart';
 
 // ─────────────────────────────────────────────────────────────
 // 数据模型

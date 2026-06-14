@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-import '../../speed_service.dart';
+import '../../services/speed_service.dart';
 
 /// 一次行程记录
 class TrackRecord {

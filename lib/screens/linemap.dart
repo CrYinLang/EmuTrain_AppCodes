@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../journey_model.dart';
-import '../station_selector.dart';
+import '../models/journey_model.dart';
+import '../config/station_selector.dart';
 
 // ─────────────────────────────────────────────────────────────
 // 入口 Dialog

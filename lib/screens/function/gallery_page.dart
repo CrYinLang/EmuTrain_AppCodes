@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../main.dart';
+import '../../config/app_settings.dart';
+import '../../widgets/icon_widgets.dart';
 
 class GalleryPage extends StatefulWidget {
   const GalleryPage({super.key});

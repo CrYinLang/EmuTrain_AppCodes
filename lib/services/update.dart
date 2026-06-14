@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
-import 'functions.dart';
-import 'main.dart';
-import 'ui/function/error.dart';
+import '../config/functions.dart';
+import '../screens/function/error.dart';
+import '../config/app_vars.dart';
 
 class UpdateService {
   static Future<Map<String, dynamic>?> checkForUpdate({

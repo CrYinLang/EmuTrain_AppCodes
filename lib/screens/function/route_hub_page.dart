@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../functions.dart';
-import '../../station_selector.dart';
+import '../../config/functions.dart';
+import '../../config/station_selector.dart';
 import 'route_edit_page.dart';
 import 'route_map_page.dart';
 import 'route_models.dart';

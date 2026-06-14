@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../functions.dart';
-import '../../main.dart';
-import '../../update.dart';
+import '../../config/functions.dart';
+import '../../services/update.dart';
 import 'error.dart';
+import '../../config/app_settings.dart';
+import '../../config/app_vars.dart';
+import '../../config/data_enums.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
