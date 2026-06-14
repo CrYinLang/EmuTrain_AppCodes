@@ -1081,7 +1081,7 @@ class ThemeSettingsScreen extends StatelessWidget {
           final cs = Theme.of(context).colorScheme;
           final followSystem = settings.followSystem;
           final isDark = settings.themeMode == ThemeMode.dark;
-          final usingMonet = settings.seedColor == null;
+          final usingMonet = settings.seedColor == null && !settings.isRandomColor;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -1293,9 +1293,37 @@ class ThemeSettingsScreen extends StatelessWidget {
                       child: Wrap(
                         spacing: 10,
                         runSpacing: 10,
-                        children: _presetColors.map((entry) {
+                        children: [
+                          // 随机颜色选项
+                          GestureDetector(
+                            onTap: () => settings.setRandomColor(),
+                            child: Tooltip(
+                              message: '每次启动随机颜色',
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.red, Colors.orange, Colors.yellow, Colors.green, Colors.blue, Colors.purple],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: settings.isRandomColor
+                                      ? Border.all(color: cs.onSurface, width: 2.5)
+                                      : null,
+                                ),
+                                child: settings.isRandomColor
+                                    ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                    : const Center(child: Text('❓', style: TextStyle(fontSize: 18))),
+                              ),
+                            ),
+                          ),
+                          ..._presetColors.map((entry) {
                           final isSelected =
                               !usingMonet &&
+                              !settings.isRandomColor &&
                               settings.seedColor?.toARGB32() ==
                                   entry.color.toARGB32();
                           return GestureDetector(
@@ -1333,7 +1361,8 @@ class ThemeSettingsScreen extends StatelessWidget {
                               ),
                             ),
                           );
-                        }).toList(),
+                        }),
+                        ],
                       ),
                     ),
                   ],

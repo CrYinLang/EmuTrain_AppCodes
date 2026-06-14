@@ -352,7 +352,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
           _selHits.every(
             (a) => grouped.any((b) => b.ri == a.ri && b.si == a.si),
           );
-      _selHits = same ? [] : grouped.take(5).toList();
+      _selHits = same ? [] : grouped;
     });
   }
 
@@ -538,7 +538,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
             ),
             // ── 站点序号叠加层（Widget 渲染）────────
             if (_showStationNumbers)
-              IgnorePointer(
+              ClipRect(
+                child: IgnorePointer(
                 child: SizedBox.expand(
                   child: CustomMultiChildLayout(
                     delegate: _NumberOverlayDelegate(
@@ -570,6 +571,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
                               ),
                     ],
                   ),
+                ),
                 ),
               ),
             // Flutter Widget label 叠加层（不模糊，永远清晰）

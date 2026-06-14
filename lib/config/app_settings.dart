@@ -1,4 +1,5 @@
 // config/app_settings.dart
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +19,9 @@ class AppSettings extends ChangeNotifier {
   bool _isLoading = false;
   bool _followSystem = false;
   Color? _seedColor; // null = 莫奈 / 跟随壁纸
+  static const int _randomColorSentinel = -1;
+  bool _isRandomColor = false;
+  bool get isRandomColor => _isRandomColor;
 
   /// 跟随系统时强制返回 ThemeMode.system
   ThemeMode get themeMode => _followSystem ? ThemeMode.system : _themeMode;
@@ -131,7 +135,13 @@ class AppSettings extends ChangeNotifier {
       _followSystem = prefs.getBool('followSystem') ?? false;
 
       final seedColorValue = prefs.getInt('seedColor');
-      _seedColor = seedColorValue != null ? Color(seedColorValue) : null;
+      if (seedColorValue == _randomColorSentinel) {
+        _isRandomColor = true;
+        _seedColor = _pickRandomColor();
+      } else {
+        _isRandomColor = false;
+        _seedColor = seedColorValue != null ? Color(seedColorValue) : null;
+      }
 
       _showTrainIcons = prefs.getBool('showTrainIcons') ?? true;
       _showBureauIcons = prefs.getBool('showBureauIcons') ?? true;
@@ -211,6 +221,7 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> setSeedColor(Color? color) async {
+    _isRandomColor = false;
     _seedColor = color;
     final prefs = await SharedPreferences.getInstance();
     if (color == null) {
@@ -219,6 +230,24 @@ class AppSettings extends ChangeNotifier {
       await prefs.setInt('seedColor', color.toARGB32());
     }
     notifyListeners();
+  }
+
+  Future<void> setRandomColor() async {
+    _isRandomColor = true;
+    _seedColor = _pickRandomColor();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('seedColor', _randomColorSentinel);
+    notifyListeners();
+  }
+
+  static Color _pickRandomColor() {
+    const colors = [
+      Color(0xFF2196F3), Color(0xFF4CAF50), Color(0xFFF44336),
+      Color(0xFF9C27B0), Color(0xFFFF9800), Color(0xFF00BCD4),
+      Color(0xFFE91E63), Color(0xFF795548), Color(0xFF607D8B),
+      Color(0xFF009688),
+    ];
+    return colors[Random().nextInt(colors.length)];
   }
 
   // ==================== 图标显示 ====================
