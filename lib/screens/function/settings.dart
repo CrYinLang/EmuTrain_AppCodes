@@ -1316,7 +1316,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                                 ),
                                 child: settings.isRandomColor
                                     ? const Icon(Icons.check, color: Colors.white, size: 20)
-                                    : const Center(child: Text('❓', style: TextStyle(fontSize: 18))),
+                                    : const Center(child: Text('?', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                               ),
                             ),
                           ),
