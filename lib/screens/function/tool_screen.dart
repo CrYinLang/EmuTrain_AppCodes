@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/functions.dart';
 import '../about_page.dart';
+import '../record_screen.dart';
 import 'gallery_page.dart';
 import 'gps.dart';
 import 'route_hub_page.dart';
@@ -30,6 +31,22 @@ class ToolScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const StationScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.bookmark_border, size: 32),
+                title: const Text('旅途记录'),
+                subtitle: const Text('记录行程、测速、图片'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RecordScreen(),
                     ),
                   );
                 },

@@ -8,6 +8,7 @@ import 'config/app_settings.dart';
 import 'config/app_vars.dart';
 import 'config/functions.dart';
 import 'providers/journey_provider.dart';
+import 'providers/record_provider.dart';
 import 'screens/emu_search_page.dart';
 import 'screens/function/settings.dart';
 import 'screens/function/tool_screen.dart';
@@ -28,6 +29,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AppSettings()..loadSettings()),
         ChangeNotifierProvider(create: (_) => SpeedService()),
+        ChangeNotifierProvider(create: (_) => RecordProvider()),
       ],
       child: const EmuTrainApp(),
     ),
@@ -300,19 +302,19 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // IndexedStack 保活：切换页面不销毁
+  final List<Widget> _pages = const [
+    TravelScreen(),
+    SearchPage(),
+    ToolScreen(),
+    SettingsScreen(),
+  ];
+
   Widget _buildCurrentPage() {
-    switch (_currentIndex) {
-      case 0:
-        return const TravelScreen();
-      case 1:
-        return const SearchPage();
-      case 2:
-        return const ToolScreen();
-      case 3:
-        return const SettingsScreen();
-      default:
-        return const TravelScreen();
-    }
+    return IndexedStack(
+      index: _currentIndex,
+      children: _pages,
+    );
   }
 }
 
