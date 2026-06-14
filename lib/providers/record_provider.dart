@@ -190,6 +190,12 @@ class RecordProvider extends ChangeNotifier {
     }
   }
 
+  void sortByDateTime() {
+    _records.sort((a, b) => a.travelDate.compareTo(b.travelDate));
+    _saveRecords();
+    notifyListeners();
+  }
+
   void clearAll() {
     _records.clear();
     _speedRecords.clear();
