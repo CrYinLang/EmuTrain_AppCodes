@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'dart:io';
+
 import '../models/record_model.dart';
 import '../providers/record_provider.dart';
 import 'function/gps.dart';
+import 'linemap.dart';
 
 class RecordDetailPage extends StatelessWidget {
   final TrainRecord record;
@@ -133,7 +136,14 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
           // 功能按钮区
           Row(children: [
             Expanded(child: _buildActionCard(context, Icons.map_outlined, '线路走向图', () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('线路走向图功能开发中')));
+              // 直接调用现有线路图
+              final journey = latest.toJourney();
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(title: Text('线路走向图  ${latest.trainCode}')),
+                  body: LineMapContent(journey: journey),
+                ),
+              ));
             })),
             const SizedBox(width: 12),
             Expanded(child: _buildActionCard(context, Icons.speed, '开始测速', () {
@@ -175,7 +185,7 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
               children: latest.imagePaths.map((path) =>
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(path, width: 100, height: 100, fit: BoxFit.cover,
+                  child: Image.file(File(path), width: 100, height: 100, fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
                       width: 100, height: 100, color: cs.surfaceContainerHighest,
                       child: Icon(Icons.broken_image, color: cs.onSurfaceVariant),

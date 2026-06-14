@@ -3,8 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/journey_model.dart';
 import '../models/record_model.dart';
+import '../providers/journey_provider.dart';
 import '../providers/record_provider.dart';
+import 'journey.dart';
 import 'record_detail_page.dart';
 
 class RecordScreen extends StatelessWidget {
@@ -120,9 +123,28 @@ class RecordScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (context) => const AddRecordPage())),
+        onPressed: () async {
+          // 直接调用 AddJourneyPage
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const AddJourneyPage()),
+          );
+          // 保存后自动将最新 Journey 转为 TrainRecord
+          if (context.mounted) {
+            final journeyProvider = context.read<JourneyProvider>();
+            final recordProvider = context.read<RecordProvider>();
+            if (journeyProvider.journeys.isNotEmpty) {
+              final latest = journeyProvider.journeys.last;
+              // 检查是否已存在（避免重复添加）
+              final exists = recordProvider.records.any((r) =>
+                r.trainCode == latest.trainCode &&
+                r.travelDate == latest.travelDate &&
+                r.departureTime == latest.departureTime);
+              if (!exists) {
+                recordProvider.addRecord(TrainRecord.fromJourney(latest));
+              }
+            }
+          }
+        },
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.surface,
         shape: RoundedRectangleBorder(
@@ -357,189 +379,3 @@ class RecordCard extends StatelessWidget {
   }
 }
 
-// 添加记录页（复用 AddJourneyPage 风格）
-class AddRecordPage extends StatefulWidget {
-  const AddRecordPage({super.key});
-  @override
-  State<AddRecordPage> createState() => _AddRecordPageState();
-}
-
-class _AddRecordPageState extends State<AddRecordPage> {
-  final _trainCodeCtrl = TextEditingController();
-  final _fromCtrl = TextEditingController();
-  final _toCtrl = TextEditingController();
-  DateTime? _selectedDate;
-  TimeOfDay _depTime = const TimeOfDay(hour: 8, minute: 0);
-  TimeOfDay _arrTime = const TimeOfDay(hour: 12, minute: 0);
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedDate = DateTime.now();
-  }
-
-  String get dateText => _selectedDate == null
-      ? '选择日期'
-      : '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? now,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null) setState(() => _selectedDate = picked);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('添加记录')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // 日期选择器（复用旅途页风格）
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _pickDate,
-                    child: Container(
-                      height: 56,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        color: Theme.of(context).colorScheme.surface,
-                      ),
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        children: [
-                          Icon(Icons.calendar_today, size: 20,
-                            color: Theme.of(context).colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Text(dateText, style: TextStyle(
-                            fontSize: 16,
-                            color: _selectedDate == null
-                                ? Theme.of(context).colorScheme.onSurfaceVariant
-                                : Theme.of(context).colorScheme.onSurface,
-                          )),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            // 车次输入
-            TextField(
-              controller: _trainCodeCtrl,
-              textCapitalization: TextCapitalization.characters,
-              decoration: InputDecoration(
-                labelText: '车次',
-                hintText: '例如 G1234',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.train),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // 起终站
-            Row(children: [
-              Expanded(child: TextField(
-                controller: _fromCtrl,
-                decoration: InputDecoration(
-                  labelText: '出发站',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.location_on_outlined),
-                ),
-              )),
-              const SizedBox(width: 12),
-              Expanded(child: TextField(
-                controller: _toCtrl,
-                decoration: InputDecoration(
-                  labelText: '到达站',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.location_on),
-                ),
-              )),
-            ]),
-            const SizedBox(height: 16),
-            // 时间选择
-            Row(children: [
-              Expanded(child: ListTile(
-                title: const Text('出发时间'),
-                subtitle: Text(_depTime.format(context)),
-                leading: const Icon(Icons.access_time),
-                onTap: () async {
-                  final t = await showTimePicker(context: context, initialTime: _depTime);
-                  if (t != null) setState(() => _depTime = t);
-                },
-              )),
-              Expanded(child: ListTile(
-                title: const Text('到达时间'),
-                subtitle: Text(_arrTime.format(context)),
-                leading: const Icon(Icons.access_time_filled),
-                onTap: () async {
-                  final t = await showTimePicker(context: context, initialTime: _arrTime);
-                  if (t != null) setState(() => _arrTime = t);
-                },
-              )),
-            ]),
-            const SizedBox(height: 32),
-            // 保存按钮
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('保存', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _save() {
-    if (_trainCodeCtrl.text.isEmpty || _fromCtrl.text.isEmpty || _toCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写完整信息')));
-      return;
-    }
-    final depStr = '${_depTime.hour.toString().padLeft(2, '0')}:${_depTime.minute.toString().padLeft(2, '0')}';
-    final arrStr = '${_arrTime.hour.toString().padLeft(2, '0')}:${_arrTime.minute.toString().padLeft(2, '0')}';
-    final record = TrainRecord(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      trainCode: _trainCodeCtrl.text.trim().toUpperCase(),
-      fromStation: _fromCtrl.text.trim(),
-      toStation: _toCtrl.text.trim(),
-      fromStationCode: '',
-      toStationCode: '',
-      departureTime: depStr,
-      arrivalTime: arrStr,
-      travelDate: _selectedDate ?? DateTime.now(),
-      stations: [],
-    );
-    context.read<RecordProvider>().addRecord(record);
-    Navigator.pop(context);
-  }
-
-  @override
-  void dispose() {
-    _trainCodeCtrl.dispose();
-    _fromCtrl.dispose();
-    _toCtrl.dispose();
-    super.dispose();
-  }
-}

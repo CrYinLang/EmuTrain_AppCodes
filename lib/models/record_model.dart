@@ -1,5 +1,6 @@
 // models/record_model.dart
 import 'dart:convert';
+import 'journey_model.dart';
 
 class TrainRecord {
   final String id;
@@ -75,6 +76,54 @@ class TrainRecord {
           .map((e) => e.toString()).toList(),
       imagePaths: (map['imagePaths'] as List<dynamic>? ?? [])
           .map((e) => e.toString()).toList(),
+    );
+  }
+
+  // 转换为 Journey 对象（用于调用 LineMapContent）
+  Journey toJourney() {
+    return Journey(
+      id: id,
+      trainCode: trainCode,
+      fromStation: fromStation,
+      toStation: toStation,
+      fromStationCode: fromStationCode,
+      toStationCode: toStationCode,
+      departureTime: departureTime,
+      arrivalTime: arrivalTime,
+      travelDate: travelDate,
+      stations: stations.map((s) => StationDetail(
+        stationName: s.stationName,
+        arrivalTime: s.arrivalTime,
+        departureTime: s.departureTime,
+        stayTime: s.stayTime,
+        dayDifference: s.dayDifference,
+        isStart: s.isStart,
+        isEnd: s.isEnd,
+      )).toList(),
+    );
+  }
+
+  // 从 Journey 创建 TrainRecord
+  factory TrainRecord.fromJourney(Journey j) {
+    return TrainRecord(
+      id: 'rec_${DateTime.now().millisecondsSinceEpoch}',
+      trainCode: j.trainCode,
+      fromStation: j.fromStation,
+      toStation: j.toStation,
+      fromStationCode: j.fromStationCode,
+      toStationCode: j.toStationCode,
+      departureTime: j.departureTime,
+      arrivalTime: j.arrivalTime,
+      travelDate: j.travelDate,
+      stations: j.stations.map((s) => RecordStation(
+        stationName: s.stationName,
+        arrivalTime: s.arrivalTime,
+        departureTime: s.departureTime,
+        stayTime: s.stayTime,
+        dayDifference: s.dayDifference,
+        isStart: s.isStart,
+        isEnd: s.isEnd,
+      )).toList(),
     );
   }
 
