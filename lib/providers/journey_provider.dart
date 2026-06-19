@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/journey_model.dart';
-import '../screens/function/error.dart';
+import '../widgets/error.dart';
 
 class JourneyProvider extends ChangeNotifier {
   final List<Journey> _journeys = [];
@@ -38,6 +38,7 @@ class JourneyProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e, stack) {
+      logError(from: 'journey_provider/_loadJourneys', error: e.toString());
       await logError(
         from: 'JourneyProvider._loadJourneys',
         error: '从本地存储加载行程数据失败: $e',
@@ -62,6 +63,7 @@ class JourneyProvider extends ChangeNotifier {
       );
       await prefs.setString(_storageKey, journeysJson);
     } catch (e, stack) {
+      logError(from: 'journey_provider/_saveJourneys', error: e.toString());
       await logError(
         from: 'JourneyProvider._saveJourneys',
         error: '保存行程数据到本地存储失败: $e',
@@ -84,6 +86,7 @@ class JourneyProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
+      logError(from: 'journey_provider/addJourney', error: e.toString());
       unawaited(
         logError(
           from: 'JourneyProvider.addJourney',
@@ -108,6 +111,7 @@ class JourneyProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
+      logError(from: 'journey_provider/removeJourney', error: e.toString());
       unawaited(
         logError(
           from: 'JourneyProvider.removeJourney',
@@ -128,6 +132,7 @@ class JourneyProvider extends ChangeNotifier {
       _saveJourneys();
       notifyListeners();
     } catch (e) {
+      logError(from: 'journey_provider/clearAll', error: e.toString());
       unawaited(
         logError(
           from: 'JourneyProvider.clearAll',
@@ -158,6 +163,7 @@ class JourneyProvider extends ChangeNotifier {
       _saveJourneys();
       notifyListeners();
     } catch (e) {
+      logError(from: 'journey_provider/sortByDateTime', error: e.toString());
       unawaited(
         logError(
           from: 'JourneyProvider.sortByDateTime',
@@ -179,7 +185,7 @@ class JourneyProvider extends ChangeNotifier {
         final minute = int.parse(parts[1]);
         return DateTime(date.year, date.month, date.day, hour, minute);
       }
-    } catch (_) {}
+    } catch (e) { logError(from: 'journey_provider/sortByDateTime', error: e.toString()); }
     // 解析失败返回原始日期
     return date;
   }
@@ -203,6 +209,7 @@ class JourneyProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
+      logError(from: 'journey_provider/updateJourney', error: e.toString());
       unawaited(
         logError(
           from: 'JourneyProvider.updateJourney',

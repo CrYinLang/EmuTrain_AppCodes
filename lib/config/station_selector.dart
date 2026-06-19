@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // 新增：错误日志记录
-import '../screens/function/error.dart';
+import '../widgets/error.dart';
 
 // ============================================================
 // 热门车站（20个）
@@ -40,20 +42,23 @@ const List<String> _kPopularTelecodes = [
 // ============================================================
 Future<List<dynamic>> loadStations() async {
   try {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/stations.json');
+    // Web 平台直接使用 assets
+    if (!kIsWeb) {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/stations.json');
 
-    if (await file.exists()) {
-      final jsonString = await file.readAsString();
-      final data = json.decode(jsonString);
-      if (data is List) return data;
+      if (await file.exists()) {
+        final jsonString = await file.readAsString();
+        final data = json.decode(jsonString);
+        if (data is List) return data;
+      }
     }
 
     // 加载 assets 默认数据
     final jsonString = await rootBundle.loadString('assets/stations.json');
     return json.decode(jsonString) as List<dynamic>;
   } catch (e, stack) {
-    await logError(from: 'loadStations', error: '加载车站数据失败: $e', level: 4);
+    logError(from: 'station_selector/unknown', error: e.toString());
     debugPrint('loadStations error: $e\n$stack');
     rethrow; // 让调用方可以继续处理
   }
@@ -62,19 +67,26 @@ Future<List<dynamic>> loadStations() async {
 // ============================================================
 // 持久化：最近使用 & 收藏
 // ============================================================
-Future<File> _prefsFile() async {
-  final dir = await getApplicationDocumentsDirectory();
-  return File('${dir.path}/station_prefs.json');
-}
-
 Future<Map<String, dynamic>> _loadPrefs() async {
   try {
-    final f = await _prefsFile();
+    if (kIsWeb) {
+      // Web 平台使用 SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString('station_prefs');
+      if (jsonStr != null) {
+        return json.decode(jsonStr) as Map<String, dynamic>;
+      }
+      return {};
+    }
+    // 原生平台使用文件
+    final dir = await getApplicationDocumentsDirectory();
+    final f = File('${dir.path}/station_prefs.json');
     if (await f.exists()) {
       final content = await f.readAsString();
       return json.decode(content) as Map<String, dynamic>;
     }
   } catch (e, stack) {
+    logError(from: 'station_selector/_prefsFile', error: e.toString());
     await logError(
       from: '_loadPrefs',
       error: '读取 station_prefs.json 失败: $e',
@@ -85,11 +97,20 @@ Future<Map<String, dynamic>> _loadPrefs() async {
   return {};
 }
 
-Future<void> _savePrefs(Map<String, dynamic> prefs) async {
+Future<void> _savePrefs(Map<String, dynamic> prefsData) async {
   try {
-    final f = await _prefsFile();
-    await f.writeAsString(json.encode(prefs), flush: true);
+    if (kIsWeb) {
+      // Web 平台使用 SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('station_prefs', json.encode(prefsData));
+      return;
+    }
+    // 原生平台使用文件
+    final dir = await getApplicationDocumentsDirectory();
+    final f = File('${dir.path}/station_prefs.json');
+    await f.writeAsString(json.encode(prefsData), flush: true);
   } catch (e, stack) {
+    logError(from: 'station_selector/_savePrefs', error: e.toString());
     await logError(
       from: '_savePrefs',
       error: '保存 station_prefs.json 失败: $e',
@@ -114,6 +135,7 @@ Future<void> addRecentTelecode(String telecode) async {
     p['recent'] = recent;
     await _savePrefs(p);
   } catch (e) {
+    logError(from: 'station_selector/addRecentTelecode', error: e.toString());
     await logError(
       from: 'addRecentTelecode',
       error: '添加最近使用车站失败: $e, telecode: $telecode',
@@ -139,6 +161,7 @@ Future<void> toggleFavoriteTelecode(String telecode) async {
     p['favorites'] = favs;
     await _savePrefs(p);
   } catch (e) {
+    logError(from: 'station_selector/toggleFavoriteTelecode', error: e.toString());
     await logError(
       from: 'toggleFavoriteTelecode',
       error: '切换收藏车站失败: $e, telecode: $telecode',
@@ -228,6 +251,7 @@ class _StationSelectorState extends State<StationSelector> {
         _loadingStations = false;
       });
     } catch (e, stack) {
+      logError(from: 'station_selector/_init', error: e.toString());
       await logError(
         from: 'StationSelector._init',
         error: '车站选择器初始化失败: $e',
@@ -290,6 +314,7 @@ class _StationSelectorState extends State<StationSelector> {
         'city': city,
       });
     } catch (e) {
+      logError(from: 'station_selector/_onStationTap', error: e.toString());
       await logError(
         from: 'StationSelector._onStationTap',
         error: '选择车站失败: $e',

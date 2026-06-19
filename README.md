@@ -79,6 +79,20 @@ flutter run
 flutter build apk --release
 ```
 
+构建 Windows 桌面版：
+
+```bash
+flutter build windows --release
+```
+
+构建 Web 版：
+
+```bash
+flutter build web --release
+```
+
+在线 Web 版: <https://emutrain.github.io/web/>
+
 项目使用的 Dart SDK 约束以 `pubspec.yaml` 为准。当前应用版本也请以 `pubspec.yaml` 和 `lib/main.dart` 中的版本号为准。
 
 ## 项目结构
@@ -86,22 +100,57 @@ flutter build apk --release
 ```text
 lib/
   main.dart                     应用入口、主题、全局设置和数据加载
-  journey_model.dart            旅途数据模型
-  journey_provider.dart         旅途状态管理
-  ui/
-    travel_screen.dart          旅途首页
-    emu_search_page.dart        动车组查询
-    journey.dart                添加旅途
+  journey/                      旅途相关
+    journey.dart                添加旅途（主文件）
+    custom_journey_page.dart    自定义旅途
     journey_detail_page.dart    旅途详情
-    function/
-      station_screen.dart       车站大屏
-      more_search.dart          客车和机车查询
-      route_hub_page.dart       线路管理
-      route_edit_page.dart      线路编辑
-      route_map_page.dart       线路走向图
-      gps.dart                  GPS 速度计
-      gallery_page.dart         动车图鉴
-      settings.dart             设置和数据版本管理
+    journey_toolbox_dialog.dart 旅途工具箱
+  search/                       查询相关
+    emu_search_page.dart        动车组查询
+    more_search.dart            客车和机车查询
+  route/                        线路相关
+    route_hub_page.dart         线路管理
+    route_edit_page.dart        线路编辑
+    route_map_page.dart         线路走向图
+    route_store_page.dart       线路商店
+    route_models.dart           线路数据模型
+  settings/                     设置
+    settings_screen.dart        设置和数据版本管理
+  gps/                          GPS
+    gps.dart                    GPS 速度计
+  map/                          地图
+    linemap.dart                线路走向图
+  gallery/                      图鉴
+    gallery_page.dart           动车图鉴
+  record/                       记录
+    record_screen.dart          旅途记录首页
+    record_detail_page.dart     记录详情
+  station/                      车站
+    station_screen.dart         车站大屏
+  travel/                       旅途
+    travel_screen.dart          旅途首页
+  about/                        关于
+    about_page.dart             关于页面
+  welcome/                      欢迎
+    welcome_page.dart           首次启动引导
+  tools/                        工具
+    tool_screen.dart            工具箱入口
+  config/                       配置
+    functions.dart              通用工具函数
+    app_settings.dart           应用设置
+    data_file_helper.dart       数据文件加载
+    station_selector.dart       车站选择器
+  models/                       数据模型
+    journey_model.dart          旅途数据模型
+  providers/                    状态管理
+    journey_provider.dart       旅途状态
+    record_provider.dart        记录状态
+  services/                     服务
+    speed_service.dart          GPS 测速服务
+    update.dart                 版本更新
+  widgets/                      通用组件
+    error.dart                  错误日志
+    icon_widgets.dart           图标组件
 
 assets/
   stations.json                 车站数据

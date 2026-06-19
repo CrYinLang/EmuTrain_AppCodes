@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/record_model.dart';
-import '../screens/function/error.dart';
+import '../widgets/error.dart';
 
 class RecordProvider extends ChangeNotifier {
   final List<TrainRecord> _records = [];
@@ -21,6 +21,7 @@ class RecordProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
+    if (kIsWeb) return; // Web 平台跳过文件初始化
     final dir = await getApplicationDocumentsDirectory();
     _dataDir = '${dir.path}/train_records';
     await Directory(_dataDir!).create(recursive: true);
@@ -32,6 +33,7 @@ class RecordProvider extends ChangeNotifier {
   String get _speedFile => '$_dataDir/speed_records.json';
 
   Future<void> _loadRecords() async {
+    if (kIsWeb) return;
     try {
       final file = File(_recordsFile);
       if (await file.exists()) {
@@ -42,21 +44,23 @@ class RecordProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e, stack) {
-      await logError(from: 'RecordProvider._loadRecords', error: e.toString(), level: 3);
+      logError(from: 'record_provider/_loadRecords', error: e.toString());
       if (kDebugMode) print('loadRecords error: $e\n$stack');
     }
   }
 
   Future<void> _saveRecords() async {
+    if (kIsWeb) return;
     try {
       final file = File(_recordsFile);
       await file.writeAsString(json.encode(_records.map((r) => r.toMap()).toList()));
     } catch (e) {
-      await logError(from: 'RecordProvider._saveRecords', error: e.toString(), level: 3);
+      logError(from: 'record_provider/_saveRecords', error: e.toString());
     }
   }
 
   Future<void> _loadSpeedRecords() async {
+    if (kIsWeb) return;
     try {
       final file = File(_speedFile);
       if (await file.exists()) {
@@ -67,16 +71,17 @@ class RecordProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      await logError(from: 'RecordProvider._loadSpeedRecords', error: e.toString(), level: 3);
+      logError(from: 'record_provider/_loadSpeedRecords', error: e.toString());
     }
   }
 
   Future<void> _saveSpeedRecords() async {
+    if (kIsWeb) return;
     try {
       final file = File(_speedFile);
       await file.writeAsString(json.encode(_speedRecords.map((r) => r.toMap()).toList()));
     } catch (e) {
-      await logError(from: 'RecordProvider._saveSpeedRecords', error: e.toString(), level: 3);
+      logError(from: 'record_provider/_saveSpeedRecords', error: e.toString());
     }
   }
 

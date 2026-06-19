@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../screens/function/error.dart';
+import '../widgets/error.dart';
 import 'app_settings.dart';
 import 'data_enums.dart';
 
@@ -15,7 +15,7 @@ Future<bool> readConfig(String key) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(key) ?? false;
   } catch (e, stack) {
-    await logError(from: 'readConfig', error: '读取配置失败 key=$key: $e', level: 3);
+    logError(from: 'functions/readConfig', error: e.toString());
     debugPrint('readConfig error: $e\n$stack');
     return false;
   }
@@ -26,6 +26,7 @@ Future<void> writeConfig(String key, bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, value);
   } catch (e, stack) {
+    logError(from: 'functions/writeConfig', error: e.toString());
     await logError(
       from: 'writeConfig',
       error: '写入配置失败 key=$key, value=$value: $e',
@@ -41,6 +42,7 @@ Future<void> toggleConfig(String key) async {
     final newValue = !current;
     await writeConfig(key, newValue);
   } catch (e) {
+    logError(from: 'functions/toggleConfig', error: e.toString());
     await logError(
       from: 'toggleConfig',
       error: '切换配置失败 key=$key: $e',
@@ -76,6 +78,7 @@ Future<void> launchSocialLink(BuildContext context, String url) async {
       }
     }
   } catch (e) {
+    logError(from: 'functions/launchSocialLink', error: e.toString());
     await logError(
       from: 'launchSocialLink',
       error: '打开链接失败: $url\n$e',
@@ -93,6 +96,7 @@ Future<bool> checkAssetExists(String path) async {
     await rootBundle.load(path);
     return true;
   } catch (e) {
+    logError(from: 'functions/checkAssetExists', error: e.toString());
     await logError(
       from: 'checkAssetExists',
       error: '资产文件不存在或加载失败: $path',
@@ -135,7 +139,7 @@ class Tool {
     required String subtitle,
     required IconData icon,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    required ValueChanged<bool>? onChanged,
   }) {
     return SwitchListTile(
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),

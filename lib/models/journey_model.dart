@@ -1,7 +1,7 @@
 // journey_model.dart
 import 'dart:async';
 
-import '../screens/function/error.dart';
+import '../widgets/error.dart';
 
 class Journey {
   final String id;
@@ -120,6 +120,7 @@ class Journey {
         seatInfo: seatInfo,
       );
     } catch (e) {
+      logError(from: 'journey_model/unknown', error: e.toString());
       unawaited(
         logError(
           from: 'Journey.fromMapWithStations',
@@ -174,7 +175,8 @@ class Journey {
       DateTime travelDate;
       try {
         travelDate = DateTime.parse(map['travelDate'] as String);
-      } catch (_) {
+      } catch (e) {
+        logError(from: 'journey_model/unknown', error: e.toString());
         travelDate = DateTime.now();
       }
 
@@ -194,6 +196,7 @@ class Journey {
         seatInfo: map['seatInfo']?.toString() ?? '',
       );
     } catch (e) {
+      logError(from: 'journey_model/unknown', error: e.toString());
       unawaited(
         logError(
           from: 'Journey.fromStorageMap',
@@ -285,6 +288,7 @@ class Journey {
         return '$mins分钟';
       }
     } catch (e) {
+      logError(from: 'journey_model/unknown', error: e.toString());
       return '--';
     }
   }
@@ -523,6 +527,7 @@ class JourneyValidator {
 
       return true;
     } catch (e) {
+      logError(from: 'journey_model/isValidJourney', error: e.toString());
       return false;
     }
   }
@@ -534,6 +539,7 @@ class JourneyValidator {
       }
       return true;
     } catch (e) {
+      logError(from: 'journey_model/isValidStationDetail', error: e.toString());
       return false;
     }
   }

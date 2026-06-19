@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../config/app_settings.dart';
-import '../screens/function/gallery_page.dart';
+import '../gallery/gallery_page.dart';
+import '../widgets/error.dart';
 
 class IconUtils {
   /// 返回路局图标文件名（无扩展名），空字符串返回 null
@@ -60,7 +61,8 @@ class TrainIconWidget extends StatelessWidget {
     try {
       await rootBundle.load(path);
       return true;
-    } catch (_) {
+    } catch (e) {
+      logError(from: 'icon_widgets/_checkAssetExists', error: e.toString());
       return false;
     }
   }
@@ -162,7 +164,8 @@ class BureauIconWidget extends StatelessWidget {
     try {
       await rootBundle.load(path);
       return true;
-    } catch (_) {
+    } catch (e) {
+      logError(from: 'icon_widgets/_checkImageExists', error: e.toString());
       return false;
     }
   }

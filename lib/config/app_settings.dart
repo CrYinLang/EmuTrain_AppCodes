@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../screens/function/error.dart';
+import '../widgets/error.dart';
 import 'app_vars.dart';
 import 'data_enums.dart';
 
@@ -170,6 +170,7 @@ class AppSettings extends ChangeNotifier {
 
       debugPrint('AppSettings: 设置加载完成');
     } catch (e, stack) {
+      logError(from: 'app_settings/loadSettings', error: e.toString());
       await logError(
         from: 'AppSettings.loadSettings',
         error: '加载应用设置失败: $e',

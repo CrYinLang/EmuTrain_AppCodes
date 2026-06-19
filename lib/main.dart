@@ -9,11 +9,11 @@ import 'config/app_vars.dart';
 import 'config/functions.dart';
 import 'providers/journey_provider.dart';
 import 'providers/record_provider.dart';
-import 'screens/emu_search_page.dart';
-import 'screens/function/settings.dart';
-import 'screens/function/tool_screen.dart';
-import 'screens/travel_screen.dart';
-import 'screens/welcome_page.dart';
+import 'search/emu_search_page.dart';
+import 'settings/settings_screen.dart';
+import 'tools/tool_screen.dart';
+import 'travel/travel_screen.dart';
+import 'welcome/welcome_page.dart';
 import 'services/speed_service.dart';
 import 'services/update.dart';
 

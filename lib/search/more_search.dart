@@ -1,0 +1,1345 @@
+// more_search.dart
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../config/functions.dart';
+import '../models/coach_record.dart';
+import '../config/data_file_helper.dart';
+import '../config/app_settings.dart';
+import '../widgets/error.dart';
+
+// ==================== 机车 配属段 - 路局图标 映射 ====================
+class LocoDepotMapper {
+  static String? getIconName(String depot) {
+    if (depot.isEmpty) return null;
+
+    if (depot.startsWith('上局') || depot.startsWith('三新铁路')) {
+      return '上海铁路局';
+    }
+    if (depot.startsWith('乌局')) return '乌鲁木齐铁路局';
+    if (depot.startsWith('京局')) return '北京铁路局';
+    if (depot.startsWith('兰局')) return '兰州铁路局';
+    if (depot.startsWith('南局')) return '南昌铁路局';
+    if (depot.startsWith('宁局')) return '南宁铁路局';
+    if (depot.startsWith('呼局') || depot == '集通大段') return '呼和浩特铁路局';
+    if (depot.startsWith('哈局')) return '哈尔滨铁路局';
+    if (depot.startsWith('太局') || depot == '晋神铁路' || depot == '潞安公司') {
+      return '太原铁路局';
+    }
+    if (depot.startsWith('成局')) return '成都铁路局';
+    if (depot.startsWith('昆局')) return '昆明铁路局';
+    if (depot.startsWith('武局')) return '武汉铁路局';
+    if (depot.startsWith('沈局') || depot == '沈阳铁博' || depot == '阜新矿') {
+      return '沈阳铁路局';
+    }
+    if (depot.startsWith('济局') ||
+        depot == '德大铁路' ||
+        depot == '梁邹公司' ||
+        depot == '金台铁路') {
+      return '济南铁路局';
+    }
+    if (depot.startsWith('西局') || depot == '西延公司') return '西安铁路局';
+    if (depot.startsWith('郑局')) return '郑州铁路局';
+    if (depot.startsWith('广铁') ||
+        depot == '广州港' ||
+        depot == '金温温段' ||
+        depot == '广东城际' ||
+        depot == '广通铁运') {
+      return '广州铁路局';
+    }
+    if (depot.startsWith('青藏') || depot == '青藏宁段' || depot == '青藏格段') {
+      return '青藏铁路局';
+    }
+
+    if (depot == '专运处' || depot == '铁博' || depot == '铁科院') {
+      return '国铁集团';
+    }
+    if (depot.contains('香港')) return '香港铁路有限公司';
+
+    return null;
+  }
+
+  static String getFullName(String depot) {
+    final icon = getIconName(depot);
+    return icon ?? depot;
+  }
+}
+
+// ==================== 数据模型 ====================
+class LocoResult {
+  final String model;
+  final String number;
+  final String depot;
+  final double? score;
+  final int? rank;
+
+  LocoResult({
+    required this.model,
+    required this.number,
+    required this.depot,
+    this.score,
+    this.rank,
+  });
+}
+
+// CoachRecord -> models/coach_record.dart
+
+class CoachSearchResult {
+  final CoachRecord record;
+  final double? score;
+  final int? rank;
+  final String queryTime;
+
+  CoachSearchResult({
+    required this.record,
+    this.score,
+    this.rank,
+    required this.queryTime,
+  });
+}
+
+// ==================== 机车查询页面 ====================
+class LocoSearchPage extends StatefulWidget {
+  const LocoSearchPage({super.key});
+
+  @override
+  State<LocoSearchPage> createState() => _LocoSearchPageState();
+}
+
+class _LocoSearchPageState extends State<LocoSearchPage> {
+  final TextEditingController _controller = TextEditingController();
+  String _searchType = 'locoId'; // locoId | depot | carType
+
+  bool _isLoading = false;
+  String _errorMsg = '';
+
+  List<Map<String, dynamic>> _locoData = [];
+
+  // 分页
+  List<Map<String, dynamic>> _allPageRecords = [];
+  final List<LocoResult> _results = [];
+  int _currentPage = 1;
+  final int _pageSize = 10;
+  int _totalResults = 0;
+  String? _currentSearchLabel;
+  bool _loadingPage = false;
+
+  late TextEditingController _pageController;
+
+  int get _totalPages => (_totalResults / _pageSize).ceil();
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = TextEditingController(text: '1');
+    _loadLocoData();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadLocoData() async {
+    try {
+      final List<Map<String, dynamic>> flat = await DataFileHelper.loadLocos();
+      if (mounted) {
+        setState(() => _locoData = flat);
+      }
+    } catch (e) {
+      logError(from: 'more_search/_loadLocoData', error: e.toString());
+      if (mounted) {
+        setState(() => _errorMsg = '加载机车数据失败: $e');
+      }
+    }
+  }
+
+  void _resetPagination() {
+    _currentPage = 1;
+    _totalResults = 0;
+    _currentSearchLabel = null;
+    _allPageRecords = [];
+    _loadingPage = false;
+    _pageController.text = '1';
+  }
+
+  List<String> _getAllModels() {
+    return _locoData.map((r) => r['model'] as String).toSet().toList()..sort();
+  }
+
+  List<String> _getAllDepots() {
+    return _locoData
+        .map((r) => r['depot'] as String)
+        .where((d) => d.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
+  // ==================== 搜索入口 ====================
+  void _performSearch() {
+    final input = _controller.text.trim();
+    if (input.isEmpty) {
+      setState(() => _errorMsg = '请输入查询内容');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMsg = '';
+      _results.clear();
+      _resetPagination();
+    });
+
+    switch (_searchType) {
+      case 'locoId':
+        _searchByLocoId(input);
+        break;
+      case 'depot':
+        _searchByDepot(input);
+        break;
+      case 'carType':
+        _searchByModel(input);
+        break;
+    }
+  }
+
+  // ==================== 车号搜索（模糊 + 评分） ====================
+  void _searchByLocoId(String input) {
+    final cleanInput = input
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .toUpperCase();
+
+    final List<MapEntry<Map<String, dynamic>, double>> scored = [];
+
+    for (final record in _locoData) {
+      final model = record['model'] as String;
+      final number = record['number'] as String;
+      final full = '${model.toUpperCase()}$number';
+
+      double score = 0;
+
+      if (cleanInput == full) {
+        score = 1.0;
+      } else if (full.endsWith(cleanInput)) {
+        score = 0.95;
+      } else if (full.contains(cleanInput)) {
+        score = 0.8;
+      } else if (number.endsWith(cleanInput)) {
+        score = 0.75;
+      } else if (number.contains(cleanInput)) {
+        score = 0.6;
+      } else if (model.toUpperCase().startsWith(cleanInput) ||
+          cleanInput.startsWith(model.toUpperCase())) {
+        score = 0.3;
+      }
+
+      if (score > 0) scored.add(MapEntry(record, score));
+    }
+
+    if (scored.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMsg = '未找到匹配的机车车号';
+      });
+      return;
+    }
+
+    scored.sort((a, b) => b.value.compareTo(a.value));
+    final topScore = scored.first.value;
+    // 只保留与最高分同分段的结果，最多10条，避免低分误匹配
+    final top = scored
+        .where((e) => e.value >= topScore - 0.05)
+        .take(10)
+        .toList();
+
+    setState(() {
+      _results.addAll(
+        top.asMap().entries.map(
+          (e) => LocoResult(
+            model: e.value.key['model'],
+            number: e.value.key['number'],
+            depot: e.value.key['depot'],
+            score: e.value.value,
+            rank: e.key + 1,
+          ),
+        ),
+      );
+      _totalResults = _results.length;
+      _currentSearchLabel = input;
+      _isLoading = false;
+    });
+  }
+
+  // ==================== 配属段搜索 ====================
+  void _searchByDepot(String input) {
+    final pattern = input.trim().toLowerCase();
+    final matched = _locoData.where((r) {
+      return (r['depot'] as String).toLowerCase().contains(pattern);
+    }).toList();
+
+    if (matched.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMsg = '未找到配属段 "$input" 的机车';
+      });
+      return;
+    }
+
+    matched.sort((a, b) {
+      final mc = (a['model'] as String).compareTo(b['model'] as String);
+      return mc != 0
+          ? mc
+          : (a['number'] as String).compareTo(b['number'] as String);
+    });
+
+    _allPageRecords = matched;
+    _totalResults = matched.length;
+    _currentSearchLabel = input;
+    _loadPage(1);
+  }
+
+  // ==================== 车型搜索 ====================
+  void _searchByModel(String input) {
+    final pattern = input.trim().toUpperCase();
+    final matched = _locoData
+        .where((r) => (r['model'] as String).toUpperCase() == pattern)
+        .toList();
+
+    if (matched.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMsg = '未找到车型 "$input"';
+      });
+      return;
+    }
+
+    matched.sort(
+      (a, b) => (a['number'] as String).compareTo(b['number'] as String),
+    );
+
+    _allPageRecords = matched;
+    _totalResults = matched.length;
+    _currentSearchLabel = pattern;
+    _loadPage(1);
+  }
+
+  // ==================== 分页 ====================
+  void _loadPage(int page) {
+    if (_allPageRecords.isEmpty || page < 1 || page > _totalPages) return;
+
+    setState(() => _loadingPage = true);
+
+    final start = (page - 1) * _pageSize;
+    final end = min(page * _pageSize, _allPageRecords.length);
+    final pageRecords = _allPageRecords.sublist(start, end);
+
+    final newResults = pageRecords.map((r) {
+      return LocoResult(
+        model: r['model'] as String,
+        number: r['number'] as String,
+        depot: r['depot'] as String,
+      );
+    }).toList();
+
+    setState(() {
+      _results.clear();
+      _results.addAll(newResults);
+      _currentPage = page;
+      _pageController.text = page.toString();
+      _loadingPage = false;
+      _isLoading = false;
+    });
+  }
+
+  void _goToPage(int page) {
+    if (page == _currentPage ||
+        _loadingPage ||
+        page < 1 ||
+        page > _totalPages) {
+      _pageController.text = _currentPage.toString();
+      return;
+    }
+    _loadPage(page);
+  }
+
+  // ==================== 分页控件 ====================
+  Widget _buildPaginationControls() => buildPaginationControls(
+    context: context,
+    currentPage: _currentPage,
+    totalPages: _totalPages,
+    totalResults: _totalResults,
+    loadingPage: _loadingPage,
+    pageController: _pageController,
+    onGoToPage: _goToPage,
+  );
+
+  // ==================== 结果卡片（与 EMU 高度一致） ====================
+  Widget _buildResultCard(LocoResult result) {
+    final iconName = LocoDepotMapper.getIconName(result.depot);
+    final settings = Provider.of<AppSettings>(context, listen: false);
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 机车图标
+                _buildLocoIcon(result.model),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${result.model}-${result.number}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (result.score != null) ...[
+                        const SizedBox(height: 4),
+                        buildScoreBar(
+                          context,
+                          result.score!,
+                          rank: result.rank,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                // 路局图标
+                if (settings.showBureauIcons && iconName != null)
+                  _buildBureauIcon(iconName)
+                else
+                  const SizedBox(width: 32, height: 32),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (result.depot.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [_buildInfoRow('配属段', result.depot)],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocoIcon(String model) {
+    final assetPath = 'assets/icon/train/$model.png';
+    return FutureBuilder<bool>(
+      future: _checkAssetExists(assetPath),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.done && snap.data == true) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.asset(
+              assetPath,
+              width: 32,
+              height: 32,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) =>
+                  _fallbackTrainIcon(),
+            ),
+          );
+        }
+        return _fallbackTrainIcon();
+      },
+    );
+  }
+
+  Widget _fallbackTrainIcon() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Icon(Icons.directions_railway, size: 20, color: Colors.grey),
+    );
+  }
+
+  Widget _buildBureauIcon(String iconName) {
+    final assetPath = 'assets/icon/bureau/$iconName.png';
+    return FutureBuilder<bool>(
+      future: _checkAssetExists(assetPath),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.done && snap.data == true) {
+          return Image.asset(
+            assetPath,
+            width: 32,
+            height: 32,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) =>
+                const SizedBox(width: 32, height: 32),
+          );
+        }
+        return const SizedBox(width: 32, height: 32);
+      },
+    );
+  }
+
+  Future<bool> _checkAssetExists(String path) => checkAssetExists(path);
+
+  Widget _buildInfoRow(String label, String value) =>
+      buildInfoRow(label, value);
+
+  // ==================== 搜索类型选择器 ====================
+  Widget _buildSearchTypeSelector() {
+    return SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(
+          value: 'locoId',
+          label: Text('车号查询'),
+          icon: Icon(Icons.confirmation_number),
+        ),
+        ButtonSegment(
+          value: 'depot',
+          label: Text('配属段查询'),
+          icon: Icon(Icons.business),
+        ),
+        ButtonSegment(
+          value: 'carType',
+          label: Text('车型查询'),
+          icon: Icon(Icons.category),
+        ),
+      ],
+      selected: {_searchType},
+      onSelectionChanged: (s) {
+        setState(() {
+          _searchType = s.first;
+          _results.clear();
+          _errorMsg = '';
+          _resetPagination();
+        });
+      },
+      style: SegmentedButton.styleFrom(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        selectedBackgroundColor: Theme.of(context).colorScheme.primary,
+        selectedForegroundColor: Theme.of(context).colorScheme.onPrimary,
+      ),
+    );
+  }
+
+  // ==================== 空状态 ====================
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          Icon(
+            _searchType == 'depot'
+                ? Icons.business
+                : _searchType == 'carType'
+                ? Icons.category
+                : Icons.train,
+            size: 64,
+            color: Colors.grey,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchType == 'locoId'
+                ? '请输入机车车号进行查询\n（例如：DF11-0001 或 0001）'
+                : _searchType == 'depot'
+                ? '请输入配属段进行查询\n（例如：京局京段）'
+                : '请输入车型进行查询（例如：DF11）',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 24),
+          if (_searchType == 'carType') ...[
+            const Text('所有可查车型:'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              alignment: WrapAlignment.center,
+              children: _getAllModels().map((model) {
+                return GestureDetector(
+                  onTap: () {
+                    _controller.text = model;
+                    _performSearch();
+                  },
+                  child: Chip(label: Text(model)),
+                );
+              }).toList(),
+            ),
+          ],
+          if (_searchType == 'depot') ...[
+            const Text('所有配属段:'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              alignment: WrapAlignment.center,
+              children: _getAllDepots().map((depot) {
+                return GestureDetector(
+                  onTap: () {
+                    _controller.text = depot;
+                    _performSearch();
+                  },
+                  child: Chip(label: Text(depot)),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isPaged = _searchType == 'depot' || _searchType == 'carType';
+    final totalCount = _totalResults > 0 ? _totalResults : _results.length;
+    final displayedCount = _results.length;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('机车查询')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 搜索框 + 查询按钮
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      labelText: _searchType == 'locoId'
+                          ? '输入机车车号'
+                          : _searchType == 'depot'
+                          ? '输入配属段'
+                          : '输入车型',
+                      hintText: _searchType == 'locoId'
+                          ? '如: DF11-0001 或 0001'
+                          : _searchType == 'depot'
+                          ? '如: 京局京段'
+                          : '如: DF11',
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                    ),
+                    onSubmitted: (_) => _performSearch(),
+                    textInputAction: TextInputAction.search,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _performSearch,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(80, 56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(_isLoading ? '查询中...' : '查询'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // 搜索类型选择器
+            _buildSearchTypeSelector(),
+            const SizedBox(height: 20),
+
+            if (_isLoading && _results.isEmpty)
+              const Center(child: CircularProgressIndicator()),
+
+            if (_errorMsg.isNotEmpty)
+              buildErrorCard(
+                context,
+                _errorMsg,
+                () => setState(() => _errorMsg = ''),
+              ),
+
+            if (_results.isNotEmpty) ...[
+              buildResultCountBar(
+                context,
+                label: isPaged
+                    ? '$_currentSearchLabel 共 $totalCount 条（当前 $displayedCount 条）'
+                    : '共找到 $totalCount 条结果',
+                onClear: () => setState(() {
+                  _results.clear();
+                  _controller.clear();
+                  _errorMsg = '';
+                  _resetPagination();
+                }),
+              ),
+              const SizedBox(height: 12),
+
+              if (isPaged) _buildPaginationControls(),
+
+              for (final r in _results) _buildResultCard(r),
+
+              if (_loadingPage)
+                const Center(child: CircularProgressIndicator()),
+            ],
+
+            const SizedBox(height: 40),
+
+            if (!_isLoading && _errorMsg.isEmpty && _results.isEmpty)
+              _buildEmptyState(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== 客车查询页面 ====================
+
+class CoachSearchPage extends StatefulWidget {
+  const CoachSearchPage({super.key});
+
+  @override
+  State<CoachSearchPage> createState() => _CoachSearchPageState();
+}
+
+class _CoachSearchPageState extends State<CoachSearchPage> {
+  final TextEditingController _controller = TextEditingController();
+  late TextEditingController _pageController;
+
+  String _searchType = 'number'; // 'number' | 'depot' | 'model'
+  bool _isLoading = false;
+  String _errorMsg = '';
+
+  // 原始数据
+  List<CoachRecord> _allRecords = [];
+
+  // 搜索结果
+  final List<CoachSearchResult> _searchResults = [];
+
+  // 分页（配属段/车型查询用）
+  List<CoachRecord> _pagedSource = [];
+  int _currentPage = 1;
+  final int _pageSize = 7;
+  int _totalResults = 0;
+  bool _loadingPage = false;
+  String? _currentSearchLabel;
+
+  int get _totalPages => (_totalResults / _pageSize).ceil();
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = TextEditingController(text: '1');
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // ==================== 数据加载 ====================
+
+  Future<void> _loadData() async {
+    try {
+      final records = await DataFileHelper.loadCoaches();
+      if (mounted) {
+        setState(() => _allRecords = records);
+      }
+    } catch (e) {
+      logError(from: 'more_search/_loadData', error: e.toString());
+      if (mounted) {
+        setState(() => _errorMsg = '加载数据失败: $e');
+      }
+    }
+  }
+
+  // ==================== 工具函数 ====================
+
+  String _cleanString(String input) =>
+      input.replaceAll(RegExp(r'[^a-zA-Z0-9\u4e00-\u9fff]'), '').toUpperCase();
+
+  List<String> _getAllModels() {
+    final models = _allRecords
+        .map((r) => r.model)
+        .where((m) => m.isNotEmpty)
+        .toSet()
+        .toList();
+    models.sort();
+    return models;
+  }
+
+  List<String> _getAllDepots() {
+    final depots = _allRecords
+        .map((r) => r.depot)
+        .where((d) => d.isNotEmpty)
+        .toSet()
+        .toList();
+    depots.sort();
+    return depots;
+  }
+
+  void _resetPagination() {
+    _currentPage = 1;
+    _totalResults = 0;
+    _currentSearchLabel = null;
+    _pagedSource = [];
+    _loadingPage = false;
+    _pageController.text = '1';
+  }
+
+  // ==================== 搜索逻辑 ====================
+
+  void _performSearch() {
+    final input = _controller.text.trim();
+    if (input.isEmpty) {
+      setState(() => _errorMsg = '请输入查询内容');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMsg = '';
+      _searchResults.clear();
+      _resetPagination();
+    });
+
+    try {
+      if (_searchType == 'number') {
+        _searchByNumber(input);
+      } else if (_searchType == 'depot') {
+        _searchByDepot(input);
+      } else if (_searchType == 'model') {
+        _searchByModel(input);
+      }
+    } catch (e) {
+      logError(from: 'more_search/_performSearch', error: e.toString());
+      setState(() => _errorMsg = '查询失败: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // ---- 车号查询 ----
+  void _searchByNumber(String input) {
+    final cleaned = _cleanString(input);
+    if (cleaned.length < 4) {
+      setState(() {
+        _isLoading = false;
+        _errorMsg = '请输入至少4位有效字符';
+      });
+      return;
+    }
+
+    final queryTime = DateTime.now().toLocal().toString().substring(0, 19);
+
+    // 精确匹配：车号完全包含输入，或输入完全包含车号
+    final Map<CoachRecord, double> scored = {};
+    for (final record in _allRecords) {
+      final cleanNum = _cleanString(record.number);
+      final cleanModel = _cleanString(record.model);
+      final full = '$cleanModel$cleanNum';
+
+      double score = 0.0;
+      if (full == cleaned || cleanNum == cleaned) {
+        score = 1.0;
+      } else if (cleanNum.endsWith(cleaned) || cleaned.endsWith(cleanNum)) {
+        score = 0.9;
+      } else if (cleanNum.contains(cleaned) || cleaned.contains(cleanNum)) {
+        score = 0.7;
+      } else {
+        // 末四位匹配
+        final inputDigits = cleaned.replaceAll(RegExp(r'[^0-9]'), '');
+        final numDigits = cleanNum.replaceAll(RegExp(r'[^0-9]'), '');
+        if (inputDigits.length >= 4 && numDigits.length >= 4) {
+          final inputLast4 = inputDigits.substring(inputDigits.length - 4);
+          final numLast4 = numDigits.substring(numDigits.length - 4);
+          if (inputLast4 == numLast4) score = 0.6;
+        }
+      }
+
+      if (score > 0) scored[record] = score;
+    }
+
+    if (scored.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMsg = '未找到匹配车号「$input」';
+      });
+      return;
+    }
+
+    final sorted = scored.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topScore = sorted.first.value;
+    final best = topScore >= 0.9
+        ? sorted.where((e) => e.value >= topScore - 0.05).toList()
+        : sorted.take(5).toList();
+
+    setState(() {
+      for (int i = 0; i < best.length; i++) {
+        _searchResults.add(
+          CoachSearchResult(
+            record: best[i].key,
+            score: best[i].value,
+            rank: i + 1,
+            queryTime: queryTime,
+          ),
+        );
+      }
+      _isLoading = false;
+    });
+  }
+
+  // ---- 配属段查询 ----
+  void _searchByDepot(String input) {
+    final pattern = input.trim().toLowerCase();
+    final matches = _allRecords
+        .where((r) => r.depot.toLowerCase().contains(pattern))
+        .toList();
+
+    if (matches.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMsg = '未找到配属段「$input」';
+      });
+      return;
+    }
+
+    matches.sort((a, b) {
+      final mc = a.model.compareTo(b.model);
+      return mc != 0 ? mc : a.number.compareTo(b.number);
+    });
+
+    _pagedSource = matches;
+    _totalResults = matches.length;
+    _currentSearchLabel = input;
+    _loadPage(1);
+  }
+
+  // ---- 型号查询 ----
+  void _searchByModel(String input) {
+    final pattern = input.trim().toUpperCase();
+    final matches = _allRecords
+        .where((r) => r.model.toUpperCase() == pattern)
+        .toList();
+
+    if (matches.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMsg = '未找到车型「$input」，请检查输入是否正确';
+      });
+      return;
+    }
+
+    matches.sort((a, b) => a.number.compareTo(b.number));
+
+    _pagedSource = matches;
+    _totalResults = matches.length;
+    _currentSearchLabel = pattern;
+    _loadPage(1);
+  }
+
+  // ---- 分页 ----
+  void _loadPage(int page) {
+    if (_pagedSource.isEmpty || page < 1 || page > _totalPages) return;
+
+    setState(() => _loadingPage = true);
+
+    final start = (page - 1) * _pageSize;
+    final end = min(page * _pageSize, _pagedSource.length);
+    final pageRecords = _pagedSource.sublist(start, end);
+
+    final queryTime = DateTime.now().toLocal().toString().substring(0, 19);
+    final newResults = pageRecords
+        .map((r) => CoachSearchResult(record: r, queryTime: queryTime))
+        .toList();
+
+    setState(() {
+      _searchResults
+        ..clear()
+        ..addAll(newResults);
+      _currentPage = page;
+      _pageController.text = page.toString();
+      _loadingPage = false;
+      _isLoading = false;
+    });
+  }
+
+  void _goToPage(int page) {
+    if (page == _currentPage ||
+        _loadingPage ||
+        page < 1 ||
+        page > _totalPages) {
+      _pageController.text = _currentPage.toString();
+      return;
+    }
+    _loadPage(page);
+  }
+
+  // ==================== UI 组件 ====================
+
+  Widget _buildInfoRow(String label, String value) =>
+      buildInfoRow(label, value, labelWidth: 72);
+
+  Widget _buildResultCard(CoachSearchResult result) {
+    final record = result.record;
+
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题行
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 车型徽章
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    record.model,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        record.number,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (_searchType == 'depot' || _searchType == 'model')
+                        Text(
+                          record.depot,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withAlpha(150),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // 匹配分数（车号查询才显示）
+                if (result.score != null)
+                  buildScoreBar(context, result.score!, rank: result.rank),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+
+            // 详细信息
+            if (record.depot.isNotEmpty && _searchType == 'number')
+              _buildInfoRow('现配属', record.depot),
+            if (record.capacity != null && record.capacity!.isNotEmpty)
+              _buildInfoRow('定员', '${record.capacity}人'),
+            if (record.bogie != null && record.bogie!.isNotEmpty)
+              _buildInfoRow('转向架', record.bogie!),
+            if (record.manufacturer != null && record.manufacturer!.isNotEmpty)
+              _buildInfoRow('制造厂', record.manufacturer!),
+
+            const SizedBox(height: 6),
+            Text(
+              '查询时间: ${result.queryTime}',
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurface.withAlpha(120),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls() => buildPaginationControls(
+    context: context,
+    currentPage: _currentPage,
+    totalPages: _totalPages,
+    totalResults: _totalResults,
+    loadingPage: _loadingPage,
+    pageController: _pageController,
+    onGoToPage: _goToPage,
+    padding: const EdgeInsets.symmetric(vertical: 12),
+  );
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          Icon(
+            Icons.directions_railway_filled_outlined,
+            size: 64,
+            color: Theme.of(context).colorScheme.onSurface.withAlpha(80),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchType == 'number'
+                ? '请输入车号进行查询\n（例如：080003 或 892151）'
+                : _searchType == 'depot'
+                ? '请输入配属段名称进行查询\n（例如：广铁 或 成局）'
+                : '请输入车型代号进行查询',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 24),
+
+          // 车型查询：显示所有可查车型
+          if (_searchType == 'model') ...[
+            const Text('所有可查车型:'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              alignment: WrapAlignment.center,
+              children: _getAllModels().map((m) {
+                return GestureDetector(
+                  onTap: () {
+                    _controller.text = m;
+                    _performSearch();
+                  },
+                  child: Chip(label: Text(m)),
+                );
+              }).toList(),
+            ),
+          ],
+
+          // 配属段查询：显示常见配属段
+          if (_searchType == 'depot') ...[
+            const Text('所有配属段:'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              alignment: WrapAlignment.center,
+              children: _getAllDepots().map((d) {
+                return GestureDetector(
+                  onTap: () {
+                    _controller.text = d;
+                    _performSearch();
+                  },
+                  child: Chip(label: Text(d)),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ==================== build ====================
+
+  @override
+  Widget build(BuildContext context) {
+    final displayedCount = _searchResults.length;
+    final totalCount = (_searchType == 'depot' || _searchType == 'model')
+        ? _totalResults
+        : displayedCount;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('客车查询')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ---- 搜索栏 ----
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    keyboardType: TextInputType.text,
+                    decoration: InputDecoration(
+                      labelText: _searchType == 'number'
+                          ? '输入车号'
+                          : _searchType == 'depot'
+                          ? '输入配属段名称'
+                          : '输入车型代号',
+                      hintText: _searchType == 'number'
+                          ? '如: 080003'
+                          : _searchType == 'depot'
+                          ? '如: 广铁 或 成局贵段'
+                          : '如: CA25G',
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                      prefixIcon: const Icon(Icons.search),
+                    ),
+                    onSubmitted: (_) => _performSearch(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _performSearch,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(80, 56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(_isLoading ? '查询中...' : '查询'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ---- 查询类型切换 ----
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'number',
+                  label: Text('车号'),
+                  icon: Icon(Icons.confirmation_number),
+                ),
+                ButtonSegment(
+                  value: 'depot',
+                  label: Text('配属段'),
+                  icon: Icon(Icons.location_city),
+                ),
+                ButtonSegment(
+                  value: 'model',
+                  label: Text('车型'),
+                  icon: Icon(Icons.card_travel_rounded),
+                ),
+              ],
+              selected: {_searchType},
+              onSelectionChanged: (s) => setState(() {
+                _searchType = s.first;
+                _controller.clear();
+                _searchResults.clear();
+                _errorMsg = '';
+                _resetPagination();
+              }),
+              style: SegmentedButton.styleFrom(
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
+                selectedBackgroundColor: Theme.of(context).colorScheme.primary,
+                selectedForegroundColor: Theme.of(
+                  context,
+                ).colorScheme.onPrimary,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ---- 加载中 ----
+            if (_isLoading && _searchResults.isEmpty)
+              const Center(child: CircularProgressIndicator()),
+
+            // ---- 错误信息 ----
+            if (_errorMsg.isNotEmpty)
+              buildErrorCard(
+                context,
+                _errorMsg,
+                () => setState(() => _errorMsg = ''),
+              ),
+
+            // ---- 结果区域 ----
+            if (_searchResults.isNotEmpty) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.info_outline, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            (_searchType == 'depot' || _searchType == 'model')
+                                ? '「$_currentSearchLabel」共 $totalCount 条（当前 $displayedCount 条）'
+                                : '共找到 $totalCount 条结果',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: '清除结果',
+                    onPressed: () {
+                      setState(() {
+                        _searchResults.clear();
+                        _controller.clear();
+                        _errorMsg = '';
+                        _resetPagination();
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (_searchType == 'depot' || _searchType == 'model')
+                _buildPaginationControls(),
+
+              for (final result in _searchResults) _buildResultCard(result),
+
+              if (_loadingPage)
+                const Center(child: CircularProgressIndicator()),
+            ],
+
+            // ---- 空状态 ----
+            if (!_isLoading && _errorMsg.isEmpty && _searchResults.isEmpty)
+              _buildEmptyState(),
+
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+}

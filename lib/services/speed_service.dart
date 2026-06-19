@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../screens/function/error.dart';
-import '../screens/function/gps.dart';
+import '../widgets/error.dart';
+import '../gps/gps.dart';
 
 /// 轨迹点：经纬度 + 对应速度
 class TrackPoint {
@@ -85,7 +85,7 @@ class SpeedService extends ChangeNotifier {
         return;
       }
 
-      if (Platform.isAndroid) {
+      if (!kIsWeb && Platform.isAndroid) {
         // 尝试请求后台权限
         if (permission == LocationPermission.whileInUse) {
           await Geolocator.requestPermission();
@@ -96,6 +96,7 @@ class SpeedService extends ChangeNotifier {
       statusMsg = isTracking ? '正在测速' : '点击开始测速';
       notifyListeners();
     } catch (e, stack) {
+      logError(from: 'speed_service/checkPermission', error: e.toString());
       await logError(
         from: 'SpeedService.checkPermission',
         error: '位置权限检查失败: $e',
@@ -137,16 +138,17 @@ class SpeedService extends ChangeNotifier {
           debugInfo = '使用上次缓存位置';
           _onPosition(last);
         }
-      } catch (_) {}
+      } catch (e) { logError(from: 'speed_service/startTracking', error: e.toString()); }
 
       final settings = SettingsModel();
 
-      if (Platform.isAndroid && settings.forcePolling) {
+      if (!kIsWeb && Platform.isAndroid && settings.forcePolling) {
         _startPolling();
       } else {
         _startStream();
       }
     } catch (e) {
+      logError(from: 'speed_service/startTracking', error: e.toString());
       await logError(
         from: 'SpeedService.startTracking',
         error: '启动测速失败: $e',
@@ -214,6 +216,7 @@ class SpeedService extends ChangeNotifier {
 
         if (isTracking) _onPosition(position);
       } catch (e) {
+        logError(from: 'speed_service/_scheduleNextPoll', error: e.toString());
         await logError(
           from: 'SpeedService._scheduleNextPoll',
           error: '轮询获取位置失败: $e',
@@ -275,13 +278,13 @@ class SpeedService extends ChangeNotifier {
   // ── 构建流模式定位参数 ──────────────────────────────────────
   LocationSettings _buildStreamLocationSettings() {
     final settings = SettingsModel();
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       return AndroidSettings(
         accuracy: LocationAccuracy.high,
         intervalDuration: const Duration(seconds: 1),
         forceLocationManager: settings.forceLocationManager,
       );
-    } else if (Platform.isIOS || Platform.isMacOS) {
+    } else if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
       return AppleSettings(
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.fitness,
@@ -294,12 +297,12 @@ class SpeedService extends ChangeNotifier {
   // ── 构建轮询模式定位参数 ──────────────────────────────────────
   LocationSettings _buildPollLocationSettings() {
     final settings = SettingsModel();
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       return AndroidSettings(
         accuracy: LocationAccuracy.high,
         forceLocationManager: settings.forceLocationManager,
       );
-    } else if (Platform.isIOS || Platform.isMacOS) {
+    } else if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
       return AppleSettings(
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.fitness,
@@ -337,6 +340,7 @@ class SpeedService extends ChangeNotifier {
         statusMsg = '已停止';
       }
     } catch (e) {
+      logError(from: 'speed_service/stopTracking', error: e.toString());
       await logError(
         from: 'SpeedService.stopTracking',
         error: '停止测速失败: $e',
@@ -373,6 +377,7 @@ class SettingsModel extends ChangeNotifier {
       _forcePolling = prefs.getBool('forcePolling') ?? false;
       notifyListeners();
     } catch (e) {
+      logError(from: 'speed_service/load', error: e.toString());
       await logError(
         from: 'SettingsModel.load',
         error: '加载测速设置失败: $e',
@@ -388,6 +393,7 @@ class SettingsModel extends ChangeNotifier {
       await prefs.setBool('forceLocationManager', value);
       notifyListeners();
     } catch (e) {
+      logError(from: 'speed_service/setForceLocationManager', error: e.toString());
       await logError(
         from: 'SettingsModel.setForceLocationManager',
         error: '保存 forceLocationManager 失败: $e',
@@ -403,6 +409,7 @@ class SettingsModel extends ChangeNotifier {
       await prefs.setDouble('pollIntervalSeconds', _pollIntervalSeconds);
       notifyListeners();
     } catch (e) {
+      logError(from: 'speed_service/setPollIntervalSeconds', error: e.toString());
       await logError(
         from: 'SettingsModel.setPollIntervalSeconds',
         error: '保存 pollIntervalSeconds 失败: $e',
@@ -418,6 +425,7 @@ class SettingsModel extends ChangeNotifier {
       await prefs.setBool('forcePolling', value);
       notifyListeners();
     } catch (e) {
+      logError(from: 'speed_service/setForcePolling', error: e.toString());
       await logError(
         from: 'SettingsModel.setForcePolling',
         error: '保存 forcePolling 失败: $e',

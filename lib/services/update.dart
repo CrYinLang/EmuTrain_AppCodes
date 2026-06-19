@@ -2,23 +2,27 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import '../config/functions.dart';
-import '../screens/function/error.dart';
+import '../widgets/error.dart';
 import '../config/app_vars.dart';
+import '../utils/platform_helper.dart';
 
 class UpdateService {
   static Future<Map<String, dynamic>?> checkForUpdate({
     bool forceRefresh = false,
   }) async {
+    if (isWeb) return null; // Web 平台禁用更新
     try {
       if (forceRefresh) Vars.clearVersionCache();
       final result = await Vars.fetchVersionCommand();
       if (result != null) return result;
       return {'error': '网络请求失败，请检查网络连接'};
     } catch (e, stack) {
+      logError(from: 'update/unknown', error: e.toString());
       await logError(
         from: 'UpdateService.checkForUpdate',
         error: '检查更新失败: $e',
@@ -31,6 +35,7 @@ class UpdateService {
 
   static Future<({List<String> updated, List<String> failed})?>
   silentUpdateAllData() async {
+    if (isWeb) return null; // Web 平台禁用更新
     try {
       final versionInfo = await UpdateService.checkForUpdate(
         forceRefresh: true,
@@ -109,6 +114,7 @@ class UpdateService {
             );
           }
         } catch (e, stack) {
+          logError(from: 'update/unknown', error: e.toString());
           failed.add(task.label);
           await logError(
             from: 'UpdateService.silentUpdateAllData',
@@ -120,6 +126,7 @@ class UpdateService {
       }
       return (updated: updated, failed: failed);
     } catch (e, stack) {
+      logError(from: 'update/unknown', error: e.toString());
       await logError(
         from: 'UpdateService.silentUpdateAllData',
         error: '静默更新全部数据过程异常: $e',
@@ -153,6 +160,7 @@ class _SilentTask {
 /// ================= 对外调用入口 =================
 class UpdateUI {
   static Future<void> showAppUpdateFlow(BuildContext context) async {
+    if (isWeb) return; // Web 平台禁用更新
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -172,6 +180,7 @@ class UpdateUI {
   }
 
   static Future<void> showStationUpdateFlow(BuildContext context) async {
+    if (isWeb) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -191,6 +200,7 @@ class UpdateUI {
   }
 
   static Future<void> showTrainUpdateFlow(BuildContext context) async {
+    if (isWeb) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -210,6 +220,7 @@ class UpdateUI {
   }
 
   static Future<void> showCoachTrainUpdateFlow(BuildContext context) async {
+    if (isWeb) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -230,6 +241,7 @@ class UpdateUI {
 
   /// 一键更新所有数据（带进度弹窗，供用户手动触发）
   static Future<void> showUpdateAllDataFlow(BuildContext context) async {
+    if (isWeb) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -279,6 +291,7 @@ class UpdateUI {
   }
 
   static Future<void> showLocoUpdateFlow(BuildContext context) async {
+    if (isWeb) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -523,6 +536,7 @@ class _DataUpdateDialog extends StatelessWidget {
                                 throw Exception('下载失败: ${response.statusCode}');
                               }
                             } catch (e) {
+                              logError(from: 'update/unknown', error: e.toString());
                               await logError(
                                 from: '_DataUpdateDialog.download',
                                 error: '$remoteDataPath 下载失败: $e',

@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../screens/function/error.dart';
+import '../widgets/error.dart';
 
 class Vars {
-  static const String lastUpdate = '260607';
-  static const String version = '1.2.3.1';
-  static const String build = '1231';
+  static const String lastUpdate = '260619';
+  static const String version = '1.2.5.0';
+  static const String build = '1250';
   static const String updateDescription =
       '新增 首次启动欢迎界面和用户协议确认\n'
       '优化 新版本更新说明显示逻辑\n'
@@ -20,7 +20,7 @@ class Vars {
     return remoteDescribe.isNotEmpty ? remoteDescribe : updateDescription;
   }
 
-  static String defaultStationBuild = '202606070';
+  static String defaultStationBuild = '202606190';
   static String defaultTrainBuild = '202605230';
   static String defaultCoachTrainBuild = '202605230';
   static String defaultLocoBuild = '202605230';
@@ -170,6 +170,7 @@ class Vars {
           );
         }
       } catch (e, stack) {
+        logError(from: 'app_vars/setMirrorSource', error: e.toString());
         await logError(
           from: 'Vars._doFetch',
           error: '获取版本信息异常 ($base): $e',
