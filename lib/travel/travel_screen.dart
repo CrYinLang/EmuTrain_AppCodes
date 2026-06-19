@@ -4,12 +4,61 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/journey_model.dart';
+import '../models/record_model.dart';
 import '../providers/journey_provider.dart';
+import '../providers/record_provider.dart';
 import '../journey/journey.dart';
 import '../journey/journey_detail_page.dart';
 
-class TravelScreen extends StatelessWidget {
+class TravelScreen extends StatefulWidget {
   const TravelScreen({super.key});
+
+  @override
+  State<TravelScreen> createState() => _TravelScreenState();
+}
+
+class _TravelScreenState extends State<TravelScreen> {
+  bool _checkedExpired = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 首次构建后自动将过期行程移交给记录模块
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoTransferExpired();
+    });
+  }
+
+  void _autoTransferExpired() {
+    if (_checkedExpired) return;
+    _checkedExpired = true;
+
+    final journeyProvider = context.read<JourneyProvider>();
+    final recordProvider = context.read<RecordProvider>();
+    final expired = journeyProvider.removeExpiredJourneys();
+
+    if (expired.isNotEmpty) {
+      for (final journey in expired) {
+        // 检查记录中是否已存在（避免重复）
+        final exists = recordProvider.records.any((r) =>
+            r.trainCode == journey.trainCode &&
+            r.travelDate == journey.travelDate &&
+            r.departureTime == journey.departureTime);
+        if (!exists) {
+          recordProvider.addRecord(TrainRecord.fromJourney(journey));
+        }
+      }
+      // 提示用户
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已将 ${expired.length} 个过期行程自动移交给旅途记录'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

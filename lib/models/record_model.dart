@@ -103,6 +103,79 @@ class TrainRecord {
     );
   }
 
+  /// 从搜索结果直接创建 TrainRecord（不经过 Journey）
+  factory TrainRecord.fromSearchResult({
+    required Map<String, dynamic> trainInfo,
+    required DateTime date,
+    required List<dynamic> stationList,
+    required bool isStation,
+    required String fromStation,
+    required String toStation,
+    required String seatType,
+    required String seatInfo,
+  }) {
+    // 构建站点列表
+    final allStations = stationList.map((s) {
+      return RecordStation(
+        stationName: s['stationName']?.toString() ?? '',
+        arrivalTime: s['arriveTime']?.toString() ?? '--:--',
+        departureTime: s['departTime']?.toString() ?? '--:--',
+        stayTime: int.tryParse(s['stayTime']?.toString() ?? '0') ?? 0,
+        dayDifference: int.tryParse(s['DayDifference']?.toString() ?? '0') ?? 0,
+        isStart: s['isFirst'] == true,
+        isEnd: s['isLast'] == true,
+      );
+    }).toList();
+
+    // 确定实际上下车站和时间
+    String actualFromStation = fromStation;
+    String actualToStation = toStation;
+    String actualDepartureTime = '';
+    String actualArrivalTime = '';
+
+    if (fromStation == toStation && allStations.isNotEmpty) {
+      actualFromStation = allStations.first.stationName;
+      actualToStation = allStations.last.stationName;
+      actualDepartureTime = allStations.first.departureTime;
+      actualArrivalTime = allStations.last.arrivalTime;
+    } else {
+      final fromData = allStations.firstWhere(
+        (s) => s.stationName == fromStation,
+        orElse: () => allStations.first,
+      );
+      final toData = allStations.firstWhere(
+        (s) => s.stationName == toStation,
+        orElse: () => allStations.last,
+      );
+      actualFromStation = fromData.stationName;
+      actualToStation = toData.stationName;
+      actualDepartureTime = fromData.departureTime;
+      actualArrivalTime = toData.arrivalTime;
+    }
+
+    if (actualFromStation.isEmpty && allStations.isNotEmpty) {
+      actualFromStation = allStations.first.stationName;
+    }
+    if (actualToStation.isEmpty && allStations.isNotEmpty) {
+      actualToStation = allStations.last.stationName;
+    }
+
+    return TrainRecord(
+      id: 'rec_${DateTime.now().millisecondsSinceEpoch}',
+      trainCode: trainInfo['station_train_code']?.toString() ?? '',
+      fromStation: actualFromStation,
+      toStation: actualToStation,
+      fromStationCode: trainInfo['from_station_code']?.toString() ?? '',
+      toStationCode: trainInfo['to_station_code']?.toString() ?? '',
+      departureTime: actualDepartureTime,
+      arrivalTime: actualArrivalTime,
+      travelDate: date,
+      stations: allStations,
+      seatType: seatType,
+      seatInfo: seatInfo,
+    );
+  }
+
   // 从 Journey 创建 TrainRecord
   factory TrainRecord.fromJourney(Journey j) {
     return TrainRecord(

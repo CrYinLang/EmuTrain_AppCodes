@@ -12,6 +12,20 @@
 .swiftpm/
 migrate_working_dir/
 
+# OpenClaw workspace
+.openclaw/
+memory/
+AGENTS.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+BOOTSTRAP.md
+
+# Web deploy
+web_deploy/
+
 # IntelliJ related
 *.iml
 *.ipr

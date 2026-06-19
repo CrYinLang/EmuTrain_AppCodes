@@ -222,4 +222,35 @@ class JourneyProvider extends ChangeNotifier {
       }
     }
   }
+
+  /// 获取并移除已过期的行程（旅行日期在今天之前）
+  /// 返回被移除的行程列表，供调用方移交给 RecordProvider
+  List<Journey> removeExpiredJourneys() {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final expired = _journeys.where((j) {
+        final travelDay = DateTime(
+          j.travelDate.year,
+          j.travelDate.month,
+          j.travelDate.day,
+        );
+        return travelDay.isBefore(today);
+      }).toList();
+
+      if (expired.isNotEmpty) {
+        _journeys.removeWhere((j) => expired.contains(j));
+        _saveJourneys();
+        notifyListeners();
+      }
+
+      return expired;
+    } catch (e) {
+      logError(
+        from: 'journey_provider/removeExpiredJourneys',
+        error: e.toString(),
+      );
+      return [];
+    }
+  }
 }

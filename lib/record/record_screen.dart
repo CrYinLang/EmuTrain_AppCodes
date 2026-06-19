@@ -1,11 +1,9 @@
-// record_screen.dart — 旅途记录（复用旅途页卡片风格）
+// record_screen.dart — 旅途记录（独立模块，数据不与行程管理混合）
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/journey_model.dart';
 import '../models/record_model.dart';
-import '../providers/journey_provider.dart';
 import '../providers/record_provider.dart';
 import '../journey/journey.dart';
 import 'record_detail_page.dart';
@@ -124,26 +122,37 @@ class RecordScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // 直接调用 AddJourneyPage
+          // 使用 AddJourneyPage 的保存回调，直接保存到 RecordProvider
           await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const AddJourneyPage()),
+            MaterialPageRoute(
+              builder: (context) => AddJourneyPage(
+                title: '添加记录',
+                onSave: ({
+                  required trainInfo,
+                  required date,
+                  required stationList,
+                  required isStation,
+                  required fromStation,
+                  required toStation,
+                  required seatType,
+                  required seatInfo,
+                }) {
+                  // 将搜索结果转为 TrainRecord 并直接保存到 RecordProvider
+                  final record = TrainRecord.fromSearchResult(
+                    trainInfo: trainInfo,
+                    date: date,
+                    stationList: stationList,
+                    isStation: isStation,
+                    fromStation: fromStation,
+                    toStation: toStation,
+                    seatType: seatType,
+                    seatInfo: seatInfo,
+                  );
+                  context.read<RecordProvider>().addRecord(record);
+                },
+              ),
+            ),
           );
-          // 保存后自动将最新 Journey 转为 TrainRecord
-          if (context.mounted) {
-            final journeyProvider = context.read<JourneyProvider>();
-            final recordProvider = context.read<RecordProvider>();
-            if (journeyProvider.journeys.isNotEmpty) {
-              final latest = journeyProvider.journeys.last;
-              // 检查是否已存在（避免重复添加）
-              final exists = recordProvider.records.any((r) =>
-                r.trainCode == latest.trainCode &&
-                r.travelDate == latest.travelDate &&
-                r.departureTime == latest.departureTime);
-              if (!exists) {
-                recordProvider.addRecord(TrainRecord.fromJourney(latest));
-              }
-            }
-          }
         },
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.surface,

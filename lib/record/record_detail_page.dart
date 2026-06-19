@@ -146,10 +146,6 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
                 ),
               ));
             })),
-            const SizedBox(width: 12),
-            Expanded(child: _buildActionCard(context, Icons.speed, '开始测速', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SpeedometerPage()));
-            }, color: Colors.green)),
           ]),
           const SizedBox(height: 12),
           Row(children: [

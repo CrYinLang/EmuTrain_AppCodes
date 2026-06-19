@@ -19,11 +19,27 @@ import '../widgets/error.dart';
 class AddJourneyPage extends StatefulWidget {
   final String? initialTrainNumber;
   final bool autoSearchAndExpand;
+  final String title;
+
+  /// 自定义保存回调。如果提供，保存时调用此回调而不是默认的 JourneyProvider。
+  /// 参数: trainInfo, date, stationList, isStation, fromStation, toStation, seatType, seatInfo
+  final void Function({
+    required Map<String, dynamic> trainInfo,
+    required DateTime date,
+    required List<dynamic> stationList,
+    required bool isStation,
+    required String fromStation,
+    required String toStation,
+    required String seatType,
+    required String seatInfo,
+  })? onSave;
 
   const AddJourneyPage({
     super.key,
     this.initialTrainNumber,
     this.autoSearchAndExpand = false,
+    this.title = '添加旅途',
+    this.onSave,
   });
 
   @override
@@ -899,7 +915,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('添加旅途'),
+        title: Text(widget.title),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -912,32 +928,33 @@ class _AddJourneyPageState extends State<AddJourneyPage>
               onPressed: _clearResults,
               tooltip: '清除搜索结果',
             ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (v) {
-              if (v == 'custom') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CustomJourneyPage()),
-                );
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'custom',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.edit_location_alt,
-                      size: 18,
-                      color: Colors.purple,
-                    ),
-                    SizedBox(width: 10),
-                    Text('自定义旅途'),
-                  ],
+          if (widget.onSave == null)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (v) {
+                if (v == 'custom') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CustomJourneyPage()),
+                  );
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'custom',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.edit_location_alt,
+                        size: 18,
+                        color: Colors.purple,
+                      ),
+                      SizedBox(width: 10),
+                      Text('自定义旅途'),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -3756,21 +3773,35 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     required String actualFromStation,
     required String actualToStation,
     required String seatType,
-    required String seatInfo, // 改为字符串参数
+    required String seatInfo,
   }) {
-    final journey = Journey.fromMapWithStations(
-      trainInfo: train,
-      date: actualDate,
-      stationList: stationList,
-      isStation: isStation,
-      fromStation: actualFromStation,
-      toStation: actualToStation,
-      seatType: seatType,
-      seatInfo: seatInfo, // 传递座位信息文本
-    );
-
     if (mounted) {
-      Provider.of<JourneyProvider>(context, listen: false).addJourney(journey);
+      // 如果提供了自定义保存回调，使用回调（用于记录模块等独立模块）
+      if (widget.onSave != null) {
+        widget.onSave!(
+          trainInfo: train,
+          date: actualDate,
+          stationList: stationList,
+          isStation: isStation,
+          fromStation: actualFromStation,
+          toStation: actualToStation,
+          seatType: seatType,
+          seatInfo: seatInfo,
+        );
+      } else {
+        // 默认保存到 JourneyProvider
+        final journey = Journey.fromMapWithStations(
+          trainInfo: train,
+          date: actualDate,
+          stationList: stationList,
+          isStation: isStation,
+          fromStation: actualFromStation,
+          toStation: actualToStation,
+          seatType: seatType,
+          seatInfo: seatInfo,
+        );
+        Provider.of<JourneyProvider>(context, listen: false).addJourney(journey);
+      }
 
       // 显示添加成功的提示
       final seatTypeNames = {
