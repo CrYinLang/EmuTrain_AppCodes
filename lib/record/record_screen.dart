@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../models/record_model.dart';
 import '../providers/record_provider.dart';
 import '../journey/journey.dart';
+import '../journey/custom_journey_page.dart';
 import 'record_detail_page.dart';
 
 class RecordScreen extends StatelessWidget {
@@ -122,37 +123,76 @@ class RecordScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // 使用 AddJourneyPage 的保存回调，直接保存到 RecordProvider
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => AddJourneyPage(
-                title: '添加记录',
-                onSave: ({
-                  required trainInfo,
-                  required date,
-                  required stationList,
-                  required isStation,
-                  required fromStation,
-                  required toStation,
-                  required seatType,
-                  required seatInfo,
-                }) {
-                  // 将搜索结果转为 TrainRecord 并直接保存到 RecordProvider
-                  final record = TrainRecord.fromSearchResult(
-                    trainInfo: trainInfo,
-                    date: date,
-                    stationList: stationList,
-                    isStation: isStation,
-                    fromStation: fromStation,
-                    toStation: toStation,
-                    seatType: seatType,
-                    seatInfo: seatInfo,
-                  );
-                  context.read<RecordProvider>().addRecord(record);
-                },
+          // 弹出选择菜单：搜索添加 或 自定义记录
+          final choice = await showModalBottomSheet<String>(
+            context: context,
+            builder: (ctx) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.search, color: Colors.blue),
+                      title: const Text('搜索添加'),
+                      subtitle: const Text('通过车次或车站查询添加记录'),
+                      onTap: () => Navigator.pop(ctx, 'search'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.edit_location_alt, color: Colors.purple),
+                      title: const Text('自定义记录'),
+                      subtitle: const Text('手动添加非标准线路或临时记录'),
+                      onTap: () => Navigator.pop(ctx, 'custom'),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
+
+          if (choice == 'search') {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => AddJourneyPage(
+                  title: '添加记录',
+                  onSave: ({
+                    required trainInfo,
+                    required date,
+                    required stationList,
+                    required isStation,
+                    required fromStation,
+                    required toStation,
+                    required seatType,
+                    required seatInfo,
+                  }) {
+                    final record = TrainRecord.fromSearchResult(
+                      trainInfo: trainInfo,
+                      date: date,
+                      stationList: stationList,
+                      isStation: isStation,
+                      fromStation: fromStation,
+                      toStation: toStation,
+                      seatType: seatType,
+                      seatInfo: seatInfo,
+                    );
+                    context.read<RecordProvider>().addRecord(record);
+                  },
+                ),
+              ),
+            );
+          } else if (choice == 'custom') {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => CustomJourneyPage(
+                  onSave: (journey) {
+                    context.read<RecordProvider>().addRecord(
+                      TrainRecord.fromJourney(journey),
+                    );
+                  },
+                ),
+              ),
+            );
+          }
         },
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.surface,

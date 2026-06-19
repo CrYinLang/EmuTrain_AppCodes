@@ -134,6 +134,30 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
           ),
           const SizedBox(height: 16),
 
+          // 座位信息和备注
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.airline_seat_recline_normal_outlined, size: 18, color: cs.primary),
+                      const SizedBox(width: 8),
+                      const Text('座位信息', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSeatInfoDisplay(latest),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // 功能按钮区
           Row(children: [
             Expanded(child: _buildActionCard(context, Icons.map_outlined, '线路走向图', () {
@@ -280,6 +304,93 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildSeatInfoDisplay(TrainRecord record) {
+    final cs = Theme.of(context).colorScheme;
+    final Map<String, String> seatTypeNames = {
+      'swz_num': '商务座',
+      'zy_num': '一等座',
+      'ze_num': '二等座',
+      'gr_num': '高级软卧',
+      'rw_num': '软卧',
+      'yw_num': '硬卧',
+      'rz_num': '软座',
+      'yz_num': '硬座',
+      'wz_num': '无座',
+      'tz_num': '特等座',
+      'gg_num': '优选一等座',
+      'srrb_num': '动卧',
+    };
+
+    final seatType = record.seatType;
+    final seatInfo = record.seatInfo;
+
+    if (seatType.isEmpty && seatInfo.isEmpty) {
+      return Text(
+        '未填写座位信息',
+        style: TextStyle(fontSize: 14, color: Theme.of(context).hintColor),
+      );
+    }
+
+    // 解析 seatInfo：可能包含 "座位号 | 备注:xxx"
+    String seatNumber = seatInfo;
+    String? note;
+    if (seatInfo.contains('备注:')) {
+      final parts = seatInfo.split('备注:');
+      seatNumber = parts[0].trim();
+      if (parts.length > 1) note = parts[1].trim();
+    } else if (seatInfo.contains('备注：')) {
+      final parts = seatInfo.split('备注：');
+      seatNumber = parts[0].trim();
+      if (parts.length > 1) note = parts[1].trim();
+    }
+    // 去掉尾部的 " | "
+    if (seatNumber.endsWith(' | ')) seatNumber = seatNumber.substring(0, seatNumber.length - 3).trim();
+
+    final seatName = seatTypeNames[seatType] ?? (seatType.isNotEmpty ? seatType : '未选择座位类型');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 座位类型
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(seatName, style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.bold, color: cs.onPrimaryContainer,
+              )),
+            ),
+            if (seatNumber.isNotEmpty && seatType != 'wz_num') ...[
+              const SizedBox(width: 8),
+              Text(seatNumber, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            ],
+          ],
+        ),
+        // 备注
+        if (note != null && note.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.notes, size: 16, color: Colors.orange[700]),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  note,
+                  style: TextStyle(fontSize: 13, color: Colors.orange[800]),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 

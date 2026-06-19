@@ -18,46 +18,62 @@ class TravelScreen extends StatefulWidget {
 }
 
 class _TravelScreenState extends State<TravelScreen> {
-  bool _checkedExpired = false;
-
   @override
   void initState() {
     super.initState();
-    // 首次构建后自动将过期行程移交给记录模块
+    // 等 JourneyProvider 数据加载完成后再检查过期行程
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _autoTransferExpired();
+      _waitForProviderAndTransfer();
     });
   }
 
-  void _autoTransferExpired() {
-    if (_checkedExpired) return;
-    _checkedExpired = true;
-
+  void _waitForProviderAndTransfer() {
     final journeyProvider = context.read<JourneyProvider>();
+    // 监听 JourneyProvider，数据加载完成后自动检查
+    journeyProvider.addListener(_onJourneyProviderUpdate);
+    // 立即检查一次（可能数据已加载完）
+    _autoTransferExpired(journeyProvider);
+  }
+
+  void _onJourneyProviderUpdate() {
+    final journeyProvider = context.read<JourneyProvider>();
+    _autoTransferExpired(journeyProvider);
+  }
+
+  void _autoTransferExpired(JourneyProvider journeyProvider) {
     final recordProvider = context.read<RecordProvider>();
     final expired = journeyProvider.removeExpiredJourneys();
 
     if (expired.isNotEmpty) {
+      int transferred = 0;
       for (final journey in expired) {
-        // 检查记录中是否已存在（避免重复）
         final exists = recordProvider.records.any((r) =>
             r.trainCode == journey.trainCode &&
             r.travelDate == journey.travelDate &&
             r.departureTime == journey.departureTime);
         if (!exists) {
           recordProvider.addRecord(TrainRecord.fromJourney(journey));
+          transferred++;
         }
       }
-      // 提示用户
-      if (mounted) {
+      if (transferred > 0 && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已将 ${expired.length} 个过期行程自动移交给旅途记录'),
+            content: Text('已将 $transferred 个过期行程自动移交给旅途记录'),
             duration: const Duration(seconds: 3),
           ),
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    // 清理监听器
+    try {
+      context.read<JourneyProvider>().removeListener(_onJourneyProviderUpdate);
+    } catch (_) {}
+    super.dispose();
   }
 
   @override
@@ -208,9 +224,11 @@ class _JourneyCardState extends State<JourneyCard> {
       journey.travelDate.day,
     );
 
-    // 检查是否已过期（旅行日期在今天之前）
+    // 过期行程显示日期，不显示“已过期”
     if (travelDay.isBefore(today)) {
-      return '已过期';
+      final difference = today.difference(travelDay).inDays;
+      if (difference == 1) return '昨天';
+      return '$difference天前';
     }
 
     // 检查是否是今天
@@ -289,13 +307,14 @@ class _JourneyCardState extends State<JourneyCard> {
   // 获取状态颜色
   Color _getStatusColor(String status) {
     switch (status) {
-      case '已过期':
       case '已到达':
         return Colors.red;
       case '已上车':
         return Colors.green;
       case '今天':
         return Colors.orange;
+      case '昨天':
+        return Colors.grey;
       case '明天':
       case '后天':
         return Colors.blue;

@@ -64,7 +64,9 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
     );
 
     if (travelDay.isBefore(today)) {
-      return '已过期';
+      final difference = today.difference(travelDay).inDays;
+      if (difference == 1) return '昨天';
+      return '$difference天前';
     }
 
     if (travelDay == today) {
@@ -134,13 +136,14 @@ class __JourneyDetailContentState extends State<_JourneyDetailContent>
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case '已过期':
       case '已到达':
         return Colors.red;
       case '已上车':
         return Colors.green;
       case '今天':
         return Colors.orange;
+      case '昨天':
+        return Colors.grey;
       case '明天':
       case '后天':
         return Colors.blue;

@@ -45,7 +45,10 @@ class _EditableStation {
 
 // 入口 Widget
 class CustomJourneyPage extends StatefulWidget {
-  const CustomJourneyPage({super.key});
+  /// 自定义保存回调。如果提供，保存时调用此回调而不是默认的 JourneyProvider。
+  final void Function(Journey journey)? onSave;
+
+  const CustomJourneyPage({super.key, this.onSave});
 
   @override
   State<CustomJourneyPage> createState() => _CustomJourneyPageState();
@@ -570,7 +573,11 @@ class _CustomJourneyPageState extends State<CustomJourneyPage> {
         seatInfo: _buildSeatInfo(),
       );
 
-      Provider.of<JourneyProvider>(context, listen: false).addJourney(journey);
+      if (widget.onSave != null) {
+        widget.onSave!(journey);
+      } else {
+        Provider.of<JourneyProvider>(context, listen: false).addJourney(journey);
+      }
       _showSnack('已添加 $trainCode 次自定义行程');
       if (mounted) Navigator.of(context).pop();
 
