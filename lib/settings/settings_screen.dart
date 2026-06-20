@@ -27,6 +27,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _showTrainImage = true;
   bool _showRealTrainMap = true;
   bool _showRouteMapMileageFallback = true;
+  bool _showNonCrStation = false;
   bool _showAutoUpdate = true;
   String _defaultHomePage = '旅途';
   String _mirrorSource = 'Mirror';
@@ -35,6 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   static const String _realTrainMapKey = 'show_real_train_map';
   static const String _routeMapMileageFallbackKey =
       'route_map_mileage_fallback';
+  static const String _nonCrStationKey = 'show_non_cr_station';
   static const String _defaultHomePageKey = 'default_home_page';
   static const String _showAutoUpdateKey = 'show_auto_update';
   static const String _mirrorSourceKey = 'mirror_source';
@@ -59,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       _showRealTrainMap = prefs.getBool(_realTrainMapKey) ?? true;
       _showRouteMapMileageFallback =
           prefs.getBool(_routeMapMileageFallbackKey) ?? true;
+      _showNonCrStation = prefs.getBool(_nonCrStationKey) ?? false;
       _showAutoUpdate = prefs.getBool(_showAutoUpdateKey) ?? true;
       _defaultHomePage = prefs.getString(_defaultHomePageKey) ?? '旅途';
       _mirrorSource = prefs.getString(_mirrorSourceKey) ?? 'Mirror';
@@ -893,6 +896,18 @@ class _SettingsScreenState extends State<SettingsScreen>
               onChanged: (v) async {
                 setState(() => _showRouteMapMileageFallback = v);
                 await _saveSetting(_routeMapMileageFallbackKey, v);
+              },
+            ),
+            const Divider(height: 1),
+            Tool.buildSwitch(
+              context: context,
+              title: '显示线路所等非12306车站',
+              subtitle: '走向图中显示线路所等非12306车站',
+              icon: Icons.train,
+              value: _showNonCrStation,
+              onChanged: (v) async {
+                setState(() => _showNonCrStation = v);
+                await _saveSetting(_nonCrStationKey, v);
               },
             ),
           ],

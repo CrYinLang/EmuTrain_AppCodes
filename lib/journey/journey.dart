@@ -142,16 +142,10 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     final daytwo = today.add(const Duration(days: -2));
     final tomorrow = today.add(const Duration(days: 1));
     final maxDate = today.add(const Duration(days: 14));
-    // 记录模式：最早不限，最晚到今天+14天（与行程模式一致）
-    final isRecordMode = widget.onSave != null;
     final picked = await showDatePicker(
       context: context,
-      initialDate: isRecordMode
-          ? (_selectedDate != null && !_selectedDate!.isAfter(maxDate)
-              ? _selectedDate!
-              : today)
-          : (_selectedDate ?? tomorrow),
-      firstDate: isRecordMode ? DateTime(2000) : daytwo,
+      initialDate: _selectedDate ?? tomorrow,
+      firstDate: daytwo,
       lastDate: maxDate,
     );
     if (picked != null) {
@@ -1555,6 +1549,7 @@ class _AddJourneyPageState extends State<AddJourneyPage>
       }
     }
 
+    final bool expired = widget.onSave == null ? _isExpired(index, item, isStation) : false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final referencePrice =
         item['ze_price'] ?? item['zy_price'] ?? item['swz_price'];
@@ -1581,20 +1576,48 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${item['station_train_code'] ?? '--'}${isCircularLine ? ' (环线)' : ''}',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  '${item['station_train_code'] ?? '--'}${isCircularLine ? ' (环线)' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: expired
+                                        ? Colors.grey
+                                        : Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                                if (expired) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      '已过期',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
                               item['train_class_name'] ?? '',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey.shade600,
+                                color: expired
+                                    ? Colors.grey.shade500
+                                    : Colors.grey.shade600,
                               ),
                             ),
                           ],
@@ -1608,7 +1631,9 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                               Icon(
                                 Icons.schedule,
                                 size: 16,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: expired
+                                    ? Colors.grey
+                                    : Theme.of(context).colorScheme.primary,
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -1616,16 +1641,20 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black,
+                                  color: expired
+                                      ? Colors.grey
+                                      : (isDark ? Colors.white : Colors.black),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Icon(
                                 Icons.arrow_forward,
                                 size: 16,
-                                color: isDark
-                                    ? Colors.grey.shade300
-                                    : Colors.grey,
+                                color: expired
+                                    ? Colors.grey.shade400
+                                    : (isDark
+                                          ? Colors.grey.shade300
+                                          : Colors.grey),
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -1633,7 +1662,9 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black,
+                                  color: expired
+                                      ? Colors.grey
+                                      : (isDark ? Colors.white : Colors.black),
                                 ),
                               ),
                             ],
@@ -1645,9 +1676,11 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                                 isStation ? '区间时长: $runTime' : '运行时长: $runTime',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: isDark
-                                      ? Colors.grey.shade300
-                                      : Colors.grey.shade600,
+                                  color: expired
+                                      ? Colors.grey.shade400
+                                      : (isDark
+                                            ? Colors.grey.shade300
+                                            : Colors.grey.shade600),
                                 ),
                               ),
                               if (isStation &&
@@ -1659,7 +1692,9 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: expired
+                                        ? Colors.grey.shade400
+                                        : Theme.of(context).colorScheme.primary,
                                   ),
                                 ),
                               ],
@@ -1682,13 +1717,13 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                             _stationRow(
                               '始发站',
                               "${_getStationName(item['from_station'])}站",
-                              Colors.green,
+                              expired ? Colors.grey : Colors.green,
                             ),
                             const SizedBox(height: 8),
                             _stationRow(
                               '终点站',
                               "${_getStationName(item['to_station'])}站",
-                              Colors.red,
+                              expired ? Colors.grey : Colors.red,
                             ),
                           ],
                         ),
@@ -1696,9 +1731,11 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                       Icon(
                         Icons.arrow_forward,
                         size: 24,
-                        color: isDark
-                            ? Colors.blue.shade300
-                            : Colors.blue.shade300,
+                        color: expired
+                            ? Colors.grey.shade400
+                            : (isDark
+                                  ? Colors.blue.shade300
+                                  : Colors.blue.shade300),
                       ),
                     ],
                   ),
@@ -1821,20 +1858,30 @@ class _AddJourneyPageState extends State<AddJourneyPage>
               // 添加车次按钮
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _handleSelect(index, item, isStation),
+                  onPressed: expired
+                      ? null
+                      : () => _handleSelect(index, item, isStation),
                   icon: Icon(
                     Icons.add,
-                    color: Theme.of(context).colorScheme.surface,
+                    color: expired
+                        ? Colors.grey.shade400
+                        : Theme.of(context).colorScheme.surface,
                   ),
                   label: Text(
-                    '添加此车次',
+                    expired ? '车次已过期' : '添加此车次',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.surface,
+                      color: expired
+                          ? Colors.grey.shade400
+                          : Theme.of(context).colorScheme.surface,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                    backgroundColor: expired
+                        ? Colors.grey.shade300
+                        : Theme.of(context).colorScheme.primary,
+                    foregroundColor: expired
+                        ? Colors.grey.shade400
+                        : Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -2236,7 +2283,140 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     }
   }
 
+  bool _isTimePassed(
+    DateTime trainDate,
+    String? timeString,
+    int dayDiff,
+    bool isLast,
+  ) {
+    if (timeString == null || timeString.isEmpty || timeString == '--:--') {
+      return false;
+    }
 
+    try {
+      final timeParts = timeString.split(':');
+      if (timeParts.length < 2) return false;
+
+      final hour = int.tryParse(timeParts[0]) ?? 0;
+      final minute = int.tryParse(timeParts[1]) ?? 0;
+
+      final stationDateTime = DateTime(
+        trainDate.year,
+        trainDate.month,
+        trainDate.day + dayDiff,
+        hour,
+        minute,
+      );
+
+      final now = DateTime.now();
+      return stationDateTime.isBefore(now);
+    } catch (e) {
+      logError(from: 'journey/_isTimePassed', error: e.toString());
+      return false;
+    }
+  }
+
+  bool _isStationPassedSection(Map<String, dynamic> stop, DateTime trainDate) {
+    final first = (stop['isFirst'] as bool?) ?? false;
+    final last = (stop['isLast'] as bool?) ?? false;
+
+    final dayDiffValue = stop['DayDifference'];
+    int dayDiff = 0;
+
+    if (dayDiffValue != null) {
+      if (dayDiffValue is int) {
+        dayDiff = dayDiffValue;
+      } else if (dayDiffValue is String) {
+        dayDiff = int.tryParse(dayDiffValue) ?? 0;
+      } else if (dayDiffValue is num) {
+        dayDiff = dayDiffValue.toInt();
+      }
+    }
+
+    if (first) {
+      final dep = stop['departTime'] as String?;
+      return _isTimePassed(trainDate, dep, dayDiff, last);
+    } else if (last) {
+      final arr = stop['arriveTime'] as String?;
+      return _isTimePassed(trainDate, arr, dayDiff, last);
+    } else {
+      final arr = stop['arriveTime'] as String?;
+      final dep = stop['departTime'] as String?;
+      if (arr != null && arr != '--:--') {
+        return _isTimePassed(trainDate, arr, dayDiff, last);
+      } else if (dep != null && dep != '--:--') {
+        return _isTimePassed(trainDate, dep, dayDiff, last);
+      }
+    }
+    return false;
+  }
+
+  bool _isStationPassed(Map<String, dynamic> stop, DateTime trainDate) {
+    final first = (stop['isFirst'] as bool?) ?? false;
+    final last = (stop['isLast'] as bool?) ?? false;
+    final dayDiff = (stop['DayDifference'] as int?) ?? 0;
+
+    if (first) {
+      final dep = stop['departTime'] as String?;
+      return _isTimePassed(trainDate, dep, dayDiff, last);
+    } else if (last) {
+      final arr = stop['arriveTime'] as String?;
+      return _isTimePassed(trainDate, arr, dayDiff, last);
+    } else {
+      final arr = stop['arriveTime'] as String?;
+      final dep = stop['departTime'] as String?;
+      if (arr != null && arr != '--:--') {
+        return _isTimePassed(trainDate, arr, dayDiff, last);
+      } else if (dep != null && dep != '--:--') {
+        return _isTimePassed(trainDate, dep, dayDiff, last);
+      }
+    }
+    return false;
+  }
+
+  bool _isExpired(int index, Map<String, dynamic> item, bool isStation) {
+    final date = _selectedDate ?? DateTime.now();
+
+    if (isStation) {
+      return _isStationExpired(index, date);
+    } else {
+      return _isTrainExpired(index, date);
+    }
+  }
+
+  bool _isStationExpired(int index, DateTime trainDate) {
+    final stopData = _stationDetails[index] ?? [];
+    if (stopData.isEmpty) return false;
+
+    final queryStop = stopData.cast<Map<String, dynamic>?>().firstWhere(
+      (stop) => stop?['isCurrent'] == true,
+      orElse: () => null,
+    );
+
+    if (queryStop != null) {
+      return _isStationPassed(queryStop, trainDate);
+    }
+
+    return false;
+  }
+
+  bool _isTrainExpired(int index, DateTime trainDate) {
+    final stopData = _trainDetails[index] ?? [];
+    if (stopData.isEmpty) return false;
+
+    final lastStop = stopData.cast<Map<String, dynamic>?>().firstWhere(
+      (stop) => stop?['isLast'] == true,
+      orElse: () => null,
+    );
+
+    if (lastStop != null) {
+      final arriveTime = lastStop['arriveTime'] as String?;
+      final dayDiff = _parseDayDifference(lastStop['DayDifference']);
+      return _isTimePassed(trainDate, arriveTime, dayDiff, true);
+    }
+
+    return false;
+  }
 
   int _parseDayDifference(dynamic value) {
     if (value == null) return 0;
@@ -2767,46 +2947,6 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     );
   }
 
-  bool _isTimePassed(
-    DateTime trainDate,
-    String? timeString,
-    int dayDiff,
-    bool isLast,
-  ) {
-    if (timeString == null || timeString.isEmpty || timeString == '--:--') {
-      return false;
-    }
-
-    try {
-      // 解析时间字符串
-      final timeParts = timeString.split(':');
-      if (timeParts.length < 2) return false;
-
-      final hour = int.tryParse(timeParts[0]) ?? 0;
-      final minute = int.tryParse(timeParts[1]) ?? 0;
-
-      // 计算列车实际时间
-      // trainDate 是用户选择的日期
-      // dayDiff 是相对于发车日的天数差
-      final stationDateTime = DateTime(
-        trainDate.year,
-        trainDate.month,
-        trainDate.day + dayDiff, // 加上天数差
-        hour,
-        minute,
-      );
-
-      // 获取当前时间
-      final now = DateTime.now();
-
-      // 直接比较：列车时间是否已经过去了
-      return stationDateTime.isBefore(now);
-    } catch (e) {
-      logError(from: 'journey/_isTimePassed', error: e.toString());
-      return false;
-    }
-  }
-
   void _handleSelect(
     int index,
     Map<String, dynamic> train,
@@ -2818,24 +2958,38 @@ class _AddJourneyPageState extends State<AddJourneyPage>
 
     if (!mounted) return;
 
-    // 选择实际乘车日期
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final maxDate = today.add(const Duration(days: 14));
-    final initialDate = _selectedDate != null && !_selectedDate!.isAfter(maxDate)
-        ? _selectedDate!
-        : today;
+    final isRecordMode = widget.onSave != null;
 
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2000),
-      lastDate: maxDate,
-      helpText: '选择实际乘车日期',
-      confirmText: '确定',
-      cancelText: '取消',
-    );
-    if (pickedDate == null || !mounted) return;
+    // Journey 模式：检查车次是否已过期
+    if (!isRecordMode) {
+      final bool expired = _isExpired(index, train, isStation);
+      if (expired) {
+        _showSnack('车次已过期，无法添加');
+        return;
+      }
+    }
+
+    // Record 模式：弹出实际乘车日期选择器
+    DateTime? pickedDate;
+    if (isRecordMode) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final maxDate = today.add(const Duration(days: 14));
+      final initialDate = _selectedDate != null && !_selectedDate!.isAfter(maxDate)
+          ? _selectedDate!
+          : today;
+
+      pickedDate = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: DateTime(2000),
+        lastDate: maxDate,
+        helpText: '选择实际乘车日期',
+        confirmText: '确定',
+        cancelText: '取消',
+      );
+      if (pickedDate == null || !mounted) return;
+    }
 
     if (isStation) {
       showDialog(
@@ -2875,6 +3029,8 @@ class _AddJourneyPageState extends State<AddJourneyPage>
 
   void _showStationRangeSelector(int index, Map<String, dynamic> train, {DateTime? actualTravelDate}) {
     final stopData = _trainDetails[index] ?? [];
+    final trainDate = _selectedDate ?? DateTime.now();
+    final isRecordMode = widget.onSave != null;
 
     if (stopData.isEmpty) {
       _showSnack('站点信息未加载，请稍后重试');
@@ -2892,13 +3048,17 @@ class _AddJourneyPageState extends State<AddJourneyPage>
             final station = stopData[index] as Map<String, dynamic>;
             final stationName = station['stationName']?.toString() ?? '';
 
+            // Journey 模式：检查站点是否已过期
+            if (!isRecordMode && _isStationPassedSection(station, trainDate)) {
+              _showSnack('该车站已过期，无法选择');
+              return;
+            }
+
             setDialogState(() {
               if (selectedFrom == null) {
-                // 第一次选择：选择上车站
                 selectedFrom = stationName;
                 selectedTo = null;
               } else if (selectedTo == null) {
-                // 第二次选择：选择下车站（必须在上车站之后）
                 final fromIndex = stopData.indexWhere(
                   (s) =>
                       (s as Map<String, dynamic>)['stationName'] ==
@@ -2906,14 +3066,11 @@ class _AddJourneyPageState extends State<AddJourneyPage>
                 );
 
                 if (index > fromIndex) {
-                  // 下车站在上车站之后，允许选择
                   selectedTo = stationName;
                 } else {
-                  // 下车站不能在上车站之前，显示提示
                   _showSnack('下车站必须在上车站之后');
                 }
               } else {
-                // 已经选择了两个车站，重新选择上车站
                 selectedFrom = stationName;
                 selectedTo = null;
               }
@@ -2921,6 +3078,13 @@ class _AddJourneyPageState extends State<AddJourneyPage>
           }
 
           bool isStationSelectable(int index) {
+            final station = stopData[index] as Map<String, dynamic>;
+
+            // Journey 模式：过期站点不可选
+            if (!isRecordMode && _isStationPassedSection(station, trainDate)) {
+              return false;
+            }
+
             if (selectedFrom == null) {
               return true;
             } else if (selectedTo == null) {
@@ -2942,7 +3106,9 @@ class _AddJourneyPageState extends State<AddJourneyPage>
           }
 
           bool isStationExpired(int index) {
-            return false;
+            final station = stopData[index] as Map<String, dynamic>;
+            if (isRecordMode) return false;
+            return _isStationPassedSection(station, trainDate);
           }
 
           // 判断是上车站还是下车站
@@ -3347,6 +3513,12 @@ class _AddJourneyPageState extends State<AddJourneyPage>
     String? toStation,
     DateTime? actualTravelDate,
   }) {
+    // Journey 模式安全检查：过期车次不允许添加
+    if (widget.onSave == null && _isExpired(index, train, isStation)) {
+      _showSnack('车次已过期，无法添加');
+      return;
+    }
+
     List<dynamic> stationList;
     if (isStation) {
       stationList = _stationDetails[index] ?? [];

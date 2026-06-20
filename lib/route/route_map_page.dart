@@ -9,6 +9,7 @@ import '../config/station_selector.dart'; // loadStations()
 import 'route_models.dart';
 
 const String _routeMapMileageFallbackKey = 'route_map_mileage_fallback';
+const String _nonCrStationKey = 'show_non_cr_station';
 
 Color _colorForRouteId(String id) {
   int hash = 0;
@@ -118,9 +119,17 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final prefs = await SharedPreferences.getInstance();
     final useMileageFallback =
         prefs.getBool(_routeMapMileageFallbackKey) ?? true;
+    final showNonCrStation =
+        prefs.getBool(_nonCrStationKey) ?? false;
     final allStations = await loadStations();
     final Map<String, Map<String, dynamic>> tcIdx = {};
     for (final s in allStations) {
+      // 非12306车站过滤：crstation 为 false 时不绘制
+      if (!showNonCrStation) {
+        final cr = s['crstation'];
+        if (cr == false || cr == 'false' || cr == 'False') continue;
+      }
+
       final tc = (s['telecode'] as String? ?? '').trim();
       if (tc.isEmpty) continue;
       final loc = (s['location'] as String? ?? '');

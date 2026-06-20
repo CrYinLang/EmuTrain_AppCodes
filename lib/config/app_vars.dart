@@ -6,21 +6,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/error.dart';
 
 class Vars {
-  static const String lastUpdate = '260619';
-  static const String version = '1.2.5.0';
-  static const String build = '1250';
-  static const String updateDescription =
-      '新增 首次启动欢迎界面和用户协议确认\n'
-      '优化 新版本更新说明显示逻辑\n'
-      '新增 线路走向图无精准定位车站里程估算显示开关\n'
-      '更新 更多车站';
+  static const String lastUpdate = '260620';
+  static const String version = '1.2.5.1';
+  static const String build = '1251';
+  static const String updateDescription ='';
 
   static String getUpdateDescription(Map<String, dynamic>? versionInfo) {
     final remoteDescribe = versionInfo?['describe']?.toString().trim() ?? '';
     return remoteDescribe.isNotEmpty ? remoteDescribe : updateDescription;
   }
 
-  static String defaultStationBuild = '202606190';
+  static String defaultStationBuild = '202606200';
   static String defaultTrainBuild = '202605230';
   static String defaultCoachTrainBuild = '202605230';
   static String defaultLocoBuild = '202605230';
