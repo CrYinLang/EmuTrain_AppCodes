@@ -17,7 +17,7 @@ class Vars {
   }
 
   static String defaultStationBuild = '202606200';
-  static String defaultTrainBuild = '202605230';
+  static String defaultTrainBuild = '202606200';
   static String defaultCoachTrainBuild = '202605230';
   static String defaultLocoBuild = '202605230';
 
