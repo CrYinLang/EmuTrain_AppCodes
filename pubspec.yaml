@@ -3,7 +3,7 @@ description: ""
 
 publish_to: 'none'
 
-version: 1.2.51+1251
+version: 1.2.52+1252
 
 environment:
   sdk: ^3.10.7

@@ -49,7 +49,7 @@ class AppSettings extends ChangeNotifier {
   bool get showAutoUpdate => _showAutoUpdate;
 
   // ---------- 数据源 ----------
-  TrainDataSource _dataSource = TrainDataSource.railRe;
+  TrainDataSource _dataSource = TrainDataSource.official12306;
   TrainEmuDataSource _dataEmuSource = TrainEmuDataSource.railRe;
   TrainStationDataSource _dataStationSource = TrainStationDataSource.moeFactory;
 
@@ -148,7 +148,7 @@ class AppSettings extends ChangeNotifier {
       _showAutoUpdate = prefs.getBool('showAutoUpdate') ?? true;
 
       // 数据源 - 车次查询
-      final dataSourceIndex = prefs.getInt('dataSource') ?? 0;
+      final dataSourceIndex = prefs.getInt('dataSource') ?? 2;
       _dataSource = TrainDataSource
           .values[dataSourceIndex.clamp(0, TrainDataSource.values.length - 1)];
 
@@ -194,7 +194,7 @@ class AppSettings extends ChangeNotifier {
     _showTrainIcons = true;
     _showBureauIcons = true;
     _showAutoUpdate = true;
-    _dataSource = TrainDataSource.railRe;
+    _dataSource = TrainDataSource.official12306;
     _dataEmuSource = TrainEmuDataSource.railRe;
     _dataStationSource = TrainStationDataSource.moeFactory;
   }

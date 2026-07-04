@@ -15,6 +15,7 @@ class ToolboxDialog extends StatefulWidget {
   final Future<RoutingFetchResult> Function() onFetchRouting;
 
   const ToolboxDialog({
+    super.key,
     required this.journey,
     required this.trainCode,
     required this.date,

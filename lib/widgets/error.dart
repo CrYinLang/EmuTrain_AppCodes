@@ -101,7 +101,7 @@ class ErrorLogStore {
       try {
         final f = await _file;
         if (await f.exists()) await f.copy('${f.path}.bak');
-      } catch (e) {}
+      } catch (_) {}
     }
   }
 

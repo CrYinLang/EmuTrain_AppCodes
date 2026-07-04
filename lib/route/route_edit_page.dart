@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/icon_selector.dart';
 import '../config/station_selector.dart';
@@ -84,10 +85,14 @@ class _RoutePageState extends State<RoutePage> {
 
   /// 用 telecode 从站点 JSON 查出 name / city 并回填
   Future<void> _hydrateStationNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final showNonCrStation = prefs.getBool('show_non_cr_station') ?? false;
     final allStations = await loadStations();
     // 建 telecode 索引
     final Map<String, Map<String, dynamic>> tcIdx = {};
     for (final s in allStations) {
+      // 非12306车站过滤：有 crstation 字段的都是非12306车站
+      if (!showNonCrStation && s.containsKey('crstation')) continue;
       final tc = (s['telecode'] as String? ?? '').trim();
       if (tc.isNotEmpty) tcIdx[tc] = Map<String, dynamic>.from(s as Map);
     }
@@ -133,7 +138,7 @@ class _RoutePageState extends State<RoutePage> {
       context: context,
       isScrollControlled: true,
       builder: (ctx) =>
-          StationSelector(title: '选择国铁车站', onSelected: (r) => result = r),
+          StationSelector(title: '选择国铁车站', crOnly: true, onSelected: (r) => result = r),
     );
     if (result == null) return;
     final name = (result!['name'] ?? '').replaceAll('站', '').trim();

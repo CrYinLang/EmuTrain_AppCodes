@@ -6,9 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/error.dart';
 
 class Vars {
-  static const String lastUpdate = '260620';
-  static const String version = '1.2.5.1';
-  static const String build = '1251';
+  static const String lastUpdate = '260703';
+  static const String version = '1.2.5.2';
+  static const String build = '1252';
   static const String updateDescription ='';
 
   static String getUpdateDescription(Map<String, dynamic>? versionInfo) {

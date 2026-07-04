@@ -486,7 +486,7 @@ class PaginationState {
   String? currentSearchLabel;
   bool loadingPage;
 
-  PaginationState({this.pageSize = 7})
+  PaginationState({this.pageSize = 50})
     : allRecords = [],
       currentPage = 1,
       totalResults = 0,

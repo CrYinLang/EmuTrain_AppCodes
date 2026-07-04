@@ -94,6 +94,52 @@ class _RouteMapPageState extends State<RouteMapPage> {
     _loadAndPlot();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 从设置页返回时重新加载（检查设置是否变化）
+    _reloadIfSettingChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 每次 build 时检查设置是否变化（解决从设置页 pop 回来不触发 didChangeDependencies 的问题）
+    _checkSettingAndReload();
+    return _buildScaffold(context);
+  }
+
+  bool _checkingSetting = false;
+
+  Future<void> _checkSettingAndReload() async {
+    if (_checkingSetting || _loading) return;
+    _checkingSetting = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final current = prefs.getBool(_nonCrStationKey) ?? false;
+      if (_lastShowNonCrStation != null && _lastShowNonCrStation != current) {
+        setState(() => _loading = true);
+        await _loadAndPlot();
+      }
+      _lastShowNonCrStation = current;
+    } finally {
+      _checkingSetting = false;
+    }
+  }
+
+  bool? _lastShowNonCrStation;
+
+  Future<void> _reloadIfSettingChanged() async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getBool(_nonCrStationKey) ?? false;
+    if (_lastShowNonCrStation != null && _lastShowNonCrStation != current) {
+      setState(() {
+        _loading = true;
+      });
+      await _loadAndPlot();
+    }
+    _lastShowNonCrStation = current;
+  }
+
   void _onTransformChanged() {
     final s = _txCtrl.value.getMaxScaleOnAxis();
     if ((s - _scale).abs() > 0.001) {
@@ -124,11 +170,8 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final allStations = await loadStations();
     final Map<String, Map<String, dynamic>> tcIdx = {};
     for (final s in allStations) {
-      // 非12306车站过滤：crstation 为 false 时不绘制
-      if (!showNonCrStation) {
-        final cr = s['crstation'];
-        if (cr == false || cr == 'false' || cr == 'False') continue;
-      }
+      // 非12306车站过滤：有 crstation 字段的都是非12306车站
+      if (!showNonCrStation && s.containsKey('crstation')) continue;
 
       final tc = (s['telecode'] as String? ?? '').trim();
       if (tc.isEmpty) continue;
@@ -151,7 +194,12 @@ class _RouteMapPageState extends State<RouteMapPage> {
     final List<_PlottedRoute> raw = [];
     for (final r in widget.routes) {
       final color = _colorForRouteId(r.id);
-      final stations = r.stations.map((s) {
+      final stations = r.stations.where((s) {
+        final info = tcIdx[s.telecode];
+        // 如果站点不在 tcIdx 中（被过滤掉了），则跳过
+        if (info == null && !showNonCrStation) return false;
+        return true;
+      }).map((s) {
         final info = tcIdx[s.telecode];
         return _PlottedStation(
           name: info?['name'] as String? ?? s.name.replaceAll('站', '').trim(),
@@ -367,8 +415,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
 
   // ── Build ────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildScaffold(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -683,64 +730,6 @@ class _RouteMapPageState extends State<RouteMapPage> {
           ],
         );
       },
-    );
-  }
-
-  // ── 多线路信息卡片（支持共站） ───────────────────────────────
-
-  Widget _buildInfoCards(bool isDark, ColorScheme cs) {
-    if (_selHits.isEmpty) return const SizedBox();
-    final firstName = () {
-      final h = _selHits.first;
-      if (h.ri < _plotted.length && h.si < _plotted[h.ri].stations.length) {
-        return '${_plotted[h.ri].stations[h.si].name}站';
-      }
-      return '';
-    }();
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (_selHits.length > 1 && firstName.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-            child: Row(
-              children: [
-                const Icon(Icons.place, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  firstName,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withAlpha(40),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.orange.withAlpha(120)),
-                  ),
-                  child: Text(
-                    '${_selHits.length} 线路经过',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.orange,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ..._selHits.map((h) => _buildOneCard(h.ri, h.si, isDark, cs)),
-      ],
     );
   }
 
@@ -1264,9 +1253,12 @@ class _LabelLayoutDelegate extends MultiChildLayoutDelegate {
       const mg = 12.0;
       double dx = screenPt.dx + mg;
       double dy = screenPt.dy - childSize.height - mg;
-      if (dx + childSize.width > size.width)
+      if (dx + childSize.width > size.width) {
         dx = screenPt.dx - childSize.width - mg;
-      if (dy < 0) dy = screenPt.dy + mg;
+      }
+      if (dy < 0) {
+        dy = screenPt.dy + mg;
+      }
       dx = dx.clamp(4.0, size.width - childSize.width - 4);
       dy = dy.clamp(4.0, size.height - childSize.height - 4);
 

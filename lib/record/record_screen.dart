@@ -213,10 +213,6 @@ class RecordCard extends StatelessWidget {
 
   const RecordCard({super.key, required this.record, required this.onDelete});
 
-  String _normalizeStationName(String name) {
-    return name.replaceAll('站', '').trim();
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

@@ -24,7 +24,7 @@ class _StationScreenState extends State<StationScreen> {
 
   int _currentPage = 1;
   int _totalPages = 1;
-  final int _pageSize = 40;
+  final int _pageSize = 50;
   int _directionMode = 0;
 
   void _handleDirectionChange(int mode) {

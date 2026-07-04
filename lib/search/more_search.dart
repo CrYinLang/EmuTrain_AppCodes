@@ -121,7 +121,7 @@ class _LocoSearchPageState extends State<LocoSearchPage> {
   List<Map<String, dynamic>> _allPageRecords = [];
   final List<LocoResult> _results = [];
   int _currentPage = 1;
-  final int _pageSize = 10;
+  final int _pageSize = 50;
   int _totalResults = 0;
   String? _currentSearchLabel;
   bool _loadingPage = false;
@@ -728,7 +728,7 @@ class _CoachSearchPageState extends State<CoachSearchPage> {
   // 分页（配属段/车型查询用）
   List<CoachRecord> _pagedSource = [];
   int _currentPage = 1;
-  final int _pageSize = 7;
+  final int _pageSize = 50;
   int _totalResults = 0;
   bool _loadingPage = false;
   String? _currentSearchLabel;

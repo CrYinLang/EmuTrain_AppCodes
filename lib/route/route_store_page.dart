@@ -61,7 +61,7 @@ class _RouteStorePageState extends State<RouteStorePage> {
 
   bool _loadingPage = false;
 
-  final _pager = PaginatedController<_StoreItem>(pageSize: 25);
+  final _pager = PaginatedController<_StoreItem>(pageSize: 50);
   late TextEditingController _pageController;
 
   // 正在安装的 id 集合
@@ -77,9 +77,9 @@ class _RouteStorePageState extends State<RouteStorePage> {
   void _toggleSelectCurrentPage() {
     setState(() {
       if (_currentPageAllChecked) {
-        for (final i in _pager.currentPageItems) _checked.remove(i.id);
+        for (final i in _pager.currentPageItems) { _checked.remove(i.id); }
       } else {
-        for (final i in _pager.currentPageItems) _checked.add(i.id);
+        for (final i in _pager.currentPageItems) { _checked.add(i.id); }
       }
     });
   }
@@ -206,7 +206,7 @@ class _RouteStorePageState extends State<RouteStorePage> {
       if (raw is! List) throw const FormatException('数据格式错误');
 
       // 在该页数据中找到对应 id 的线路
-      final found = (raw as List).cast<Map<String, dynamic>>().firstWhere(
+      final found = raw.cast<Map<String, dynamic>>().firstWhere(
         (e) => e['id'] == item.id,
         orElse: () => throw Exception('页面数据中未找到该线路'),
       );
@@ -319,7 +319,7 @@ class _RouteStorePageState extends State<RouteStorePage> {
         if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
         final raw = json.decode(resp.body);
         if (raw is! List) throw const FormatException('数据格式错误');
-        pageData = (raw as List).cast<Map<String, dynamic>>();
+        pageData = raw.cast<Map<String, dynamic>>();
       } catch (e) {
         logError(from: 'route_store_page/unknown', error: e.toString());
         // 整页请求失败，把该页所有 id 标记失败
@@ -637,7 +637,7 @@ class _RouteStorePageState extends State<RouteStorePage> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
       itemCount: _pager.currentPageItems.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (ctx, idx) =>
           _buildCard(_pager.currentPageItems[idx], isDark, cs),
     );
@@ -720,7 +720,7 @@ class _RouteStorePageState extends State<RouteStorePage> {
                         child: Image.asset(
                           'assets/icon/${item.icon}',
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) =>
+                          errorBuilder: (_, _, _) =>
                               Icon(Icons.route, color: cs.primary, size: 24),
                         ),
                       ),
@@ -764,7 +764,7 @@ class _RouteStorePageState extends State<RouteStorePage> {
                               vertical: 1,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.yellow.withOpacity(0.8),
+                              color: Colors.yellow.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(

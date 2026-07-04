@@ -222,7 +222,7 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
                     child: kIsWeb
                           ? Container(width: 100, height: 100, color: cs.surfaceContainerHighest, child: Icon(Icons.image, color: cs.onSurfaceVariant))
                           : Image.file(File(entry.value), width: 100, height: 100, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (_, _, _) => Container(
                         width: 100, height: 100, color: cs.surfaceContainerHighest,
                         child: Icon(Icons.broken_image, color: cs.onSurfaceVariant),
                       ),
@@ -253,7 +253,6 @@ class __RecordDetailContentState extends State<_RecordDetailContent>
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Column(
                     children: latest.stations.asMap().entries.map((entry) {
-                      final idx = entry.key;
                       final station = entry.value;
                       final isStart = station.isStart;
                       final isEnd = station.isEnd;
@@ -625,7 +624,7 @@ class _ImageViewerState extends State<_ImageViewer> {
                       ? Container(width: double.infinity, height: 200, color: Theme.of(context).colorScheme.surfaceContainerHighest, child: Icon(Icons.image, color: Theme.of(context).colorScheme.onSurfaceVariant))
                       : Image.file(File(widget.imagePaths[i]),
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Center(
+                errorBuilder: (_, _, _) => const Center(
                   child: Icon(Icons.broken_image, color: Colors.white38, size: 64),
                 ),
               ),

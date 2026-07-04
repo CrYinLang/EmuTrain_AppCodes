@@ -1,0 +1,90 @@
+/* 深色主题（默认） */
+:root,
+[data-theme="dark"] {
+  --bg: #121218;
+  --surface: #1e1e2a;
+  --border: #2d2d3d;
+  --primary: #8b9aff;
+  --primary-dim: rgba(139, 154, 255, 0.12);
+  --text: #e3e3e8;
+  --text-dim: #9393a3;
+  --error: #ff6b6b;
+  --success: #4caf50;
+}
+
+/* 浅色主题 */
+[data-theme="light"] {
+  --bg: #f5f5f8;
+  --surface: #ffffff;
+  --border: #e0e0e6;
+  --primary: #4f5bd5;
+  --primary-dim: rgba(79, 91, 213, 0.08);
+  --text: #1a1a2e;
+  --text-dim: #6b6b80;
+  --error: #d32f2f;
+  --success: #2e7d32;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text);
+  background-color: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  height: 100%;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+button, input, select {
+  transition: all 0.15s ease;
+}
+
+/* 移动端安全区域 */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+    height: calc(64px + env(safe-area-inset-bottom));
+  }
+}

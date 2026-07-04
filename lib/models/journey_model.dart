@@ -407,6 +407,7 @@ class StationDetail {
   final int dayDifference;
   final bool isStart;
   final bool isEnd;
+  final double? distance; // 至下站里程（km）
 
   StationDetail({
     required this.stationName,
@@ -416,6 +417,7 @@ class StationDetail {
     required this.dayDifference,
     required this.isStart,
     required this.isEnd,
+    this.distance,
   });
 
   // 从 Map 创建 StationDetail
@@ -428,6 +430,7 @@ class StationDetail {
       dayDifference: (map['dayDifference'] as num?)?.toInt() ?? 0,
       isStart: map['isStart'] as bool? ?? false,
       isEnd: map['isEnd'] as bool? ?? false,
+      distance: (map['distance'] as num?)?.toDouble(),
     );
   }
 
@@ -441,6 +444,7 @@ class StationDetail {
       'dayDifference': dayDifference,
       'isStart': isStart,
       'isEnd': isEnd,
+      if (distance != null) 'distance': distance,
     };
   }
 

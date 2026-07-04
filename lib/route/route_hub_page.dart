@@ -23,7 +23,7 @@ class RouteHubPage extends StatefulWidget {
 
 class _RouteHubPageState extends State<RouteHubPage> {
   // 每页 25 条
-  final _pager = PaginatedController<RouteModel>(pageSize: 25);
+  final _pager = PaginatedController<RouteModel>(pageSize: 50);
 
   bool _loading = true;
   final Set<String> _selected = {};
@@ -263,9 +263,9 @@ class _RouteHubPageState extends State<RouteHubPage> {
   void _toggleSelectCurrentPage() {
     setState(() {
       if (_currentPageAllSelected) {
-        for (final r in _pager.currentPageItems) _selected.remove(r.id);
+        for (final r in _pager.currentPageItems) { _selected.remove(r.id); }
       } else {
-        for (final r in _pager.currentPageItems) _selected.add(r.id);
+        for (final r in _pager.currentPageItems) { _selected.add(r.id); }
       }
     });
   }
@@ -859,7 +859,7 @@ class _RouteHubPageState extends State<RouteHubPage> {
                             child: Image.asset(
                               'assets/icon/${r.icon}',
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Icon(
+                              errorBuilder: (_, _, _) => Icon(
                                 Icons.route,
                                 color: cs.primary,
                                 size: 24,
